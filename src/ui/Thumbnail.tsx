@@ -34,12 +34,13 @@ function useThumbnail(key: string, make: () => FrameProject): string | null {
   return url;
 }
 
-export function Tile({ id, name, description, make, onPick }: { id: string; name: string; description?: string; make: () => FrameProject; onPick: () => void }) {
+export function Tile({ id, name, description, badge, make, onPick }: { id: string; name: string; description?: string; badge?: string; make: () => FrameProject; onPick: () => void }) {
   const url = useThumbnail(`${id}|${history.getState().present.stage.shape}`, make);
   return (
-    <button type="button" className="tile" onClick={onPick} title={description}>
+    <button type="button" className="tile" onClick={onPick} title={description} aria-label={badge ? `${name} (${badge.toLowerCase()})` : undefined}>
       {url ? <img src={url} alt="" width={THUMB} height={THUMB} /> : <span className="tile-placeholder" style={{ width: THUMB, height: THUMB }} />}
       <span>{name}</span>
+      {badge && <span className="tile-badge">{badge}</span>}
     </button>
   );
 }

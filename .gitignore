@@ -5,3 +5,6 @@ playwright-report
 test-results
 *.tsbuildinfo
 .DS_Store
+docs/screenshots/conversions/*
+!docs/screenshots/conversions/minimal.png
+!docs/screenshots/conversions/paladin.png

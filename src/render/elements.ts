@@ -162,8 +162,13 @@ function traceNote(ctx: Ctx, w: number, h: number, paired: boolean): void {
   }
 }
 
-/** Fills the current path with `color`, brighter towards the light and darker away from it. */
-export function shadedFill(ctx: Ctx, color: string, w: number, h: number, light: { x: number; y: number }, rule: CanvasFillRule = 'nonzero'): void {
+/** Fills the current path with `color`, brighter towards the light and darker away from it (or flat, if not `shaded`). */
+export function shadedFill(ctx: Ctx, color: string, w: number, h: number, light: { x: number; y: number }, rule: CanvasFillRule = 'nonzero', shaded = true): void {
+  if (!shaded) {
+    ctx.fillStyle = color;
+    ctx.fill(rule);
+    return;
+  }
   const { x, y } = light;
   const gradient = ctx.createLinearGradient((x * w) / 2, (y * h) / 2, (-x * w) / 2, (-y * h) / 2);
   gradient.addColorStop(0, shade(color, 0.25));
@@ -180,6 +185,8 @@ export interface ElementStyle {
   rune: number;
   /** Direction the light comes from, in the element's own frame (unit vector). */
   light: { x: number; y: number };
+  /** Shaded by the light (the default), or one flat colour. */
+  shaded?: boolean;
 }
 
 export function drawElement(ctx: Ctx, kind: ElementKind, h: number, stretch: number, style: ElementStyle): void {
@@ -187,7 +194,7 @@ export function drawElement(ctx: Ctx, kind: ElementKind, h: number, stretch: num
   if (h <= 0) return;
   if (kind === 'note') {
     traceNote(ctx, w, h, style.rune % 2 === 1);
-    shadedFill(ctx, style.fill, w, h, style.light);
+    shadedFill(ctx, style.fill, w, h, style.light, 'nonzero', style.shaded);
     if (style.outline && style.outlineWidth > 0) {
       ctx.strokeStyle = style.outline;
       ctx.lineWidth = Math.max(0.5, h * style.outlineWidth);
@@ -212,18 +219,23 @@ export function drawElement(ctx: Ctx, kind: ElementKind, h: number, stretch: num
   if (kind === 'bead') {
     ctx.save();
     ctx.scale(stretch, 1);
-    sphere(ctx, 0, 0, h / 2, style.fill, style.light);
+    if (style.shaded === false) {
+      ctx.beginPath();
+      ctx.arc(0, 0, h / 2, 0, Math.PI * 2);
+      ctx.fillStyle = style.fill;
+      ctx.fill();
+    } else sphere(ctx, 0, 0, h / 2, style.fill, style.light);
     ctx.restore();
   } else if (kind === 'eye') {
     // White of the eye, then the iris in the element's colour, looking inwards, and the pupil.
     trace(ctx, kind, w, h);
-    shadedFill(ctx, '#f1e9d6', w, h, style.light);
+    shadedFill(ctx, '#f1e9d6', w, h, style.light, 'nonzero', style.shaded);
     ctx.save();
     ctx.clip();
     const r = Math.min(w, h) * 0.3;
     ctx.beginPath();
     ctx.arc(0, h * 0.08, r, 0, Math.PI * 2);
-    shadedFill(ctx, style.fill, r * 2, r * 2, style.light);
+    shadedFill(ctx, style.fill, r * 2, r * 2, style.light, 'nonzero', style.shaded);
     ctx.beginPath();
     ctx.ellipse(0, h * 0.08, r * 0.38, r * 0.55, 0, 0, Math.PI * 2);
     ctx.fillStyle = '#0d0a08';
@@ -232,7 +244,7 @@ export function drawElement(ctx: Ctx, kind: ElementKind, h: number, stretch: num
   } else {
     trace(ctx, kind, w, h);
     // Lit from the stage's light (the top left unless it was moved).
-    shadedFill(ctx, style.fill, w, h, style.light, kind === 'gear' ? 'evenodd' : 'nonzero');
+    shadedFill(ctx, style.fill, w, h, style.light, kind === 'gear' ? 'evenodd' : 'nonzero', style.shaded);
   }
   if (style.outline && style.outlineWidth > 0) {
     trace(ctx, kind, w, h);

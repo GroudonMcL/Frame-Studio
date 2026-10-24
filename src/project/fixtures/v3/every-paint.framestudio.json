@@ -1,0 +1,157 @@
+{
+  "format": "frame-studio-project",
+  "schemaVersion": 3,
+  "name": "Every paint",
+  "stage": {
+    "shape": "rounded",
+    "thickness": 0.22,
+    "outerSpacing": 0.1,
+    "showArt": true,
+    "backingColor": "#1d1f27",
+    "light": 135
+  },
+  "layers": [
+    {
+      "id": "f3-12",
+      "name": "Lit",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "bandFill",
+      "from": 0,
+      "to": 1,
+      "paint": {
+        "kind": "lit",
+        "color": "#6a7a9a",
+        "light": 0.7,
+        "dark": 0.6,
+        "pressed": false
+      }
+    },
+    {
+      "id": "f3-13",
+      "name": "Pressed",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "bandFill",
+      "from": 0.6,
+      "to": 1,
+      "paint": {
+        "kind": "lit",
+        "color": "#6a7a9a",
+        "light": 0.7,
+        "dark": 0.6,
+        "pressed": true
+      }
+    },
+    {
+      "id": "f3-14",
+      "name": "Across",
+      "visible": true,
+      "locked": false,
+      "opacity": 0.6,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "bandFill",
+      "from": 0,
+      "to": 0.3,
+      "paint": {
+        "kind": "acrossBand",
+        "stops": [
+          {
+            "at": 0,
+            "color": "#ffffff"
+          },
+          {
+            "at": 1,
+            "color": "#203040"
+          }
+        ]
+      }
+    },
+    {
+      "id": "f3-15",
+      "name": "Linear rim",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "line",
+      "at": 0.05,
+      "width": 0.08,
+      "paint": {
+        "kind": "linear",
+        "angle": 30,
+        "stops": [
+          {
+            "at": 0,
+            "color": "#ffeecc"
+          },
+          {
+            "at": 0.5,
+            "color": "#886644"
+          },
+          {
+            "at": 1,
+            "color": "#221100"
+          }
+        ]
+      },
+      "dash": "solid",
+      "glow": null,
+      "waveAmplitude": 0,
+      "waves": 12,
+      "wavePhase": 0
+    },
+    {
+      "id": "f3-16",
+      "name": "Lit line",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "line",
+      "at": 0.8,
+      "width": 0.1,
+      "paint": {
+        "kind": "lit",
+        "color": "#c9a24a",
+        "light": 0.9,
+        "dark": 0.8,
+        "pressed": false
+      },
+      "dash": "solid",
+      "glow": null,
+      "waveAmplitude": 0,
+      "waves": 12,
+      "wavePhase": 0
+    },
+    {
+      "id": "f3-17",
+      "name": "Marble",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "texture",
+      "kind": "marble",
+      "from": 0,
+      "to": 0.6,
+      "color": "#b98a3c",
+      "color2": null,
+      "amount": 1,
+      "scale": 1,
+      "strength": 1,
+      "where": "shaded",
+      "seed": 24301
+    }
+  ]
+}

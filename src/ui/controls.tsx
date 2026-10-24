@@ -214,3 +214,45 @@ export function PercentList({ label, values, onChange, disabled, hint }: { label
     </Field>
   );
 }
+
+/**
+ * A repeating on/off pattern (which of a repeat's elements are drawn): a row
+ * of switches, one per step, that can grow to 8 and shrink back to "all".
+ */
+export function PatternField({ label, values, onChange, disabled, hint }: { label: string; values: boolean[]; onChange: (v: boolean[]) => void; disabled?: boolean; hint?: string }) {
+  const steps = values.length ? values : [true];
+  return (
+    <div className="list-field" role="group" aria-label={label}>
+      <p className="field-label" title={hint}>
+        {label}
+      </p>
+      <div className="pattern">
+        {steps.map((on, i) => (
+          <button
+            key={i}
+            type="button"
+            className={`pattern-step${on ? ' on' : ''}`}
+            role="switch"
+            aria-checked={on}
+            aria-label={`${label}: step ${i + 1}`}
+            disabled={disabled}
+            onClick={() => {
+              const next = steps.map((v, k) => (k === i ? !v : v));
+              onChange(next.some((v) => v) && next.some((v) => !v) ? next : []);
+            }}
+          />
+        ))}
+        {steps.length < 8 && (
+          <button type="button" className="icon-btn" aria-label={`${label}: add a step`} disabled={disabled} onClick={() => onChange([...steps, false])}>
+            <Plus size={16} />
+          </button>
+        )}
+        {values.length > 0 && (
+          <button type="button" className="btn small" disabled={disabled} onClick={() => onChange([])}>
+            All
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

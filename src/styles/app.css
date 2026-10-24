@@ -732,6 +732,39 @@ select {
   border: 2px dashed var(--border-strong);
 }
 
+/* A repeat's on/off pattern: one switch per step. */
+.pattern {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+.pattern-step {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+.pattern-step.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.tile {
+  position: relative;
+}
+.tile-badge {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-xs);
+}
+
 /* ---- Toast ---- */
 .toast {
   position: fixed;

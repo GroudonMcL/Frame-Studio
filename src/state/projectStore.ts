@@ -5,6 +5,7 @@
 
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
+import { convertLegacyLayer } from '../project/convert';
 import { createProject, groupLayer, newId, NEW_LAYER } from '../project/defaults';
 import { cloneWithNewIds, findLayer, flatten, insertLayer, isLocked, locate, mapLayer, removeLayer } from '../project/tree';
 import type { EditableLayerType, FrameProject, Layer, PathPoint, StageSettings } from '../project/types';
@@ -221,6 +222,21 @@ function removeOutside(layers: Layer[], id: string, keepIn: string): Layer[] {
   return layers
     .filter((l) => l.id !== id)
     .map((l) => (l.type === 'group' && l.id !== keepIn ? { ...l, children: removeOutside(l.children, id, keepIn) } : l));
+}
+
+/**
+ * Turns a Token Maker frame layer into a group of editable layers in its
+ * place (project/convert.ts), as one undo step, and selects the group.
+ * Returns false if the frame has no converter or the layer is locked.
+ */
+export function convertToLayers(id: string): boolean {
+  const layer = findLayer(get().layers, id);
+  if (layer?.type !== 'legacyFrame' || isLocked(get().layers, id)) return false;
+  const group = convertLegacyLayer(layer);
+  if (!group) return false;
+  update(withLayers((layers) => mapLayer(layers, id, () => group)));
+  select(group.id);
+  return true;
 }
 
 /** Takes a group's layers out, in its place, and removes the group. */

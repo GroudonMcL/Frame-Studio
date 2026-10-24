@@ -1,6 +1,7 @@
 // @vitest-environment node
 // Project files saved by earlier versions (fixtures/v1/ by Phase 1,
-// fixtures/v2/ by Phase 2) must still open and draw as they did then. Each
+// fixtures/v2/ by Phase 2, fixtures/v3/ by Phase 3) must still open and draw
+// as they did then. Each
 // .png beside a file is that picture as its version rendered it at 160 px.
 // Since Phase 3 every layer is drawn on its own canvas and then composited
 // (so it can be cached), which can change the rounding of a few edge pixels
@@ -26,6 +27,7 @@ const fixtures = (version: string) => {
 };
 const v1 = fixtures('v1');
 const v2 = fixtures('v2');
+const v3 = fixtures('v3');
 
 /** The largest difference between two pictures, per premultiplied channel (0–255), and the mean. */
 function difference(a: Uint8ClampedArray, b: Uint8ClampedArray): { max: number; mean: number } {
@@ -57,6 +59,7 @@ async function drawsAsBefore(fixture: { path: string; png: string }) {
 describe.each([
   ['version-1', v1],
   ['version-2', v2],
+  ['version-3', v3],
 ])('%s project files', (_name, files) => {
   it('there are fixtures, each with its picture', () => {
     expect(files.length).toBeGreaterThan(1);
@@ -87,5 +90,21 @@ describe('version-1 files', () => {
 describe('version-2 files', () => {
   it.each(v2)('$file is a version-2 file', ({ path }) => {
     expect(JSON.parse(readFileSync(path, 'utf8')).schemaVersion).toBe(2);
+  });
+});
+
+describe('version-3 files', () => {
+  it.each(v3)('$file is a version-3 file whose paints get the version-4 settings switched off', ({ path }) => {
+    const text = readFileSync(path, 'utf8');
+    expect(JSON.parse(text).schemaVersion).toBe(3);
+    const r = parseProject(text);
+    if (!r.ok) throw new Error(r.error);
+    for (const l of r.project.layers) {
+      if (l.type !== 'bandFill' && l.type !== 'line') continue;
+      const paint = l.paint;
+      if (paint.kind === 'lit') expect(paint.highlight).toBeNull();
+      if (paint.kind === 'linear') expect(paint.followLight).toBe(false);
+      if (paint.kind === 'linear' || paint.kind === 'acrossBand') for (const s of paint.stops) expect(s.opacity).toBe(1);
+    }
   });
 });

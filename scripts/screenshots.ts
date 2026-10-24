@@ -21,7 +21,7 @@ await page.screenshot({ path: `${out}/01-first-open.png` });
 
 // 2. The template picker.
 await page.getByRole('button', { name: 'New' }).click();
-await page.getByRole('button', { name: 'Infernal' }).waitFor();
+await page.getByRole('button', { name: 'Infernal', exact: true }).waitFor();
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${out}/02-templates.png` });
 
@@ -32,7 +32,7 @@ await page.screenshot({ path: `${out}/03-layered-design.png` });
 
 // 4. Infernal plus a ring of glowing spikes, in Advanced mode.
 await page.getByRole('button', { name: 'New' }).click();
-await page.getByRole('button', { name: 'Infernal' }).click();
+await page.getByRole('button', { name: 'Infernal', exact: true }).click();
 await page.getByRole('button', { name: 'Add layer' }).click();
 await page.getByRole('menuitem', { name: /Repeated shapes/ }).click();
 await page.getByLabel('Shape', { exact: true }).selectOption('spike');
@@ -94,6 +94,32 @@ await page.getByRole('button', { name: 'New' }).click();
 await page.getByRole('button', { name: 'Night sky' }).click();
 await page.getByRole('listbox', { name: /Layers/ }).getByRole('option', { name: /Sky Band fill/ }).click();
 await page.screenshot({ path: `${out}/11-ring-paint.png` });
+
+// 12. Phase 4: the template picker's Token Maker frames as editable layers.
+await page.getByRole('button', { name: 'New' }).click();
+const editable = page.getByRole('region', { name: 'Token Maker frames as editable layers' });
+await editable.scrollIntoViewIfNeeded();
+await editable.locator('.tile img').nth(17).waitFor();
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${out}/12-editable-frames.png` });
+
+// 13. Paladin as editable layers, with its gold crosses selected.
+await editable.getByRole('button', { name: 'Paladin (editable)' }).click();
+await page.getByRole('option', { name: /Gold crosses/ }).click();
+await page.screenshot({ path: `${out}/13-paladin-editable.png` });
+
+// 14. The same on a hexagon, lit from the bottom right: the converted frame follows the light.
+await page.getByRole('radio', { name: 'Hexagon' }).click();
+const dial2 = (await page.getByRole('slider', { name: 'Light direction' }).boundingBox())!;
+await page.mouse.click(dial2.x + dial2.width * 0.85, dial2.y + dial2.height * 0.85);
+await page.screenshot({ path: `${out}/14-paladin-hexagon-light.png` });
+await page.getByRole('button', { name: 'Light from the top left again' }).click();
+await page.getByRole('radio', { name: 'Circle' }).click();
+
+// 15. An original Token Maker frame offering to turn into editable layers.
+await page.getByRole('button', { name: 'New' }).click();
+await page.getByRole('button', { name: 'Gilded', exact: true }).click();
+await page.screenshot({ path: `${out}/15-turn-into-layers.png` });
 
 await browser.close();
 console.log(`Screenshots in ${out}/`);

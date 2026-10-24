@@ -23,7 +23,7 @@ const same = (a: Uint8ClampedArray, b: Uint8ClampedArray) => a.every((v, i) => v
 /** The "done when" design: marble, hammered metal and stars over a band, with a frame and rims. */
 function heavy(): FrameProject {
   const p = createProject([
-    { ...bandFillLayer(), name: 'Band', paint: { kind: 'lit', color: '#3a3c5a', light: 0.7, dark: 0.8, pressed: false } },
+    { ...bandFillLayer(), name: 'Band', paint: { kind: 'lit', color: '#3a3c5a', light: 0.7, dark: 0.8, pressed: false, highlight: null } },
     { ...textureLayer('marble'), name: 'Marble', color: '#5a5c7a', where: 'everywhere' },
     { ...textureLayer('hammered'), name: 'Hammered', color: '#8a8f99', from: 0.55, to: 1 },
     { ...textureLayer('scatter'), name: 'Stars', color2: '#6a5acd', to: 0.55 },
@@ -36,7 +36,7 @@ function heavy(): FrameProject {
 /** Ten heavy layers: the budget design. */
 function tenLayers(): FrameProject {
   const kinds = ['marble', 'hammered', 'wear', 'wood', 'stone', 'scatter', 'rope', 'scales', 'cracks'] as const;
-  const p = createProject([{ ...bandFillLayer(), paint: { kind: 'lit', color: '#806040', light: 0.8, dark: 0.8, pressed: false } }, ...kinds.map((k) => ({ ...textureLayer(k), where: 'everywhere' as const }))]);
+  const p = createProject([{ ...bandFillLayer(), paint: { kind: 'lit', color: '#806040', light: 0.8, dark: 0.8, pressed: false, highlight: null } }, ...kinds.map((k) => ({ ...textureLayer(k), where: 'everywhere' as const }))]);
   p.stage.showArt = false;
   return p;
 }
