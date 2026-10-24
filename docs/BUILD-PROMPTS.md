@@ -54,15 +54,16 @@ Ground rules: (as above)
 
 Phase 2 goal: richer ways to make shapes. DESIGN.md §8.
 
-1. Free-placed layers alongside band-relative ones: a "shape" layer (circle, rectangle, polygon, star) and an editable "path" layer (click to add points, drag points and curve handles on the canvas), placed either at a point round the band (angle + across, so it still adapts to the shape) or freely in token units. Ask the owner which default they prefer before building.
+1. A "shape" layer (circle, rectangle, polygon, star) and an editable "path" layer (click to add points, drag points and curve handles on the canvas). Owner's decision: adaptable by default — anchored at a point round the band (angle + across) and sized in band widths, so they fit every shape and thickness; "Place freely" (token units) is an option per layer.
 2. Transforms for every placed layer: move, scale, rotate with on-canvas handles; numeric values in Advanced. Mirroring (left/right pair) like token-maker's decorations.
 3. Groups: put layers in a group, collapse it, hide/lock/opacity for the whole group; clipping a layer to the band or to the layer below.
 4. Repeat improvements: alternating colours and sizes (pattern lists such as "light, dark"), skip neighbours of accent elements (Monk), alternate sides (Druid leaves), more elements (chevron, tick, gear, eye, note, claw).
 5. Line improvements: wavy lines (amplitude, waves round the ring, phase) for vines and knotwork.
-6. Schema version 2 with a migration from version 1 and a test that every version-1 file still opens and draws the same.
-7. Tests for every new layer, transform maths, groups, the migration, and Playwright flows for drawing a path and editing its points.
+6. Light direction (owner's decision): a dial in the stage bar, default top left (225°), stored as stage.light. It drives the lit paint, bead and element shading and raised shadows. Token Maker frames stay top-left lit until converted (the engine can't be edited); say so in their Properties when the light is moved.
+7. Schema version 2 with a migration from version 1 (adds stage.light = 225 and the new layer fields) and a test that every version-1 file still opens and draws the same.
+8. Tests for every new layer, transform maths, groups, the light direction (shading follows it; 225° matches version 1 exactly), the migration, and Playwright flows for drawing a path and editing its points.
 
-Done when: draw a custom gem shape, mirror it on both sides of the token, and group it with a ring of alternating diamonds.
+Done when: draw a custom gem shape, mirror it on both sides of the token, group it with a ring of alternating diamonds, switch the token to a hexagon and see it all follow the band, and move the light to the bottom right.
 ```
 
 ---
@@ -112,9 +113,9 @@ Phase 5 goal: a complete creative tool.
 1. A personal layer library: save any layer or group as a reusable item (IndexedDB), with thumbnails; import/export library items as files.
 2. Copy and paste layers between projects (including between browser tabs).
 3. Touch and phone layout like token-maker's (bottom sheet, 44 px targets), keyboard access throughout, axe accessibility checks.
-4. Use designs in Token Maker: agree the approach with the owner (DESIGN.md §9 question 2) and implement it in both repositories.
+4. Use designs in Token Maker (owner's decision): Token Maker opens .framestudio.json project files. Share Frame Studio's project reader and renderer with Token Maker (decide copy-with-manifest or shared package, keeping one renderer), add a "Frame Studio design" frame kind beside drawn and picture frames whose band follows Token Maker's thickness and spacing, keep imported designs in IndexedDB and in shared presets like uploaded picture frames, and test that a design looks the same in both apps.
 5. Export options: transparent PNG at any size, a sheet of the design on every shape, and the project file with a preview picture embedded.
 6. Help tips for every control (one plain sentence each), and a first-time welcome card.
 
-Done when: a design made in Frame Studio can be saved to the library, reused in another design, and used as a frame in Token Maker.
+Done when: a design made in Frame Studio can be saved to the library, reused in another design, and opened as a frame in Token Maker from its .framestudio.json file.
 ```

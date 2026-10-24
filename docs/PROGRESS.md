@@ -20,7 +20,15 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] `npm run frame-sheet` and `npm run screenshots`
   - **Done when:** load a Token Maker frame, add a ring of shapes, change their count and colour, reorder and hide layers, undo, save, reopen, export a PNG ✔
 
-- [ ] **Phase 2 — Drawing tools**
+## Owner answers after Phase 1
+
+- Light direction control, default top left → Phase 2
+- Token Maker opens `.framestudio.json` project files → Phase 5
+- Shapes and paths adaptable to the band by default (free placement optional) → Phase 2
+
+(Details in DESIGN.md §2 and §9.)
+
+- [ ] **Phase 2 — Drawing tools** (including the light-direction control)
 - [ ] **Phase 3 — Procedural layers**
 - [ ] **Phase 4 — Converting Token Maker frames**
 - [ ] **Phase 5 — Polish, library and sharing**
