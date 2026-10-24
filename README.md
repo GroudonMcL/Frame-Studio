@@ -4,16 +4,18 @@ A visual editor for code-drawn token frames. Start from one of [Token Maker](htt
 
 ![Token Maker's Paladin frame as editable layers in Frame Studio](docs/screenshots/13-paladin-editable.png)
 
-## What works now (Phase 5)
+## What works now (Phase 6)
 
-- **Templates:** all 27 Token Maker frames (each as one layer whose colour you can change), five designs built from editable layers (two with textures), or a blank project.
-- **Token Maker frames as editable layers:** 18 of the frames (Polished, Paladin, Gilded, Engraved, Arcane, Infernal, Wizard, Double line, Oak, Cobblestone, Magma, Harlequin, Starfield, Cleric, Fighter, Monk, Rogue, Sorcerer) can be opened as a stack of layers you can change one by one: the band, the pressed-in step, the rims, the textures and the ornaments. They look like the originals (tests measure how close each one is) and, unlike the originals, they follow the light dial. Pick one marked **Editable** in New, or select a Token Maker frame layer and press **Turn into editable layers**; the originals are all still there.
+- **Templates:** all 27 Token Maker frames (each as one layer whose colour you can change), ten designs built from editable layers (Brass & beads, Glowing runes, Jewelled, Battle-worn steel, Night sky, Moon & stars, Frostbound, Celtic knots, Royal, Grim iron), or a blank project.
+- **Token Maker frames as editable layers:** every one of the 26 frames (Stamped, Ranger, Bard, Warlock, Barbarian, Artificer, Druid and Knotwork joined in Phase 6) can be opened as a stack of layers you can change one by one: the band, the pressed-in step, the rims, the textures and the ornaments. They look like the originals (tests measure how close each one is) and, unlike the originals, they follow the light dial. Pick one marked **Editable** in New, or select a Token Maker frame layer and press **Turn into editable layers**; the originals are all still there.
 - **Layers:** Band fill, Line (plain or wavy), Repeated shapes, Shape (circle, rectangle, polygon, star) and Path (draw your own), plus Token Maker frames as layers. Show/hide, lock, rename, reorder, duplicate, delete.
 - **Groups:** Ctrl+click layers and press Group (Ctrl+G). Hide, lock or fade a whole group at once. Layers can also be clipped to the band or to the layer below.
 - **Drawing:** Add layer → Path, then click points on the canvas; click the first point (or press Enter) to finish. Drag points and their round handles; double-click a point to make it curved.
 - **Moving things:** drag shapes and paths on the canvas; use the square handle to resize and the round one to turn. Mirror a shape to get a matching pair on the other side.
-- **Patterns:** alternate colours and sizes round a ring, leave gaps beside bigger beads, put leaves on alternate sides, draw only every other one (or any on/off pattern), shaded or in one flat colour; shapes to repeat include chevrons, ticks, gears, eyes, notes and claw marks.
-- **Textures:** Add layer → Texture… opens a library of the surfaces Token Maker's frames are made of: marble, hammered metal, hide, battle wear, wood grain, stone blocks, stars, rope, dragon scales and magma cracks. Change their colour, how many marks, their size and strength, which side of the light they keep to, and shuffle for another variation. They are drawn the same way Token Maker draws them (tests check this pixel for pixel).
+- **Ornaments:** 40 shapes to repeat round the ring or place on their own (Add layer → Shape → Ornament): beads, runes, crosses, chevrons, gears… and new in Phase 6 hearts, crescent moons, flames, fleurs-de-lis, shields, suns, snowflakes, crowns, cut gems, drops, scallop shells, spirals, paw prints, feathers, Celtic knots, skulls and arrows, plus the details of Token Maker's frames (Warlock's eyes, Bard's notes, Barbarian's gashes, Artificer's cogs and teeth, Druid's leaves, Ranger's fletching). Two-part ones (an eye's white, a cog's hub, a flame's core…) have a second colour.
+- **Patterns:** alternate colours and sizes round a ring, leave gaps beside bigger beads, put leaves on alternate sides, draw only every other one (or any on/off pattern), keep the number even, shaded or in one flat colour; **random variation** makes each one wander in and out, vary in size or turn a little (shuffle for another arrangement).
+- **Wavy lines:** smooth waves, zigzags, scallops or battlements; fit the waves to the band (a bigger token gets more); raised with a small shadow.
+- **Textures:** Add layer → Texture… opens a library of 22: the surfaces Token Maker's frames are made of (marble, Stamped's veined marble, hammered metal, hide, battle wear, wood grain, stone blocks, stars, rope, dragon scales, magma cracks) and new ones (brushed metal, basket weave, chainmail, rust, frost, bark, sparkles, gold dust, crackle glaze, knurled grip). Change their colour, how many marks, their size and strength, which side of the light they keep to, and shuffle for another variation. They are drawn the same way Token Maker draws them (tests check this pixel for pixel).
 - **Colours round the ring:** paint a band or line with colours that change as they go round the token (like Stamped's), turning with the light if you want. In Advanced, metal paints can have their own highlight colour, gradient colours can be see-through, and a gradient can turn with the light (like a lit rim).
 - **Faster editing:** each layer's picture is kept, so changing one layer only redraws that one.
 - **Light:** turn the light dial under the canvas to light your layers from any side (it starts at the top left, like Token Maker).
@@ -58,6 +60,7 @@ Handy for checking by eye:
 npm run frame-sheet -- sheet.png circle    # every template on one picture (try hexagon, square…)
 npm run screenshots                        # with npm run dev running: editor screenshots into docs\screenshots
 npm run compare-conversions                # each editable Token Maker frame beside its original, with the differences
+npm run showcase -- ornaments sheet.png    # every ornament (or: textures, templates, converted)
 ```
 
 `npm run e2e` also runs the phone tests (a Pixel 7 with touch).

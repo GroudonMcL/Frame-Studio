@@ -17,6 +17,7 @@ import {
   SHAPE_KINDS,
   TEXTURE_KINDS,
   TEXTURE_PLACES,
+  WAVE_SHAPES,
   type FrameProject,
   type GradientStop,
   type Layer,
@@ -62,6 +63,21 @@ function addPhase4Fields(layer: unknown): unknown {
   return out;
 }
 
+/**
+ * Version 4 → 5: fitted, shaped and raised waves on lines; detail colours,
+ * even counts and random variation on repeats; ornaments as shapes. All off,
+ * so old designs look the same.
+ */
+function addVersion5Fields(layer: unknown): unknown {
+  if (!isObj(layer)) return layer;
+  const out: Obj = { ...layer };
+  if (Array.isArray(layer.children)) out.children = layer.children.map(addVersion5Fields);
+  if (layer.type === 'line') Object.assign(out, { waveLength: 0, waveShape: 'sine', raised: false }, layer);
+  if (layer.type === 'repeat') Object.assign(out, { detail: null, multipleOf: 1, wander: 0, sizeVariation: 0, rotationVariation: 0 }, layer);
+  if (layer.type === 'shape') Object.assign(out, { element: 'heart', detail: null }, layer);
+  return out;
+}
+
 /** Migrations from version n to n + 1, keyed by n. */
 const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
   1: (p) => ({
@@ -73,6 +89,7 @@ const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
   // Version 2 → 3 (Phase 3) only adds things (texture layers, the ring paint), so nothing changes.
   2: (p) => ({ ...p, schemaVersion: 3 }),
   3: (p) => ({ ...p, schemaVersion: 4, layers: Array.isArray(p.layers) ? p.layers.map(addPhase4Fields) : p.layers }),
+  4: (p) => ({ ...p, schemaVersion: 5, layers: Array.isArray(p.layers) ? p.layers.map(addVersion5Fields) : p.layers }),
 };
 
 export function parseProject(input: unknown): ParseResult {
@@ -278,6 +295,9 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
         waveAmplitude: num(o.waveAmplitude, d.waveAmplitude, 0, 2),
         waves: Math.round(num(o.waves, d.waves, 1, 200)),
         wavePhase: num(o.wavePhase, d.wavePhase, 0, 1),
+        waveLength: num(o.waveLength, d.waveLength, 0, 20),
+        waveShape: oneOf(o.waveShape, WAVE_SHAPES, d.waveShape),
+        raised: bool(o.raised, d.raised),
       };
     }
     case 'shape': {
@@ -292,6 +312,8 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
         sides: Math.round(num(o.sides, d.sides, 3, 24)),
         innerRatio: num(o.innerRatio, d.innerRatio, 0.05, 1),
         corner: num(o.corner, d.corner, 0, 1),
+        element: oneOf(o.element, ELEMENT_KINDS, d.element),
+        detail: hexOrNull(o.detail, d.detail),
       };
     }
     case 'path': {
@@ -350,6 +372,11 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
         alternateSides: num(o.alternateSides, d.alternateSides, 0, 2),
         shaded: bool(o.shaded, d.shaded),
         show: Array.isArray(o.show) && o.show.some((v) => v === true) ? o.show.slice(0, 8).map((v) => v === true) : [],
+        detail: hexOrNull(o.detail, d.detail),
+        multipleOf: Math.round(num(o.multipleOf, d.multipleOf, 1, 24)),
+        wander: num(o.wander, d.wander, 0, 2),
+        sizeVariation: num(o.sizeVariation, d.sizeVariation, 0, 1.5),
+        rotationVariation: num(o.rotationVariation, d.rotationVariation, 0, 360),
       };
     }
   }

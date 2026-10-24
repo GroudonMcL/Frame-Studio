@@ -11,6 +11,7 @@ import { framePresetById, type FrameStyle } from '../engine/legacy/catalog';
 import { mix, shade } from '../engine/legacy/color';
 import { frameAccent } from '../engine/legacy/frames';
 import { bandFillLayer, createProject, groupLayer, lineLayer, newId, repeatLayer, textureLayer } from './defaults';
+import { STAMPED_OUTER, STAMPED_STEP, stampedStops } from './stamped';
 import { cloneWithNewIds } from './tree';
 import type { BandFillLayer, FrameProject, GroupLayer, Layer, LegacyFrameLayer, LineLayer, RepeatLayer, TextureKind, TextureLayer } from './types';
 
@@ -273,6 +274,94 @@ const CONVERTERS: Partial<Record<FrameStyle, Converter>> = {
   },
 
   sorcerer: ({ color }) => stack({ base: color, light: 0.75, dark: 0.8, highlight: null, step: 0.25 }, [texture('scales', 'Scales', { color })], []),
+
+  // Stamped: its own colours round the ring (not the metal lighting), a step 45 % wide, and veins on the dark side.
+  stamped: ({ color }) => [
+    { ...bandFillLayer(), name: 'Band', paint: { kind: 'ring', stops: stampedStops(STAMPED_OUTER, color), followLight: true } },
+    { ...bandFillLayer(), name: 'Pressed-in step', from: 0.55, to: 1, paint: { kind: 'ring', stops: stampedStops(STAMPED_STEP, color), followLight: true } },
+    texture('veins', 'Veins and marbling', { color, seed: 0x5eed, where: 'shaded' }),
+    line('Crease', 0.55, 0.03, '#190500', 0.55),
+    ...rims(),
+  ],
+
+  fletching: ({ color, accent }) => {
+    const red = mix(color, accent ?? frameAccent('fletching')!, 0.5);
+    // Open chevrons from 42 % of the band out to 42 % in, 32 % long, with lines 9 % thick.
+    const chevrons = { element: 'fletching' as const, mode: 'spacing' as const, spacing: 0.4, snapToCorners: false, at: 0.45, size: 0.84, stretch: 0.32 / 0.84, outlineWidth: 0.09 / 0.84, shaded: false, clip: 'band' as const };
+    return stack(
+      { base: color, light: 0.6, dark: 0.75, highlight: null, step: 0.25 },
+      [
+        repeat('Pale fletching', { ...chevrons, fill: shade(color, 0.5), opacity: 0.55, show: [true, true, false, false] }),
+        repeat('Red fletching', { ...chevrons, fill: red, opacity: 0.7, show: [false, false, true, true] }),
+        line('Shaft', 0.45, 0.04, shade(color, -0.7), 0.7, { clip: 'band' }),
+      ],
+      [],
+    );
+  },
+
+  notes: ({ color, accent }) =>
+    stack(
+      { base: color, light: 0.7, dark: 0.8, highlight: null, step: 0.3 },
+      [marble(color, 0xba7d, 0.6), groove(0.25, color, 0.04, 'Stave line 1'), groove(0.4, color, 0.04, 'Stave line 2'), groove(0.55, color, 0.04, 'Stave line 3')],
+      [
+        // Token Maker's notes, wandering in and out and single or paired at random, in its order.
+        repeat('Notes', { element: 'bardNote', mode: 'spacing', spacing: 1.7, snapToCorners: false, at: 0.5, size: 1, fill: accent ?? frameAccent('notes')!, shaded: false, raised: true, wander: 0.625, seed: 0xba7e }),
+      ],
+    ),
+
+  eyes: ({ color, accent }) => {
+    const base = shade(color, -0.2);
+    return stack({ base, light: 0.5, dark: 0.75, highlight: null, step: 0.25 }, [marble(base, 0xe7e, 1.4)], [
+      // Each eye a little bigger or smaller (85–105 % of half the band), at random.
+      repeat('Eyes', { element: 'watchEye', count: 6, snapToCorners: true, at: 0.48, size: 0.95, stretch: 1.3, fill: accent ?? frameAccent('eyes')!, raised: true, sizeVariation: 0.2 / 0.95, seed: 0xe7e5, outlineWidth: 0.05 / 0.95 }),
+    ]);
+  },
+
+  claws: ({ color }) =>
+    stack(
+      { base: color, light: 0.5, dark: 0.75, highlight: null, step: 0.3 },
+      [
+        texture('hammered', 'Hide', { color, amount: 10 / 8, scale: 0.5, strength: 0.25 / 0.3, seed: 0xc1a }),
+        texture('wear', 'Battle wear', { color, seed: 0xba4 }),
+        // Turned 40° (Token Maker's 0.7 radians), give or take 11°.
+        repeat('Claw gashes', { element: 'gash', count: 6, snapToCorners: true, at: 0.5, size: 1.65, stretch: 1.7 / 1.5, rotation: (0.7 * 180) / Math.PI, rotationVariation: (0.4 * 180) / Math.PI, seed: 0xc1a3, fill: '#140500', detail: shade(color, 0.3), opacity: 0.9, shaded: false, clip: 'band' }),
+      ],
+      [],
+    ),
+
+  clockwork: ({ color }) =>
+    stack({ base: color, light: 0.9, dark: 0.8, highlight: '#fff1c0', step: 0.3 }, [marble(color, 0xc10c, 0.5)], [
+      // Teeth reaching in from the inner edge, like a ring gear's.
+      repeat('Gear teeth', { element: 'tooth', mode: 'spacing', spacing: 0.586, snapToCorners: false, at: 1.125, size: 0.35, stretch: 0.34 / 0.35, fill: color, raised: true }),
+      repeat('Cogs', { element: 'cog', count: 6, snapToCorners: true, at: 0.45, size: 0.936, fill: shade(color, 0.2), detail: shade(color, 0.05), raised: true }),
+    ]),
+
+  vines: ({ color }) => {
+    const base = mix(color, '#4a3320', 0.55);
+    return stack({ base, light: 0.5, dark: 0.75, highlight: null, step: 0.25 }, [texture('wood', 'Wood grain', { color: base, seed: 0x0a4 })], [
+      // One wave per 1.8 band widths, and two leaves to a wave, so they meet up all the way round.
+      line('Vine', 0.5, 0.1, shade(color, -0.35), 1, { waveAmplitude: 0.22, waveLength: 1.8, raised: true }),
+      repeat('Leaves', { element: 'sprig', mode: 'spacing', spacing: 0.9, multipleOf: 2, snapToCorners: false, at: 0.5, size: 0.828, alternateSides: 0.1, fill: color, raised: true }),
+    ]);
+  },
+
+  braid: ({ color }) => {
+    const base = shade(color, -0.55);
+    const strand = shade(color, 0.1);
+    const cord = (name: string, phase: number): GroupLayer => {
+      const wave = { waveAmplitude: 0.25, waveLength: 0.9, wavePhase: phase, clip: 'band' as const };
+      return {
+        ...groupLayer([
+          line('Shadow', 0.5, 0.24, '#000000', 0.6, wave),
+          line('Strand', 0.5, 0.17, strand, 1, wave),
+          line('Shine', 0.5, 0.04, shade(strand, 0.6), 0.6, wave),
+        ]),
+        name,
+        collapsed: true,
+      };
+    };
+    return stack({ base, light: 0.4, dark: 0.7, highlight: null, step: 0 }, [marble(base, 0xb4a1, 0.5), cord('Strand 1', 0), cord('Strand 2', 0.5)], []);
+  },
 };
 
 /**
@@ -293,6 +382,12 @@ export const CONVERSION_NOTES: Partial<Record<FrameStyle, string>> = {
   riveted: 'The bright flecks in the metal are a little softer.',
   beads: 'Next to the big bead at the top, one more small bead makes way on some shapes.',
   stitched: 'The stitches are flat bars with square ends.',
+  fletching: 'The fletching sits a hair further along the band.',
+  eyes: 'The eyes are lit from the light you choose, and their shadows are a little softer.',
+  claws: 'The pitting in the hide is a shade lighter.',
+  clockwork: 'The cogs turn with the band, and the teeth are shaded a little more softly.',
+  vines: 'The leaves are shaded by the light you choose.',
+  braid: 'The strands’ edges are a little smoother.',
 };
 
 /** "Not quite the same: …" for a frame whose conversion differs a little, or '' when it doesn't. */

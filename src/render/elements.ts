@@ -3,9 +3,11 @@
 // token's centre), `h` pixels tall and `h * stretch` wide.
 
 import { shade } from '../engine/legacy/color';
-import { seededRandom, sphere } from '../engine/legacy/frameKit';
+import { noShadow, seededRandom, sphere } from '../engine/legacy/frameKit';
 import type { ElementKind } from '../project/types';
 import type { Ctx } from './canvas';
+import { GLYPHS, STROKED, traceGlyph, type Glyph } from './glyphs';
+import { turn } from './light';
 
 export const ELEMENT_NAMES: Record<ElementKind, string> = {
   bead: 'Bead (shaded)',
@@ -24,7 +26,49 @@ export const ELEMENT_NAMES: Record<ElementKind, string> = {
   eye: 'Eye',
   note: 'Music note',
   claw: 'Claw marks',
+  fletching: 'Fletching (open chevron)',
+  bardNote: 'Music note (Bard’s)',
+  watchEye: 'Eye (detailed, Warlock’s)',
+  gash: 'Claw gashes (Barbarian’s)',
+  tooth: 'Gear tooth',
+  cog: 'Cog with a hub',
+  sprig: 'Leaf on a stem (Druid’s)',
+  heart: 'Heart',
+  crescent: 'Crescent moon',
+  flame: 'Flame',
+  fleur: 'Fleur-de-lis',
+  shield: 'Shield',
+  sun: 'Sun',
+  snowflake: 'Snowflake',
+  crown: 'Crown',
+  gem: 'Cut gem',
+  drop: 'Drop',
+  shell: 'Scallop shell',
+  spiral: 'Spiral',
+  paw: 'Paw print',
+  feather: 'Feather',
+  knot: 'Celtic knot',
+  skull: 'Skull',
+  arrow: 'Arrow',
 };
+
+/** Elements with a second colour (`detail`), and what it is called in the editor. */
+export const DETAIL_NAMES: Partial<Record<ElementKind, string>> = {
+  watchEye: 'White of the eye',
+  gash: 'Lit edge',
+  cog: 'Hub',
+  flame: 'Inner flame',
+  shield: 'Inner field',
+  crown: 'Band',
+  gem: 'Top facet',
+  shell: 'Ribs',
+  feather: 'Shaft',
+  knot: 'Cord edge',
+  skull: 'Eyes and teeth',
+};
+
+/** Elements drawn as lines, whose "outline width" is the thickness of their lines. */
+export const LINE_ELEMENTS = new Set<ElementKind>(['rune', 'fletching', ...STROKED]);
 
 /** Little glyphs drawn as strokes (x and y from -1 to 1), in the style of token-maker's Arcane runes. */
 const RUNES: number[][][] = [
@@ -187,11 +231,242 @@ export interface ElementStyle {
   light: { x: number; y: number };
   /** Shaded by the light (the default), or one flat colour. */
   shaded?: boolean;
+  /** The second colour of two-part elements; null or missing = worked out from `fill`. */
+  detail?: string | null;
+  /** Varies some elements (Bard's notes: single or paired), 0–1; missing = the first kind. */
+  variant?: number;
+}
+
+/** Token Maker's Bard note: a head and stem, single with a flag or paired with a beam. `u` is Token Maker's band width × 2.5. */
+function bardNote(ctx: Ctx, h: number, stretch: number, style: ElementStyle): void {
+  const u = h / 0.4;
+  const paired = (style.variant ?? 1) < 0.4;
+  ctx.save();
+  ctx.scale(stretch, 1);
+  ctx.fillStyle = style.fill;
+  ctx.strokeStyle = style.fill;
+  ctx.lineWidth = u * 0.035;
+  for (const x of paired ? [-u * 0.1, u * 0.1] : [0]) {
+    ctx.beginPath();
+    ctx.ellipse(x, u * 0.1, u * 0.07, u * 0.05, -0.4, 0, Math.PI * 2);
+    if (style.shaded) shadedFill(ctx, style.fill, u * 0.14, u * 0.1, style.light);
+    else ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x + u * 0.06, u * 0.09);
+    ctx.lineTo(x + u * 0.06, -u * 0.2);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  if (paired) {
+    ctx.moveTo(-u * 0.04, -u * 0.2);
+    ctx.lineTo(u * 0.16, -u * 0.2);
+    ctx.lineWidth = u * 0.06;
+  } else {
+    ctx.moveTo(u * 0.06, -u * 0.2);
+    ctx.quadraticCurveTo(u * 0.18, -u * 0.12, u * 0.14, -u * 0.02);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Token Maker's Warlock eye: a veined white, a shaded iris in the element's colour looking inwards, the pupil, a glint and a dark rim. */
+function watchEye(ctx: Ctx, w: number, h: number, style: ElementStyle): void {
+  const r = h / 2;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, w / 2, r, 0, 0, Math.PI * 2);
+  ctx.fillStyle = style.detail ?? '#f2ead8';
+  ctx.fill();
+  // Only the white casts the shadow.
+  noShadow(ctx);
+  const veins = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r * 1.3);
+  veins.addColorStop(0, 'rgba(255, 255, 255, 0)');
+  veins.addColorStop(1, 'rgba(120, 20, 20, 0.45)');
+  ctx.fillStyle = veins;
+  ctx.fill();
+  if (style.shaded === false) {
+    ctx.beginPath();
+    ctx.arc(0, r * 0.3, r * 0.6, 0, Math.PI * 2);
+    ctx.fillStyle = style.fill;
+    ctx.fill();
+  } else sphere(ctx, 0, r * 0.3, r * 0.6, style.fill, style.light);
+  ctx.fillStyle = '#050505';
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.35, r * 0.15, r * 0.35, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.beginPath();
+  ctx.arc(-r * 0.2, r * 0.05, r * 0.12, 0, Math.PI * 2);
+  ctx.fill();
+  if (style.outlineWidth > 0) {
+    ctx.strokeStyle = style.outline ?? 'rgba(20, 0, 10, 0.85)';
+    ctx.lineWidth = Math.max(0.5, h * style.outlineWidth);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, w / 2, r, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+/** Token Maker's Barbarian gashes: three curved cuts, each with a lit edge. Width 1 is Token Maker's proportions ÷ 1.13. */
+function gash(ctx: Ctx, h: number, stretch: number, style: ElementStyle): void {
+  const k = h / 1.65;
+  ctx.save();
+  ctx.scale(1.5 * stretch, 1.5);
+  ctx.lineCap = 'round';
+  for (const dx of [-0.16, 0, 0.16]) {
+    ctx.strokeStyle = style.fill;
+    ctx.lineWidth = k * 0.09;
+    ctx.beginPath();
+    ctx.moveTo(dx * k, -k * 0.55);
+    ctx.quadraticCurveTo(dx * k + k * 0.05, 0, dx * k, k * 0.55);
+    ctx.stroke();
+    ctx.strokeStyle = style.detail ?? shade(style.fill, 0.6);
+    ctx.lineWidth = k * 0.02;
+    ctx.beginPath();
+    ctx.moveTo(dx * k - k * 0.04, -k * 0.5);
+    ctx.quadraticCurveTo(dx * k + k * 0.01, 0, dx * k - k * 0.04, k * 0.5);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** Token Maker's Artificer cog: eight teeth, a hub (shaded, unless flat) and a dark hole. */
+function cog(ctx: Ctx, h: number, stretch: number, style: ElementStyle): void {
+  const r = h / 2 / 1.3;
+  ctx.save();
+  ctx.scale(stretch, 1);
+  ctx.beginPath();
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    const rr = i % 2 ? r : r * 1.3;
+    ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  // A flat cog (as Token Maker's) with a domed hub.
+  ctx.fillStyle = style.fill;
+  ctx.fill();
+  if (style.outline && style.outlineWidth > 0) {
+    ctx.strokeStyle = style.outline;
+    ctx.lineWidth = Math.max(0.5, h * style.outlineWidth);
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  }
+  noShadow(ctx);
+  const hub = style.detail ?? shade(style.fill, -0.15);
+  if (style.shaded === false) {
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2);
+    ctx.fillStyle = hub;
+    ctx.fill();
+  } else sphere(ctx, 0, 0, r * 0.8, hub, style.light);
+  ctx.fillStyle = shade(hub, -0.7);
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.25, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** Token Maker's Druid leaf: growing from the element's point along the band, tilted outwards. */
+function sprig(ctx: Ctx, h: number, stretch: number, style: ElementStyle): void {
+  const tilt = -0.9;
+  const bulge = (0.12 / 0.36) * h * stretch;
+  ctx.save();
+  ctx.rotate(tilt);
+  ctx.translate(h / 2, 0);
+  ctx.beginPath();
+  ctx.moveTo(-h / 2, 0);
+  ctx.quadraticCurveTo(-h / 2 + h * 0.472, bulge, h / 2, 0);
+  ctx.quadraticCurveTo(-h / 2 + h * 0.472, -bulge, -h / 2, 0);
+  ctx.closePath();
+  shadedFill(ctx, style.fill, h, bulge, turn(style.light, -tilt), 'nonzero', style.shaded);
+  if (style.outline && style.outlineWidth > 0) {
+    ctx.strokeStyle = style.outline;
+    ctx.lineWidth = Math.max(0.5, h * style.outlineWidth);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** Ranger's fletching: an open chevron pointing along the band, drawn as a line. */
+function fletching(ctx: Ctx, w: number, h: number, style: ElementStyle): void {
+  ctx.beginPath();
+  ctx.moveTo(-w / 2, -h / 2);
+  ctx.lineTo(w / 2, 0);
+  ctx.lineTo(-w / 2, h / 2);
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = style.fill;
+  ctx.lineWidth = Math.max(0.5, h * Math.max(0.02, style.outlineWidth));
+  ctx.stroke();
+}
+
+/** One of the path-drawn ornaments (glyphs.ts): its body, its detail in the second colour, its outline. */
+function drawGlyph(ctx: Ctx, glyph: Glyph, w: number, h: number, style: ElementStyle): void {
+  const x = w / 2;
+  const y = h / 2;
+  const lineWidth = Math.max(0.5, h * Math.max(0.03, style.outlineWidth) * (glyph.weight ?? 1));
+  if (glyph.lines) {
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    if (glyph.edged) {
+      // A darker edge under the line, like a cord.
+      traceGlyph(ctx, glyph.lines, x, y, false);
+      ctx.strokeStyle = style.detail ?? shade(style.fill, -0.6);
+      ctx.lineWidth = lineWidth * 1.6;
+      ctx.stroke();
+      noShadow(ctx);
+    }
+    traceGlyph(ctx, glyph.lines, x, y, false);
+    ctx.strokeStyle = style.fill;
+    ctx.lineWidth = lineWidth;
+    ctx.stroke();
+    return;
+  }
+  traceGlyph(ctx, glyph.body!, x, y, true);
+  shadedFill(ctx, style.fill, w, h, style.light, 'nonzero', style.shaded);
+  if (glyph.detail || glyph.detailLines) {
+    // Only the body casts the shadow.
+    noShadow(ctx);
+    const color = style.detail ?? shade(style.fill, glyph.detailShade ?? -0.5);
+    if (glyph.detail) {
+      traceGlyph(ctx, glyph.detail, x, y, true);
+      shadedFill(ctx, color, w, h, style.light, 'nonzero', style.shaded);
+    }
+    if (glyph.detailLines) {
+      traceGlyph(ctx, glyph.detailLines, x, y, false);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = Math.max(0.5, h * 0.045);
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+  }
+  if (style.outline && style.outlineWidth > 0) {
+    noShadow(ctx);
+    traceGlyph(ctx, glyph.body!, x, y, true);
+    ctx.strokeStyle = style.outline;
+    ctx.lineWidth = Math.max(0.5, h * style.outlineWidth);
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  }
 }
 
 export function drawElement(ctx: Ctx, kind: ElementKind, h: number, stretch: number, style: ElementStyle): void {
   const w = h * stretch;
   if (h <= 0) return;
+  const glyph = GLYPHS[kind];
+  if (glyph) return drawGlyph(ctx, glyph, w, h, style);
+  switch (kind) {
+    case 'bardNote':
+      return bardNote(ctx, h, stretch, style);
+    case 'watchEye':
+      return watchEye(ctx, w, h, style);
+    case 'gash':
+      return gash(ctx, h, stretch, style);
+    case 'cog':
+      return cog(ctx, h, stretch, style);
+    case 'sprig':
+      return sprig(ctx, h, stretch, style);
+    case 'fletching':
+      return fletching(ctx, w, h, style);
+  }
   if (kind === 'note') {
     traceNote(ctx, w, h, style.rune % 2 === 1);
     shadedFill(ctx, style.fill, w, h, style.light, 'nonzero', style.shaded);

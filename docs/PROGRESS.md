@@ -78,13 +78,33 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Tests: 478 unit tests (51 new: the layers and library formats, the library store, copy/cut/paste, help tips on every control, the welcome card, keyboard access, the library dialog, the share module and the bundle) and 50 Playwright runs (27 flows: 23 × 2 desktop sizes and 4 on a phone; new: the "done when" flow, copy and paste between tabs, exports, the keyboard, axe, the welcome card, and on a phone the layout and target sizes, a finger drag, library and paste, axe)
   - **Done when:** a design made in Frame Studio can be saved to the library, reused in another design, and opened as a frame in Token Maker from its .framestudio.json file. Library and reuse ✔ (Playwright "done when" test). Opening in Token Maker ✔ (token-maker's Playwright test opens `.framestudio.json` files saved by Frame Studio as frames, on desktop, tablet and phone; its unit test shows they draw exactly as Frame Studio draws them).
 
-## Known limitations after Phase 5
+- [x] **Phase 6 — The last conversions, and more to build with** (asked for by the owner after Phase 5)
+  - [x] Stamped, Ranger, Bard, Warlock, Barbarian, Artificer, Druid and Knotwork convert into editable layers; every Token Maker frame now does (each with a limit in `convert.test.ts` and a row in DESIGN.md §4.7)
+  - [x] 24 new ornaments (7 of Token Maker's details, 17 new), a second colour for two-part ones, and ornaments as shapes of their own
+  - [x] Repeats: random wander, size and turn (seeded, with a shuffle button), and "a multiple of" for even counts
+  - [x] Lines: waves fitted to the band, wave shapes (zigzag, scallops, battlements) and a raised shadow
+  - [x] 10 new textures (Stamped's veined marble, brushed metal, basket weave, chainmail, rust, frost, bark, sparkles, crackle glaze, knurled grip) and 11 new library presets
+  - [x] 5 new templates: Moon & stars, Frostbound, Celtic knots, Royal, Grim iron
+  - [x] Schema version 5 with a migration from version 4; version-4 fixture files saved by Phase 5 open and draw as before (versions 1–3 too)
+  - [x] `npm run showcase`; screenshots 22–27
+  - [x] Tests: 649 unit tests (new: every ornament as a shape and mirrored, second colours, the fleur-de-lis joining up, random variation and its limits and seeds, even counts, fitted and shaped waves, raised lines, the veined marble's side, the new textures, the v4 files, help tips for the new controls) and 56 Playwright runs (3 new flows × 2 desktop sizes: the "done when" flow for the eight conversions on the real preview, the new repeat and shape options, the new line options)
+  - **Done when:** all eight open as editable layers that look like the originals ✔ (Playwright "done when" test)
+  - [ ] Open-licensed artwork: candidates found and shown to the owner (DESIGN.md §9); waiting for their choice before importing anything
+
+## Known limitations after Phase 6
+
+- Converted frames look like the originals but aren't identical in fine detail (DESIGN.md §4.7); Artificer's cogs turn with the band, and its gear teeth may be one more or fewer on very thin or thick bands.
+- Ornaments face outwards round the ring, so those at the bottom are upside down (as every repeat is); use a Shape ornament with Place freely for one that should stay upright.
+- Fitted waves are counted on the line's own outline, so a wavy line far from the middle of the band gets a slightly different number than Token Maker would.
+- Still from Phase 5: Token Maker's frame and highlights colours don't recolour a design; the library is per browser; no zoom; layers reorder by buttons on a phone.
+
+## Known limitations after Phase 5 (for the record)
 
 - In Token Maker a design's colours come from the design; Token Maker's Frame colour and highlights colour don't recolour it (change it in Frame Studio and open it again).
 - The library and the shared copy for pasting live in this browser only (move the library with Export all / Import).
 - On a phone, layers are reordered with the arrow buttons (dragging rows in the list needs a mouse), and there is still no zoom, so small shapes on a thin band are fiddly; the numeric values in Advanced help.
 - Pasting with the Paste layers menu item asks the browser for the clipboard; if it says no, the layers last copied in a Frame Studio tab are used.
-- Still from Phase 4: eight Token Maker frames can't be converted; converted frames' colours don't follow a later change of the band's colour.
+- Still from Phase 4: eight Token Maker frames can't be converted (done in Phase 6); converted frames' colours don't follow a later change of the band's colour.
 
 ## Known limitations after Phase 4 (for the record)
 

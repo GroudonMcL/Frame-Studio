@@ -16,6 +16,7 @@ import {
   MIRROR_MODES,
   SHAPE_KINDS,
   TEXTURE_KINDS,
+  WAVE_SHAPES,
   TEXTURE_PLACES,
   type BlendMode,
   type ClipMode,
@@ -29,11 +30,12 @@ import {
   type ShapeKind,
   type TextureLayer,
   type TexturePlace,
+  type WaveShape,
 } from '../project/types';
 import { bandGeometry } from '../render/band';
 import { litFor } from '../render/paint';
 import { TEXTURE_NAMES } from '../render/textures';
-import { ELEMENT_NAMES } from '../render/elements';
+import { DETAIL_NAMES, ELEMENT_NAMES, LINE_ELEMENTS } from '../render/elements';
 import { switchPlace, toggleSmooth } from '../render/hitTest';
 import { commit, convertToLayers, finishDrawing, setPathEdit, setPathPoints, ungroup, updateLayer, useProject, useUi } from '../state/projectStore';
 import { ColorField, ColorList, Fold, OptionalColor, PatternField, PercentList, Select, Slider, Toggle } from './controls';
@@ -67,7 +69,17 @@ const SHAPE_NAMES: Record<ShapeKind, string> = {
   rectangle: 'Rectangle',
   polygon: 'Polygon',
   star: 'Star',
+  ornament: 'Ornament (heart, fleur-de-lis…)',
 };
+
+const WAVE_NAMES: Record<WaveShape, string> = {
+  sine: 'Smooth waves',
+  zigzag: 'Zigzag',
+  scallop: 'Scallops',
+  square: 'Battlements',
+};
+
+const DETAIL_HINT = 'The colour of its second part; off works one out from the main colour.';
 
 const WHERE_NAMES: Record<TexturePlace, string> = {
   everywhere: 'Everywhere',
@@ -238,11 +250,21 @@ function LayerControls({ layer, light }: { layer: Layer; light: number }) {
           />
           {layer.waveAmplitude > 0 && (
             <>
+              <Select label="Wave shape" value={layer.waveShape} disabled={disabled} options={WAVE_SHAPES.map((w) => ({ value: w, label: WAVE_NAMES[w] }))} onChange={(waveShape) => set({ waveShape })} />
               {num(layer, set, 'waveAmplitude', 'Wave height', 0.01, 1, { ...pct, hint: 'How far it wanders, as a share of the band width.' })}
-              {num(layer, set, 'waves', 'Waves all the way round', 1, 64, { step: 1 })}
+              <Toggle
+                label="Fit the waves to the band"
+                checked={layer.waveLength > 0}
+                disabled={disabled}
+                onChange={(on) => set({ waveLength: on ? 1.8 : 0 })}
+              />
+              {layer.waveLength > 0
+                ? num(layer, set, 'waveLength', 'Wave length', 0.2, 8, { step: 0.05, scale: 100, unit: '%' })
+                : num(layer, set, 'waves', 'Waves all the way round', 1, 64, { step: 1 })}
               {num(layer, set, 'wavePhase', 'Slide the waves', 0, 1, pct)}
             </>
           )}
+          <Toggle label="Raised (small shadow)" checked={layer.raised} disabled={disabled} onChange={(raised) => set({ raised })} />
         </>
       );
     }
@@ -271,6 +293,7 @@ function LayerControls({ layer, light }: { layer: Layer; light: number }) {
         <>
           <Select label="Shape" value={layer.element} disabled={disabled} options={ELEMENT_KINDS.map((k) => ({ value: k, label: ELEMENT_NAMES[k] }))} onChange={(element) => set({ element })} />
           <ColorField label="Colour" value={layer.fill} disabled={disabled} onChange={(fill, t) => set({ fill }, t)} />
+          {DETAIL_NAMES[layer.element] && <OptionalColor label={DETAIL_NAMES[layer.element]!} hint={DETAIL_HINT} value={layer.detail} fallback="#f2ead8" disabled={disabled} onChange={(detail, t) => set({ detail }, t)} />}
           <Select
             label="How many"
             value={layer.mode}
@@ -326,6 +349,20 @@ function LayerControls({ layer, light }: { layer: Layer; light: number }) {
               onChange={(altSizes) => set({ altSizes })}
             />
             {num(layer, set, 'alternateSides', 'Alternate sides', 0, 1, { ...pct, hint: 'Every other one moves inwards and points the other way, like leaves on a vine. 0 = off.' })}
+            {num(layer, set, 'multipleOf', 'Make the number a multiple of', 1, 12, { step: 1 })}
+          </Fold>
+          <Fold title="Random variation" defaultOpen={layer.wander > 0 || layer.sizeVariation > 0 || layer.rotationVariation > 0}>
+            {num(layer, set, 'wander', 'Wander in and out', 0, 1.5, pct)}
+            {num(layer, set, 'sizeVariation', 'Vary the size', 0, 1, pct)}
+            {num(layer, set, 'rotationVariation', 'Vary the turn', 0, 180, { step: 1, unit: '°' })}
+            {(layer.wander > 0 || layer.sizeVariation > 0 || layer.rotationVariation > 0 || layer.element === 'bardNote') && (
+              <div className="row">
+                {num(layer, set, 'seed', 'Variation', 0, 99999, { step: 1, hint: 'Each number gives a different random arrangement.' })}
+                <button type="button" className="icon-btn" aria-label="Shuffle" title="Try another variation" disabled={disabled} onClick={() => set({ seed: Math.floor(Math.random() * 99999) })}>
+                  <Shuffle size={16} />
+                </button>
+              </div>
+            )}
           </Fold>
         </>
       );
@@ -349,7 +386,7 @@ function AdvancedControls({ layer }: { layer: Layer }) {
     <>
       {num(layer, set, 'stretch', 'Width ÷ height', 0.2, 3, { step: 0.05 })}
       <OptionalColor label="Outline" value={layer.outline} fallback="#1a1008" disabled={disabled} onChange={(outline, t) => set({ outline }, t)} />
-      {num(layer, set, 'outlineWidth', layer.element === 'rune' ? 'Stroke width' : 'Outline width', 0, 0.4, pct)}
+      {num(layer, set, 'outlineWidth', LINE_ELEMENTS.has(layer.element) ? 'Stroke width' : 'Outline width', 0, 0.4, pct)}
       <OptionalColor label="Glow" value={layer.glow} fallback="#6fc3ff" disabled={disabled} onChange={(glow, t) => set({ glow }, t)} />
       {num(layer, set, 'accentEvery', 'Bigger one every… (0 = off)', 0, 24, { step: 1 })}
       {layer.accentEvery > 0 && num(layer, set, 'accentScale', 'Bigger by', 0.2, 4, { step: 0.05, scale: 100, unit: '%' })}
@@ -545,6 +582,9 @@ function RingStops({ paint, disabled, onChange }: { paint: Extract<Paint, { kind
 const TEXTURE_COLOUR_LABEL: Partial<Record<TextureLayer['kind'], [string, string]>> = {
   scatter: ['Star colour', 'The colour of the stars.'],
   cracks: ['Glow colour', 'The colour the cracks glow.'],
+  rust: ['Rust colour', 'The colour of the rust patches.'],
+  frost: ['Ice colour', 'The colour of the frost and its crystals.'],
+  sparkle: ['Sparkle colour', 'The colour of the sparkles.'],
 };
 
 function TextureControls({ layer }: { layer: TextureLayer }) {
@@ -605,6 +645,12 @@ function PlacedControls({ layer }: { layer: PlacedLayer }) {
           {(layer.shape === 'polygon' || layer.shape === 'star') && num(layer, set, 'sides', layer.shape === 'star' ? 'Points' : 'Sides', 3, 16, { step: 1 })}
           {layer.shape === 'star' && num(layer, set, 'innerRatio', 'Inner points', 0.1, 0.95, pct)}
           {layer.shape === 'rectangle' && num(layer, set, 'corner', 'Round the corners', 0, 1, pct)}
+          {layer.shape === 'ornament' && (
+            <Select label="Ornament" value={layer.element} disabled={disabled} options={ELEMENT_KINDS.map((k) => ({ value: k, label: ELEMENT_NAMES[k] }))} onChange={(element) => set({ element })} />
+          )}
+          {layer.shape === 'ornament' && DETAIL_NAMES[layer.element] && (
+            <OptionalColor label={DETAIL_NAMES[layer.element]!} hint={DETAIL_HINT} value={layer.detail} fallback="#f2ead8" disabled={disabled} onChange={(detail, t) => set({ detail }, t)} />
+          )}
         </>
       ) : (
         <PathPoints layer={layer} editing={pathEdit} />

@@ -26,8 +26,12 @@ const LAYERS: [string, Layer][] = [
   ['wavy glowing line', { ...lineLayer(), waveAmplitude: 0.2, glow: '#6fc3ff' }],
   ['repeat with every option', { ...repeatLayer(), accentEvery: 3, accentColor: '#ff0000', outline: '#000000', glow: '#ffffff', altColors: ['#ffffff'], altSizes: [1, 0.5], show: [true, false], alternateSides: 0.2 }],
   ['repeat of runes, spaced', { ...repeatLayer(), element: 'rune', mode: 'spacing' }],
+  ['fitted, raised, zigzag line', { ...lineLayer(), waveAmplitude: 0.2, waveLength: 1.5, waveShape: 'zigzag', raised: true }],
+  ['repeat of eyes, varied at random', { ...repeatLayer(), element: 'watchEye', detail: '#ffffff', multipleOf: 2, wander: 0.3, sizeVariation: 0.2, rotationVariation: 20 }],
+  ['repeat of cogs', { ...repeatLayer(), element: 'cog' }],
+  ['shape (ornament with a second colour)', { ...shapeLayer(), shape: 'ornament', element: 'skull', detail: '#000000' }],
   ...TEXTURE_KINDS.map((kind): [string, Layer] => [`texture (${kind})`, { ...textureLayer(kind), color2: '#6a5acd' }]),
-  ...(['circle', 'rectangle', 'polygon', 'star'] as const).map((shape): [string, Layer] => [`shape (${shape})`, { ...shapeLayer(), shape, glow: '#ffffff' }]),
+  ...(['circle', 'rectangle', 'polygon', 'star', 'ornament'] as const).map((shape): [string, Layer] => [`shape (${shape})`, { ...shapeLayer(), shape, glow: '#ffffff' }]),
   ['free path', { ...pathLayer(GEM_POINTS), place: 'free' }],
   ['group', groupLayer([lineLayer()])],
 ];

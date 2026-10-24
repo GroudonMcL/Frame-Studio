@@ -156,6 +156,25 @@ await page.getByLabel('Export as').selectOption('sheet');
 await page.screenshot({ path: `${out}/19-export.png` });
 await page.keyboard.press('Escape');
 
+// 22–25 are drawn by npm run showcase (ornaments, textures, templates, the last eight conversions).
+
+// 26. Warlock as editable layers: its eyes, with their second colour and random sizes.
+await page.getByRole('button', { name: 'New' }).click();
+await page.getByRole('button', { name: 'Warlock Editable' }).click();
+await page.getByRole('treeitem', { name: /Eyes/ }).click();
+// Their random variation is open already; show it, once the library's message has gone.
+await page.getByText('Vary the size').scrollIntoViewIfNeeded();
+await page.getByRole('status').filter({ hasText: /./ }).waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${out}/26-warlock-eyes.png` });
+
+// 27. Royal: an ornament as a shape of its own (the crown), over fleurs-de-lis and gems.
+await page.getByRole('button', { name: 'New' }).click();
+await page.getByRole('button', { name: 'Royal' }).click();
+await page.getByRole('treeitem', { name: /Crown/ }).click();
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${out}/27-royal-crown.png` });
+
 // 20–21. On a phone: the canvas over a sheet of layers, then of properties.
 const phone = await browser.newPage({ ...devices['Pixel 7'], storageState: welcomed });
 await phone.goto(base);

@@ -9,7 +9,7 @@ import type { Point } from '../engine/legacy/shapes';
 import type { PathPoint, PlacedLayer, ShapeLayer } from '../project/types';
 import { bandWidthPx, outlineAt, spacedAlong } from './band';
 import type { Ctx } from './canvas';
-import { shadedFill } from './elements';
+import { drawElement, shadedFill } from './elements';
 import { lightVector, raisedFrom, turn } from './light';
 
 /**
@@ -103,6 +103,8 @@ function traceShape(ctx: Ctx, layer: ShapeLayer, w: number, h: number): void {
       ctx.arcTo(-x, -y, x, -y, r);
       break;
     }
+    case 'ornament':
+      break;
     case 'polygon':
     case 'star': {
       const n = layer.shape === 'star' ? layer.sides * 2 : layer.sides;
@@ -158,6 +160,21 @@ export function drawPlaced(ctx: Ctx, layer: PlacedLayer, g: FrameGeometry, light
     ctx.translate(t.x, t.y);
     ctx.rotate(t.angle);
     ctx.scale(t.sx, t.sy);
+    if (layer.type === 'shape' && layer.shape === 'ornament') {
+      // One of the repeat shapes, drawn by the same code (it draws its own outline).
+      const v = turn(lightVector(light), -t.angle);
+      drawElement(ctx, layer.element, h, layer.stretch, {
+        fill: layer.fill ?? 'rgba(0, 0, 0, 0)',
+        outline: layer.outline,
+        outlineWidth: layer.outlineWidth,
+        rune: 0,
+        light: { x: v.x * t.sx, y: v.y * t.sy },
+        shaded: layer.shaded,
+        detail: layer.detail,
+      });
+      ctx.restore();
+      continue;
+    }
     if (layer.type === 'shape') traceShape(ctx, layer, w, h);
     else tracePath(ctx, layer.points, layer.closed, t.ux, t.uy);
     if (canFill) {

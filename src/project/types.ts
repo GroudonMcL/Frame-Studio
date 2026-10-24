@@ -14,7 +14,7 @@
 import type { FrameStyle, ShapeId } from '../engine/legacy/catalog';
 
 export const PROJECT_FORMAT = 'frame-studio-project';
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export interface FrameProject {
   format: typeof PROJECT_FORMAT;
@@ -145,7 +145,16 @@ export interface LineLayer extends LayerBase {
   waves: number;
   /** Slides the waves round, as a fraction of one wave (0–1). */
   wavePhase: number;
+  /** Fit the waves to the band: one wave per this many band widths, so a bigger token gets more (0 = use `waves`). Version 5. */
+  waveLength: number;
+  /** The shape of the waves. Version 5. */
+  waveShape: WaveShape;
+  /** A small shadow falling away from the light, as on raised ornaments. Version 5. */
+  raised: boolean;
 }
+
+export const WAVE_SHAPES = ['sine', 'zigzag', 'scallop', 'square'] as const;
+export type WaveShape = (typeof WAVE_SHAPES)[number];
 
 export const ELEMENT_KINDS = [
   'bead',
@@ -164,6 +173,32 @@ export const ELEMENT_KINDS = [
   'eye',
   'note',
   'claw',
+  // Version 5: the details of Token Maker's frames…
+  'fletching',
+  'bardNote',
+  'watchEye',
+  'gash',
+  'tooth',
+  'cog',
+  'sprig',
+  // …and new ornaments.
+  'heart',
+  'crescent',
+  'flame',
+  'fleur',
+  'shield',
+  'sun',
+  'snowflake',
+  'crown',
+  'gem',
+  'drop',
+  'shell',
+  'spiral',
+  'paw',
+  'feather',
+  'knot',
+  'skull',
+  'arrow',
 ] as const;
 export type ElementKind = (typeof ELEMENT_KINDS)[number];
 
@@ -212,6 +247,16 @@ export interface RepeatLayer extends LayerBase {
   shaded: boolean;
   /** Which elements are drawn, as a repeating on/off pattern: [true, false] = every other one. Empty = all. Version 4. */
   show: boolean[];
+  /** The second colour of elements made of two parts (an eye's white, a cog's hub, a gash's lit edge…). null = worked out from `fill`. Version 5. */
+  detail: string | null;
+  /** Round the number to a multiple of this (2 keeps it even, so alternating patterns meet up all the way round). Version 5. */
+  multipleOf: number;
+  /** Each element moves in or out by a random amount, up to half this many band widths either way. Version 5. */
+  wander: number;
+  /** Each element's size varies at random by up to half this share either way. Version 5. */
+  sizeVariation: number;
+  /** Each element turns at random by up to half this many degrees either way. Version 5. */
+  rotationVariation: number;
 }
 
 /**
@@ -253,7 +298,7 @@ export interface PlacedStyle {
   glow: string | null;
 }
 
-export const SHAPE_KINDS = ['circle', 'rectangle', 'polygon', 'star'] as const;
+export const SHAPE_KINDS = ['circle', 'rectangle', 'polygon', 'star', 'ornament'] as const;
 export type ShapeKind = (typeof SHAPE_KINDS)[number];
 
 /** One shape (circle, rectangle, polygon or star) placed on the band or freely. */
@@ -266,6 +311,10 @@ export interface ShapeLayer extends LayerBase, Placement, PlacedStyle {
   innerRatio: number;
   /** Rectangle: corner rounding, 0–1 of half the shorter side. */
   corner: number;
+  /** Ornament: which of the repeat shapes it is (a heart, a fleur-de-lis…). Version 5. */
+  element: ElementKind;
+  /** Ornament: its second colour (see RepeatLayer.detail). Version 5. */
+  detail: string | null;
 }
 
 /**
@@ -286,7 +335,28 @@ export interface PathLayer extends LayerBase, Placement, PlacedStyle {
   closed: boolean;
 }
 
-export const TEXTURE_KINDS = ['marble', 'hammered', 'wear', 'wood', 'stone', 'scatter', 'rope', 'scales', 'cracks'] as const;
+export const TEXTURE_KINDS = [
+  'marble',
+  'hammered',
+  'wear',
+  'wood',
+  'stone',
+  'scatter',
+  'rope',
+  'scales',
+  'cracks',
+  // Version 5
+  'veins',
+  'brushed',
+  'woven',
+  'chainmail',
+  'rust',
+  'frost',
+  'bark',
+  'sparkle',
+  'crackle',
+  'knurl',
+] as const;
 export type TextureKind = (typeof TEXTURE_KINDS)[number];
 
 export const TEXTURE_PLACES = ['everywhere', 'shaded', 'lit'] as const;

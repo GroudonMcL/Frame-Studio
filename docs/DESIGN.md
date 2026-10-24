@@ -196,11 +196,14 @@ Token Maker's see-through colours (`rgba(…, 0.55)`) become a solid colour and 
 | Double line, Harlequin, Monk | 0.53–0.82 | ≤ 1.2 % | 0.7–1.1 / ≤ 1.5 | Double line's diamonds lit by the light, more softly; Harlequin's outlines fainter on the light diamonds; Monk leaves one more small bead out beside the big one where the count doesn't divide by 9 |
 | Engraved, Rogue | ~1.1 | ~1.2 % | 1.4 / 1.6 | Tick marks and stitches are flat bars with square ends (not round-capped strokes) |
 | Arcane, Infernal, Wizard | 1.8–2.1 | ≤ 0.65 % | 2.4–2.6 / 0.8–0.9 | Runes and glow match; the marbling is judged by its colour lit the usual way rather than by the band's own lighting, so a few patches move |
+| Stamped (Phase 6) | 0.13 | 0.01 % | 0.2 / 0.05 | Nothing (its own ring colours and veins, the same picture to within rounding) |
+| Bard, Barbarian, Druid, Knotwork (Phase 6) | 0.47–1.07 | ≤ 1.7 % | 0.6–1.3 / ≤ 2 | Bard: nothing visible; Barbarian: the hide's pitting a shade lighter; Druid: leaves shaded by the light; Knotwork: smoother strand edges |
+| Warlock, Ranger, Artificer (Phase 6) | 1.9–3.9 | ≤ 7.2 % | 2.2–4.4 / ≤ 8 | Warlock's eyes lit by the stage's light, softer shadows; Ranger's thin chevrons sit a hair further along; Artificer's cogs turn with the band and its teeth are shaded more softly |
 | Paladin | 2.0 | 4.1 % | 2.5 / 5 | Frame Studio's crosses: lit from the stage's light (the original lights each one from its own top left, so the bottom crosses look lit from below), with a softer gradient; slightly thinner upright; a single shadow; at hexagon corners a cross can face along the next side |
 | Cleric | 4.2 | 9.3 % | 5.5 / 12 | The rays are counted along their own line rather than the band's middle, so there can be one or two more or fewer and they drift out of step; long and short rays share one position across |
 
   (Worst over every shape, size and thickness tested. A mean of 1/255 is invisible; the differences above are in fine detail, which is why the default is "looks the same", §9.)
-- **Not converted yet** (they stay one Token Maker layer, and say so): **Stamped** (its veins and dark-side marbling need a texture judged by its ring colours), **Ranger** (its fletching is thin stroked chevrons; the chevron element is a filled arrowhead), **Bard** (notes with Token Maker's own random placement and shapes), **Warlock** (the detailed eyes), **Barbarian** (claw gashes as paired strokes), **Artificer** (gear teeth on the inner edge and its gears), **Druid** and **Knotwork** (their waves are counted to fit the band, where a wavy line has a fixed number of waves). Each needs a new element or option; until then the original is the better choice.
+- **Every frame converts** since Phase 6 (only "No frame" has nothing to convert). The last eight needed new pieces (§4.9): **Stamped** its ring colours as two ring paints and the *Veined marble* texture (`veins`, Token Maker's `stampedTexture`, kept to where Stamped's colours are dark); **Ranger** the *Fletching* element (an open, stroked chevron) in two layers with opposite on/off patterns; **Bard** Token Maker's own note (`bardNote`) with *Wander in and out* and its single/paired choice drawn from the same seeded numbers in Token Maker's order; **Warlock** the detailed eye (`watchEye`) with *Vary the size*; **Barbarian** the *Claw gashes* (`gash`) with *Vary the turn*; **Artificer** the *Gear tooth* (on the inner edge, at 112.5 % across) and the *Cog with a hub*; **Druid** a wavy line whose waves *fit the band* (one per 1.8 band widths), raised, and the *Leaf on a stem* (`sprig`) with an even number of leaves (*multiple of 2*) on alternate sides; **Knotwork** two strands of three fitted wavy lines each.
 
 ### 4.8 Layers on the move: copied, saved and in library files (Phase 5)
 
@@ -216,6 +219,18 @@ Token Maker's see-through colours (`rgba(…, 0.55)`) become a solid colour and 
 - When layers are put into a design every id is renewed (`cloneWithNewIds`), so the same item can be added any number of times.
 
 **Project files can carry a preview** (Export → Project file with a preview): a 256 px see-through PNG as a data URL in a top-level `preview` field, after the layers, for apps that list designs (Token Maker's frame tiles). Reading a file ignores it; it changes nothing else in the format, so the schema version stays 4.
+
+### 4.9 More ornaments, textures and options (Phase 6, schema version 5)
+
+Everything new is off by default, so a version-4 file opens and draws as before (`fixtures/v4/`, saved by Phase 5).
+
+- **Ornaments** (repeat elements, 40 in all): Token Maker's details (fletching, Bard's note, Warlock's eye, claw gashes, gear tooth, cog with a hub, leaf on a stem) and new ones drawn for Frame Studio: heart, crescent moon, flame, fleur-de-lis, shield, sun, snowflake, crown, cut gem, drop, scallop shell, spiral, paw print, feather, Celtic knot, skull, arrow. The new ones are written like SVG paths in a −1…1 box (`render/glyphs.ts`); filled parts are turned to wind the same way, so overlapping parts join instead of cutting holes. Some have a **second colour** (`detail`: an eye's white, a cog's hub, a flame's core, a shield's field…); null works one out from the main colour. Line ornaments (snowflake, spiral, knot, fletching, runes) take their thickness from the outline width.
+- **Shapes** get a fifth kind, **Ornament**: any of the 40, placed on its own (with mirroring, raised, glow) — `element` and `detail` on the shape layer.
+- **Repeats:** `detail`; `multipleOf` (round the number to a multiple, so alternating patterns meet up); **random variation** from the layer's seed — `wander` (in and out, band widths), `sizeVariation`, `rotationVariation` (degrees). Each element takes its random numbers in that order, only for what is switched on (and then a kind for Bard's notes), as Token Maker draws them.
+- **Lines:** `waveLength` (fit the waves to the band: one per this many band widths; 0 keeps `waves`), `waveShape` (smooth, zigzag, scallops, battlements) and `raised` (the small shadow away from the light).
+- **Textures** (19 kinds): Stamped's *veined marble* and nine new ones — brushed metal, basket weave, chainmail, rust, frost, bark, sparkles, crackle glaze, knurled grip — all seeded, scaled to the band and lit by the stage's light where they have a lit side. The library has 22 presets.
+- **Templates:** Moon & stars, Frostbound, Celtic knots, Royal (a crown ornament over fleurs-de-lis and gems) and Grim iron.
+- `npm run showcase -- ornaments|textures|templates|converted out.png` draws them on one sheet (docs/screenshots/22–25).
 
 ## 5. The renderer
 
@@ -319,6 +334,7 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 | 3 | Procedural layers: marble, hammered metal, battle wear, wood grain, stone blocks, scatter (stars), rope, scales, cracks; the colour-around-the-ring paint; per-layer caching; texture library **(done)** |
 | 4 | Converting Token Maker frames into editable layers, with visual comparison tests: 18 frames, starting with Polished and Paladin **(done)** |
 | 5 | Polish and sharing: a personal layer library, copy/paste between projects, touch support, export options, help tips, Token Maker opening `.framestudio.json` files **(done)** |
+| 6 | The last eight conversions; more ornaments, textures and options **(done)**; open-licensed artwork, once the owner has chosen it (§9) |
 
 ## 9. Owner answers and open questions
 
@@ -368,7 +384,13 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 
 **Answered before Phase 5:** "looks the same" is good enough for converted frames (they don't have to be exact copies). The limits in §4.7 stay as they are and the originals stay available beside the editable versions.
 
-**Still open:** none.
+**Decided while building Phase 6** (sensible defaults; say if any should change):
+
+1. **New pieces are drawn by Frame Studio's own code**, like the rest, so they follow the light, scale with the band and stay pixel-identical between preview, export and Token Maker. Nothing was copied in from outside.
+2. **Random variation is seeded**, like textures: the same design always draws the same, and the shuffle button picks another arrangement.
+3. **A cog is flat with a domed hub**, as Token Maker draws it, whatever "Shaded by the light" says (that shades the hub).
+
+**Still open — open-licensed artwork.** Candidates were found and shown to the owner as contact sheets, not imported: 48 ornament glyphs from game-icons.net (CC BY 3.0, credit to each icon's author), 20 photographic surface textures from Poly Haven and ambientCG (CC0), and 16 Hero Patterns (CC BY 4.0, credit to Steve Schoger). Importing glyphs would make them ornaments (as SVG paths, like §4.9's); photographic textures and tiled patterns would need a new image-fill layer, and attribution needs a credits page. Waiting for the owner's choice.
 
 ## 10. Using designs in Token Maker (Phase 5)
 
