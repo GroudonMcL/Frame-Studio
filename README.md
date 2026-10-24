@@ -25,7 +25,7 @@ A visual editor for code-drawn token frames. Start from one of [Token Maker](htt
 - **Help everywhere:** point at (or tap) the **?** beside any setting for a one-sentence tip. A welcome card greets first-time visitors; the **?** button in the top bar brings it back.
 - **Phones and tablets:** on a narrow screen the canvas sits on top and the layers and properties are in a sheet underneath; everything is big enough for a finger, and you can drag shapes with one.
 - **Keyboard:** move through the layers with the arrow keys, and move the selected layer on the canvas with the arrow keys once the canvas has focus. Accessibility is checked automatically (axe).
-- **Ready for Token Maker:** Frame Studio's reader and renderer can be copied into Token Maker (`npm run share:export`), which will let Token Maker open `.framestudio.json` files as frames. The Token Maker side still has to be built there (see `docs/DESIGN.md` §10).
+- **Use your designs in Token Maker:** save a design (`.framestudio.json`) and, in Token Maker, choose **Frame & shape → Frame type → Frame Studio → Open a Frame Studio design**. It follows the token's shape, thickness and spacing and looks exactly as it does here. Token Maker uses a copy of Frame Studio's own reader and renderer (`npm run share:export`, below).
 
 See [`docs/PROGRESS.md`](docs/PROGRESS.md) for what's next and the known limitations.
 

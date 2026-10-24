@@ -15,9 +15,12 @@ export type { FrameProject } from '../project/types';
 export type { ParseResult } from '../project/migrate';
 export { PROJECT_EXTENSION } from '../project/transfer';
 
-/** Reads a design from a file's text (any version Frame Studio has saved; never runs anything in it). */
-export function readFrameDesign(text: string): ParseResult {
-  return parseProject(text);
+/**
+ * Reads a design from a file's text, or from the object a token document
+ * keeps (any version Frame Studio has saved; never runs anything in it).
+ */
+export function readFrameDesign(input: string | object): ParseResult {
+  return parseProject(input);
 }
 
 /** The preview picture saved in the file (Export → Project file with a preview), as a PNG data URL, if there is one. */
