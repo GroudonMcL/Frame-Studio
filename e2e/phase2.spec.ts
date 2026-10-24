@@ -135,7 +135,7 @@ test('done when: a mirrored gem grouped with alternating diamonds follows a hexa
   await page.getByRole('button', { name: 'Add layer' }).click();
   await page.getByRole('menuitem', { name: /^Repeated shapes/ }).click();
   await page.getByLabel('Shape', { exact: true }).selectOption('diamond');
-  await page.getByText('Patterns').click();
+  await page.getByText('Patterns', { exact: true }).click();
   await page.getByRole('group', { name: 'Alternate colours' }).getByRole('button', { name: 'Add' }).click();
 
   // A custom gem, moved a quarter of the way round and mirrored on the other side.
@@ -146,7 +146,7 @@ test('done when: a mirrored gem grouped with alternating diamonds follows a hexa
   await page.getByLabel('Mirror').selectOption('leftRight');
 
   // Group the gem with the diamonds.
-  await page.getByRole('option', { name: /Repeated shapes/ }).click({ modifiers: ['ControlOrMeta'] });
+  await page.getByRole('treeitem', { name: /Repeated shapes/ }).click({ modifiers: ['ControlOrMeta'] });
   await page.getByRole('button', { name: 'Group', exact: true }).click();
   let project = await data(page);
   expect(project.layers).toHaveLength(1);

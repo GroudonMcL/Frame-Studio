@@ -37,9 +37,11 @@ function useThumbnail(key: string, make: () => FrameProject): string | null {
 export function Tile({ id, name, description, badge, make, onPick }: { id: string; name: string; description?: string; badge?: string; make: () => FrameProject; onPick: () => void }) {
   const url = useThumbnail(`${id}|${history.getState().present.stage.shape}`, make);
   return (
-    <button type="button" className="tile" onClick={onPick} title={description} aria-label={badge ? `${name} (${badge.toLowerCase()})` : undefined}>
+    <button type="button" className="tile" onClick={onPick} title={description}>
       {url ? <img src={url} alt="" width={THUMB} height={THUMB} /> : <span className="tile-placeholder" style={{ width: THUMB, height: THUMB }} />}
       <span>{name}</span>
+      {/* Named "Paladin Editable": the visible words, in reading order. */}
+      {badge && ' '}
       {badge && <span className="tile-badge">{badge}</span>}
     </button>
   );

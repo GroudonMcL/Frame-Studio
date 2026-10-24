@@ -66,19 +66,19 @@ test('done when: Polished and Paladin open as editable layer stacks that match t
     await snapshot(page, 'original');
     expect((await data(page)).layers.map((l: { type: string }) => l.type)).toEqual(['legacyFrame']);
 
-    await pick(page, `${name} (editable)`);
+    await pick(page, `${name} Editable`);
     const project = await data(page);
     expect(project.name).toBe(name);
     expect(project.layers.length).toBeGreaterThan(4);
     expect(project.layers.map((l: { type: string }) => l.type)).not.toContain('legacyFrame');
-    await expect(page.getByRole('option', { name: /Outer rim \(lit\)/ })).toBeVisible();
+    await expect(page.getByRole('treeitem', { name: /Outer rim \(lit\)/ })).toBeVisible();
     await snapshot(page, 'editable');
     const d = await compare(page, 'original', 'editable');
     expect(d.mean, `${name}: mean difference`).toBeLessThanOrEqual(limit.mean);
     expect(d.over, `${name}: visibly different pixels (%)`).toBeLessThanOrEqual(limit.over);
   }
   // Every part can be changed: Paladin's crosses, for one.
-  await page.getByRole('option', { name: /Gold crosses/ }).click();
+  await page.getByRole('treeitem', { name: /Gold crosses/ }).click();
   await expect(page.getByRole('combobox', { name: 'Shape', exact: true })).toHaveValue('cross');
 });
 
@@ -87,7 +87,7 @@ test('a Token Maker frame layer turns into editable layers from its Properties, 
   await snapshot(page, 'original');
   await page.getByRole('button', { name: 'Turn into editable layers' }).click();
   await expect(page.getByText('Group', { exact: true })).toBeVisible();
-  await expect(page.getByRole('option', { name: /Gold crosses/ })).toBeVisible();
+  await expect(page.getByRole('treeitem', { name: /Gold crosses/ })).toBeVisible();
   const layers = (await data(page)).layers;
   expect(layers).toHaveLength(1);
   expect(layers[0]).toMatchObject({ type: 'group', name: 'Paladin' });
@@ -115,5 +115,5 @@ test('the template picker marks converted frames as editable and keeps every ori
   await expect(editable.locator('.tile img')).toHaveCount(18);
   await expect(editable.getByText('Editable').first()).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Stamped', exact: true })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Stamped (editable)' })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Stamped Editable' })).toHaveCount(0);
 });

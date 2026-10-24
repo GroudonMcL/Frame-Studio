@@ -64,10 +64,29 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Visual comparison tests: each conversion drawn beside the original on every shape (Polished and Paladin also at three sizes and two thicknesses), with a limit per frame on the mean difference and the share of visibly different pixels; `npm run compare-conversions` draws them side by side
   - [x] Tests: 427 unit tests (128 new: the conversions and their limits, colours, ids, groups, the light, the new paints and repeat options, the migration and v3 fixtures, the panels) and 34 Playwright runs (17 flows × 2 desktop sizes, 3 new: the "done when" flow, converting from Properties with the light and undo, the template picker)
   - **Done when:** Polished and Paladin open as editable layer stacks that match the originals within the agreed limit ✔ (Playwright "done when" test, measured on the real preview; Polished is the same picture to within rounding, Paladin looks the same with its crosses shaded a little differently, see DESIGN.md §4.7)
-  - **Question for the owner:** is "looks the same" good enough for converted frames, or should some ornaments be copied exactly (they would then not follow the light)? Default until answered: "looks the same", with the originals still available.
-- [ ] **Phase 5 — Polish, library and sharing**
+  - **Owner's answer (before Phase 5):** "looks the same" is good enough for converted frames.
+- [ ] **Phase 5 — Polish, library and sharing** (Frame Studio side done; the Token Maker side is waiting for access to token-maker's repository)
+  - [x] Personal layer library: Add to library (any layer, group or several), Your library with live thumbnails, add to any design (new ids, one undo step), rename, remove, export one or all as a library file, import library, layers or project files; kept in IndexedDB and migrated like project files
+  - [x] Copy, cut and paste layers (Ctrl+C/X/V, Copy button, Add layer → Paste layers) within a project, between projects and between tabs: the system clipboard as text, plus a shared copy in localStorage
+  - [x] Phone and touch layout: canvas on top, panels in a bottom sheet with Layers / Properties tabs, 44 px targets on touch screens, finger-friendly handles, no page scrolling while dragging
+  - [x] Keyboard access: the layer list is a tree (arrows, Home/End, Shift, →/← to fold, Space/Enter, F2, Alt+arrows), menus and radio groups move with the arrows and close with Escape, the canvas moves the selected layer with the arrow keys
+  - [x] axe accessibility checks (WCAG 2.1 A/AA and best practice) on the editor, menus, dialogs and the welcome card, on desktop and on a phone; fixed what they found (the layer list's roles, template tile names)
+  - [x] Export: transparent PNG at any size (16–4096 px), a sheet of the design on every shape, and the project file with a preview picture embedded
+  - [x] A help tip for every control (one plain sentence, shown by a "?" and read as the control's description), checked by a test; a first-time welcome card, and Help to see it again
+  - [x] Token Maker sharing, Frame Studio side: `src/share/frameDesign.ts` (`readFrameDesign`, `drawFrameDesign` on Token Maker's band, `previewOf`), the renderer's `band` and `clear` options, `npm run share:export` / `share:check` (copy with a manifest into token-maker's `src/frameStudio/`), tests that the copy stands on its own and that a design draws the same picture on Token Maker's band as in Frame Studio
+  - [ ] Token Maker side (in token-maker): run the export, the "design" frame kind, Open a Frame Studio design…, keep designs in IndexedDB and shared presets, draw them in its renderer, a test that a design looks the same in both apps (DESIGN.md §10 lists the steps)
+  - [x] Tests: 478 unit tests (51 new: the layers and library formats, the library store, copy/cut/paste, help tips on every control, the welcome card, keyboard access, the library dialog, the share module and the bundle) and 50 Playwright runs (27 flows: 23 × 2 desktop sizes and 4 on a phone; new: the "done when" flow, copy and paste between tabs, exports, the keyboard, axe, the welcome card, and on a phone the layout and target sizes, a finger drag, library and paste, axe)
+  - **Done when:** a design made in Frame Studio can be saved to the library, reused in another design, and opened as a frame in Token Maker from its .framestudio.json file. *Library and reuse ✔ (Playwright "done when" test). Opening in Token Maker: the file is read and drawn on a Token Maker band with the code Token Maker will use, and matches the editor's export (mean difference 0.22/255) ✔; Token Maker itself can't open it until its side is built.*
 
-## Known limitations after Phase 4
+## Known limitations after Phase 5
+
+- Token Maker can't open designs yet: its side (DESIGN.md §10) needs access to the token-maker repository.
+- The library and the shared copy for pasting live in this browser only (move the library with Export all / Import).
+- On a phone, layers are reordered with the arrow buttons (dragging rows in the list needs a mouse), and there is still no zoom, so small shapes on a thin band are fiddly; the numeric values in Advanced help.
+- Pasting with the Paste layers menu item asks the browser for the clipboard; if it says no, the layers last copied in a Frame Studio tab are used.
+- Still from Phase 4: eight Token Maker frames can't be converted; converted frames' colours don't follow a later change of the band's colour.
+
+## Known limitations after Phase 4 (for the record)
 
 - Eight Token Maker frames can't be converted yet (Stamped, Ranger, Bard, Warlock, Barbarian, Artificer, Druid, Knotwork); they stay one layer, lit from the top left.
 - Converted frames look like the originals but aren't identical in fine detail, mostly their ornaments (DESIGN.md §4.7 lists each). Paladin's crosses are lit from the stage's light; Cleric's rays can be one or two more or fewer.

@@ -355,8 +355,12 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
   }
 }
 
-/** The text of a project file. Unsupported layers are written back as they came. */
-export function serializeProject(project: FrameProject): string {
+/**
+ * The text of a project file. Unsupported layers are written back as they
+ * came. `preview` (a PNG data URL) is written after the layers for other apps
+ * to show (Token Maker's frame tiles); reading a file ignores it.
+ */
+export function serializeProject(project: FrameProject, extra: { preview?: string } = {}): string {
   const write = (l: Layer): unknown => {
     if (l.type === 'group') return { ...l, children: l.children.map(write) };
     if (l.type !== 'unsupported') return l;
@@ -364,5 +368,5 @@ export function serializeProject(project: FrameProject): string {
     const { originalType, data, reason: _r, type: _t, clip: _c, ...common } = l;
     return { ...data, ...common, type: originalType };
   };
-  return JSON.stringify({ ...project, layers: project.layers.map(write) }, null, 2) + '\n';
+  return JSON.stringify({ ...project, layers: project.layers.map(write), ...extra }, null, 2) + '\n';
 }

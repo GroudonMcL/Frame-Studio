@@ -54,7 +54,7 @@ test('the texture library shows every texture with a picture and adds one', asyn
   const layers = (await data(page)).layers;
   expect(layers.map((l: { type: string }) => l.type)).toEqual(['bandFill', 'texture']);
   expect(layers[1]).toMatchObject({ kind: 'wood', from: 0, to: 1 });
-  await expect(page.getByRole('option', { name: /Wood grain/ }).first()).toBeVisible();
+  await expect(page.getByRole('treeitem', { name: /Wood grain/ }).first()).toBeVisible();
 });
 
 test('texture settings change the picture and are one undo step each', async ({ page }) => {
@@ -86,13 +86,13 @@ test('done when: marble, hammered metal and stars render the same in the preview
   await expect.poll(() => drawn(page)).toBe('1');
   await expect(page.getByTestId('preview')).toHaveAttribute('data-reused', '3');
   // Fading a layer redraws nothing at all.
-  await page.getByRole('listbox', { name: /Layers/ }).getByRole('option', { name: /Marble Texture/ }).click();
+  await page.getByRole('tree', { name: /Layers/ }).getByRole('treeitem', { name: /Marble Texture/ }).click();
   await setValue(page, 'Opacity', '80');
   await expect.poll(() => drawn(page)).toBe('0');
 
   // The exported picture, scaled to the preview's size, matches the preview.
-  await page.getByRole('button', { name: 'Export PNG' }).click();
-  await page.getByRole('dialog', { name: 'Export PNG' }).getByLabel('Size').selectOption('1024');
+  await page.getByRole('button', { name: 'Export' }).click();
+  await page.getByRole('dialog', { name: 'Export' }).getByLabel('Picture size').selectOption('1024');
   const exporting = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download' }).click();
   const png = readFileSync(await (await exporting).path()).toString('base64');
