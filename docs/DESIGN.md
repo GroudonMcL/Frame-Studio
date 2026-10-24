@@ -31,6 +31,7 @@ Behind the visual editing, a design is **structured data** (a `FrameProject`), n
 | Light direction? *(after Phase 1)* | Add a **light-direction control**, defaulting to the **top left** (225°, Token Maker's light). Built in Phase 2 (§5.1). |
 | How do designs reach Token Maker? *(after Phase 1)* | Token Maker **opens `.framestudio.json` project files** directly, so designs stay editable and scale cleanly. Planned for Phase 5 (§8). |
 | Free shapes and paths: tied to the band or placed freely? *(after Phase 1)* | **Adaptable by default**: placed at a point round the band (angle + across), so they still fit every shape and thickness. Placing freely stays available as an option. Built in Phase 2 (§4.4). |
+| Procedural textures? *(Phase 3 prompt)* | Nine **texture layers** re-implementing Token Maker's textures, each identical to the original at its default settings; a colour-round-the-ring paint; per-layer caching. Built in Phase 3 (§4.6, §5.3). |
 
 ## 3. Tech stack
 
@@ -44,14 +45,14 @@ Same as Token Maker, so code and habits carry over: TypeScript, React 19 + Vite,
 
 ## 4. The project format
 
-### 4.1 FrameProject (schema version 2)
+### 4.1 FrameProject (schema version 3)
 
 Defined in `src/project/types.ts`; defaults in `src/project/defaults.ts`; reading and checking in `src/project/migrate.ts`; finding layers anywhere in the tree in `src/project/tree.ts`.
 
 ```ts
 interface FrameProject {
   format: 'frame-studio-project';
-  schemaVersion: 2;
+  schemaVersion: 3;
   name: string;
   stage: { shape; thickness; outerSpacing; showArt; backingColor;     // how it's previewed, not the look
            light };                                                   // where the light comes from (§5.1)
@@ -68,6 +69,8 @@ type Layer =
       at; size; stretch; rotation; offset; fill; outline | null; outlineWidth;
       raised; glow | null; accentEvery; accentScale; accentColor | null; seed;
       altColors; altSizes; skipAroundAccent; alternateSides }          // patterns (Phase 2)
+  | { type: 'texture'; kind; from; to; color; color2 | null;           // a procedural surface (§4.6, Phase 3)
+      amount; scale; strength; where; seed }
   | { type: 'shape'; ...Placement; ...PlacedStyle;                     // one circle / rectangle / polygon / star
       shape; sides; innerRatio; corner }
   | { type: 'path'; ...Placement; ...PlacedStyle; points; closed }     // a drawn shape (§4.5)
@@ -81,7 +84,10 @@ type Paint =
   | { kind: 'lit'; color; light; dark; pressed }    // token-maker's metal lighting (litTables), turned to stage.light
   | { kind: 'linear'; angle; stops }                // across the token
   | { kind: 'acrossBand'; stops }                   // outer edge → inner edge
+  | { kind: 'ring'; stops: { angle; color }[]; followLight }  // colours round the ring (Phase 3)
 ```
+
+The **ring paint** blends between colour stops at angles round the token (0° right, 90° below), one colour per degree, drawn as thin wedges like the lit paint (`ringTable`, `angularFill` in `render/paint.ts`). It is how Stamped's hand-sampled colour tables can be expressed. With `followLight` (the default) the colours are for a light at the top left and turn with `stage.light`. On lines, the line is stroked on its own canvas and recoloured (`recolourRound`).
 
 Elements for `repeat`: bead (shaded sphere), circle, diamond, square, triangle, star, cross, rune, leaf, spike, and (Phase 2) chevron, tick mark, gear, eye (iris in the element's colour), music note (single or paired, varied by the seed) and claw marks.
 
@@ -110,6 +116,8 @@ These are the conventions of token-maker's `frameKit.ts` (`alongBand(g, count, a
 - A layer kind this version doesn't know becomes an `unsupported` layer: kept exactly, saved back exactly, shown with a warning, not drawn. Nothing is silently dropped. This works inside groups too.
 - Duplicate layer ids (anywhere in the tree) get fresh ones. Groups can nest up to 8 deep.
 - **Version 1 → 2** (`MIGRATIONS[1]`): adds `stage.light = 225` and, on every layer, `clip: 'none'`; lines get no wave, repeats get no patterns. A test (`src/project/fixtures.test.ts`) opens real version-1 files saved by Phase 1 (`src/project/fixtures/v1/`) and checks that they draw pixel for pixel as Phase 1 drew them.
+- **Version 2 → 3** (`MIGRATIONS[2]`): only adds things (texture layers, the ring paint), so nothing changes. Version-2 files saved by Phase 2 are in `src/project/fixtures/v2/`.
+- Fixture files must draw as their version drew them (their `.png` beside them). Since Phase 3 every layer is drawn on its own canvas and composited (§5.3), which changes the rounding of a few nearly transparent edge pixels by a few 255ths; the test allows at most 8/255 in any premultiplied channel and a mean under 0.5/255, which is invisible. A single layer on its own (for example a Token Maker frame against `drawFrame`) is still pixel for pixel.
 - Nothing in a file is ever run as code.
 
 ### 4.4 Shapes and paths: placed on the band or freely (owner's answer 3)
@@ -127,13 +135,35 @@ The transforms are in `render/placed.ts` (`placement`, `placements`, `toCanvas`,
 
 A path's points are in its own units: x along (right), y in (down), where 1 is half the layer's height. A point has an optional `handle`: the curve's control point leaving it, relative to it; the one arriving is its mirror image, so a point is either **sharp** (no handle) or **smooth** (a symmetrical curve). That covers gems, leaves, blades and flourishes while staying easy to edit; separate in/out handles can be added later without breaking files (a second optional field). A path is filled only when `closed`; open paths show their outline.
 
+### 4.6 Texture layers (Phase 3)
+
+A texture layer draws a procedural surface over the band between `from` and `to` (across positions, as a band fill), clipped to that part of the band. It is drawn over the layers below it, like token-maker's textures over the band colour. Kinds (`render/textures.ts`), each a re-implementation of the token-maker code it is named after:
+
+| Kind | Token Maker original | Lit by the stage light |
+|---|---|---|
+| `marble` | `marble` (Stamped-like marbling and flecks; 9 frames) | which side it keeps to |
+| `hammered` | `hammerTexture` (Fighter, Magma, Cobblestone, Barbarian, Rogue) | bright flecks on the lit side |
+| `wear` | `battleWear` (Fighter, Barbarian) | dents and scratch edges |
+| `wood` | Oak's grain and knots (Oak, Druid) | – |
+| `stone` | Cobblestone's blocks, mortar and pitting | the pitting |
+| `scatter` | Starfield's haze and stars | – |
+| `rope` | `ropeStrands` (Monk) | the strands' shading |
+| `scales` | `drawScales` (Sorcerer) | – (lit from the outer edge, as the original) |
+| `cracks` | Magma's glowing cracks | – |
+
+- `color` is the colour the marks are made from (lighter and darker shades of it), so it should match the band underneath; for `scatter` it is the stars' colour and `color2` the haze (or none); for `cracks` it is the glow.
+- `amount` (how many), `scale` (how big) and `strength` (how strongly they show) are all relative: **1 is what Token Maker draws**. `seed` picks the variation (`seededRandom`, so preview and export match).
+- `where`: everywhere, mostly on the shaded side, or mostly on the lit side, following `stage.light`. Marble does it as the original does (marbling is left out where the band, lit the usual way in the texture's colour, is light); the others are faded towards that side.
+- Every painter, at its default numbers and the original's seed, is **pixel for pixel** the original: `render/textures.test.ts` calls the finishes' own texture functions (`FINISHES.gilded.texture` etc.) and compares, on three shapes. The engine is not edited and its unexported functions are not imported.
+- The **texture library** (`TEXTURES` in `project/defaults.ts`; Add layer → Texture…) offers 11 presets with live thumbnails, optionally with a matching band fill under them.
+
 ## 5. The renderer
 
 `renderProject(ctx, project, size, { art })` in `src/render/renderProject.ts` draws the preview, the template thumbnails, the PNG export and the test images. One renderer, so the export always matches the preview.
 
 1. Clip to the square; origin at the centre.
 2. If `stage.showArt`: the backing colour and the sample picture inside the band's middle (where token-maker's art runs to).
-3. Layers, bottom first (`drawStack`). A layer with opacity < 100 %, a blend mode other than Normal or a clip to the layer below is drawn on its own canvas first and then composited, so its opacity is even where its parts overlap. A group draws its own layers as a stack in the same way.
+3. Layers, bottom first (`drawStack`). Every layer is drawn on its own canvas (its *picture*, kept in the cache, §5.3) and then composited with its opacity and blend mode, so its opacity is even where its parts overlap. A group at full opacity and Normal blend passes its layers straight through; otherwise it is drawn on its own canvas from its layers' pictures and composited the same way.
 
 Painters per type are in `src/render/layers.ts` (shapes and paths in `src/render/placed.ts`). The legacy layer calls token-maker's `drawFrame` with exactly the geometry token-maker would use; a test checks every frame is pixel-identical to a direct `drawFrame` call.
 
@@ -155,19 +185,30 @@ At 225° every one of these returns exactly the engine's own values, so version-
 - **Clip to the band** draws the layer (or group) only between the band's outer and inner edges.
 - **Clip to the layer below** works like a clipping mask: the layer shows only where the nearest layer below it that isn't itself clipped has paint. If that layer is hidden, so is the clipped one; with nothing below, nothing shows.
 
-**Later:** cache each layer's canvas by its settings and size (as token-maker caches frames) when designs get heavy (Phase 3). Clipping to the layer below currently draws that layer a second time for the mask.
+### 5.3 The layer cache (Phase 3)
+
+`render/layerCache.ts` keeps each layer's picture between renders, keyed by everything that changes how it looks: its settings (not its id, name, visibility, lock, opacity or blend mode), the stage's shape, thickness, spacing and light, and the size. So:
+
+- editing one layer redraws only that layer; changing opacity, blend, name, visibility or lock redraws nothing; changing the stage or the size redraws everything once;
+- a layer clipped to the one below uses that layer's cached picture as its mask (it used to draw it a second time);
+- one picture is kept per layer and size (a replaced picture is let go at once), with a budget of 32 million pixels (about 128 MB), least recently used first;
+- renders over 2048 px are never cached (as token-maker); they still draw each layer on its own canvas, so a cached and an uncached render are **exactly** the same (tested);
+- `renderStats` says how many layers the last render drew and reused; the preview canvas shows them as `data-drawn` / `data-reused` (used by the end-to-end tests).
+
+Budget (tested): a 10-layer textured design draws at 512 px in about 140 ms from scratch and about 20 ms after editing one layer, on the test machine.
 
 ## 6. The editor
 
 `src/App.tsx` + `src/ui/`. Desktop layout (min 960 px wide):
 
 - **Top bar:** name (click to rename), New (template picker), Open, Save (`.framestudio.json`), Export PNG (256–2048 px, with or without the sample picture), Undo/Redo, **Basic / Advanced** switch.
-- **Layers panel (left):** top of the stack first; a group's layers sit indented under it and the group folds open and shut. Click to select; **Ctrl+click** adds a layer to the selection and **Shift+click** selects a run; eye = show/hide; padlock = lock; double-click or F2 to rename; drag, Alt+↑/↓ or the arrow buttons to reorder (at the top or bottom of a group, moving steps out of it; dropping on the lower half of a group's row puts the layer in it); **Group** (Ctrl+G) puts the selected layers in a new group where the top-most of them was; **Ungroup** (Ctrl+Shift+G); Duplicate (Ctrl+D, a group with everything in it); Delete (Del). **Add layer** offers Band fill, Line, Repeated shapes, Shape, Path, Group and Token Maker frame….
+- **Layers panel (left):** top of the stack first; a group's layers sit indented under it and the group folds open and shut. Click to select; **Ctrl+click** adds a layer to the selection and **Shift+click** selects a run; eye = show/hide; padlock = lock; double-click or F2 to rename; drag, Alt+↑/↓ or the arrow buttons to reorder (at the top or bottom of a group, moving steps out of it; dropping on the lower half of a group's row puts the layer in it); **Group** (Ctrl+G) puts the selected layers in a new group where the top-most of them was; **Ungroup** (Ctrl+Shift+G); Duplicate (Ctrl+D, a group with everything in it); Delete (Del). **Add layer** offers Band fill, Line, Repeated shapes, Shape, Path, Group, **Texture…** (the texture library) and Token Maker frame….
 - **Canvas (middle):** live preview on a checkerboard. Click picks the top-most layer under the pointer (inside groups too). Dragging a line, band fill or repeat moves it across the band; dragging a repeat round the token slides its elements along. Dragging a shape or path moves it (round the band, or anywhere when placed freely). A selected shape or path shows its box, a **square resize handle** (bottom right) and a **round turn handle** beyond the box (Shift snaps to 15°); the turn handle moves to the inner side when the outer side would be off the picture. A drag is one undo step. Below it: token shape, band thickness, the **light dial**, show sample picture (Advanced: outer spacing, backing colour).
 - **Drawing a path:** Add layer → Path starts drawing. Each click adds a point (the first click places the path on the band); click the first point or press Enter to finish (the path is then closed), Escape to stop without closing. When drawing ends the path's anchor moves to the middle of what was drawn, so it turns and resizes about its centre. **Edit points** (Properties) shows the points (squares) and curve handles (circles): drag them; double-click a point to make it smooth or sharp; Delete removes the chosen point; **Add points** carries on drawing.
 - **Light dial:** drag the sun round, or focus it and use the arrow keys (Shift = 15° steps); the reset button returns it to the top left.
-- **Properties panel (right):** controls for the selected layer's type. Basic shows the common ones (for repeats, a **Patterns** section: alternate colours and sizes, alternate sides; for lines, **Wavy**; for shapes and paths: fill, shading, outline, mirror, raised, **Place freely**). Advanced adds opacity, blend mode, **clip**, outline, glow, "bigger one every…" and "leave gaps beside the bigger ones", rune/note pattern, gradient stop positions, highlight/shade amounts, the **numeric position, size, stretch and rotation** of shapes and paths, and **Project data** (the JSON, editable and checked like an opened file).
-- **Template picker:** Blank, designs built from editable layers ("Brass & beads", "Glowing runes", "Jewelled"), and the 27 Token Maker frames with live thumbnails. Also used to add a Token Maker frame as a layer.
+- **Properties panel (right):** controls for the selected layer's type. Basic shows the common ones (for repeats, a **Patterns** section: alternate colours and sizes, alternate sides; for lines, **Wavy**; for shapes and paths: fill, shading, outline, mirror, raised, **Place freely**; for textures: kind, colour(s), how many, size, strength, where, variation with a shuffle button, start and end across the band; for the ring paint: a ring preview and each colour with its angle, "Turn with the light"). Advanced adds opacity, blend mode, **clip**, outline, glow, "bigger one every…" and "leave gaps beside the bigger ones", rune/note pattern, gradient stop positions, highlight/shade amounts, the **numeric position, size, stretch and rotation** of shapes and paths, and **Project data** (the JSON, editable and checked like an opened file).
+- **Template picker:** Blank, designs built from editable layers ("Brass & beads", "Glowing runes", "Jewelled", and from Phase 3 "Battle-worn steel" and "Night sky"), and the 27 Token Maker frames with live thumbnails. Also used to add a Token Maker frame as a layer.
+- **Texture library:** the 11 texture presets as tiles drawn by the renderer on a thick band; "Also add a matching band colour under it" (on by default when the project is empty) adds a lit band fill and the texture as one undo step.
 
 Undo/redo works on the structured project (token-maker's `history.ts`): every edit is one step; a slider, colour-picker, handle or point drag is one step. Loading a project starts a fresh history.
 
@@ -193,7 +234,7 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 |---|---|
 | 1 | Foundation: templates, the format, the first layer types, layers panel, properties, undo, save/open, PNG, autosave **(done)** |
 | 2 | Drawing tools: shapes and editable paths (adaptable by default, free placement optional), groups, clipping, transforms, mirroring, more elements, alternating patterns, wavy lines, direct handles on the canvas; the light-direction control **(done)** |
-| 3 | Procedural layers: marble, hammered metal, battle wear, wood grain, stone blocks, scatter (stars), rope, scales; the colour-around-the-ring paint; per-layer caching |
+| 3 | Procedural layers: marble, hammered metal, battle wear, wood grain, stone blocks, scatter (stars), rope, scales, cracks; the colour-around-the-ring paint; per-layer caching; texture library **(done)** |
 | 4 | Converting Token Maker frames into editable layers, starting with Polished (simple) and Paladin or Arcane (intricate), with visual comparison tests |
 | 5 | Polish and sharing: a personal layer library, copy/paste between projects, touch support, Token Maker opening `.framestudio.json` files |
 
@@ -218,6 +259,15 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 2. **Clipping** is per layer: to the band, or to the layer below (like a Photoshop clipping mask).
 3. **Path points are sharp or smooth** (one symmetrical handle). Separate in/out handles can come later without breaking files.
 4. **Free placement** measures position and size in fractions of the token's half-size (the same unit as the stage's thickness).
+
+**Decided while building Phase 3** (sensible defaults; say if any should change):
+
+1. **Textures are re-implemented, not imported.** The engine's texture functions aren't exported and can't be edited, so `render/textures.ts` re-implements them; a test proves each is pixel for pixel the original at its defaults, so Phase 4 conversions can match exactly.
+2. **"1 = Token Maker"** for amount, size and strength, so numbers read the same across kinds. Hammered metal's 100 % is Magma's density; Fighter's is 50 %.
+3. **Textures follow the light** where the original is lit (hammered, wear, stone pitting, rope, marble's side). At the top left they are identical to Token Maker.
+4. **"Where" for textures other than marble fades them** towards one side, rather than leaving marks out, so the arrangement doesn't change when switching.
+5. **The ring paint turns with the light by default**, since Stamped's colours are lighting; it can be switched off for decorative colour rings.
+6. **Every layer is cached**, not only heavy ones, so editing any layer redraws only it. The cost is a few 255ths of rounding in old designs' edge pixels (§4.3).
 
 **Still open**, with the default used until answered:
 

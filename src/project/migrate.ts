@@ -5,7 +5,7 @@
 
 import { FRAME_STYLES, SHAPES } from '../engine/legacy/catalog';
 import { isValidHex } from '../engine/legacy/color';
-import { DEFAULT_STAGE, NEW_LAYER, newId } from './defaults';
+import { DEFAULT_STAGE, NEW_LAYER, newId, textureLayer } from './defaults';
 import {
   BLEND_MODES,
   CLIP_MODES,
@@ -15,6 +15,8 @@ import {
   PROJECT_FORMAT,
   SCHEMA_VERSION,
   SHAPE_KINDS,
+  TEXTURE_KINDS,
+  TEXTURE_PLACES,
   type FrameProject,
   type GradientStop,
   type Layer,
@@ -47,6 +49,8 @@ const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
     stage: { ...(isObj(p.stage) ? p.stage : {}), light: DEFAULT_LIGHT },
     layers: Array.isArray(p.layers) ? p.layers.map(addPhase2Fields) : p.layers,
   }),
+  // Version 2 → 3 (Phase 3) only adds things (texture layers, the ring paint), so nothing changes.
+  2: (p) => ({ ...p, schemaVersion: 3 }),
 };
 
 export function parseProject(input: unknown): ParseResult {
@@ -130,7 +134,7 @@ function checkStops(v: unknown, fallback: GradientStop[]): GradientStop[] {
 function checkPaint(v: unknown, fallback: Paint): Paint {
   const o = isObj(v) ? v : {};
   const fbColor = 'color' in fallback ? fallback.color : '#ffffff';
-  const fbStops = 'stops' in fallback ? fallback.stops : [{ at: 0, color: '#ffffff' }, { at: 1, color: '#000000' }];
+  const fbStops = fallback.kind === 'linear' || fallback.kind === 'acrossBand' ? fallback.stops : [{ at: 0, color: '#ffffff' }, { at: 1, color: '#000000' }];
   switch (o.kind) {
     case 'solid':
       return { kind: 'solid', color: hex(o.color, fbColor) };
@@ -140,6 +144,17 @@ function checkPaint(v: unknown, fallback: Paint): Paint {
       return { kind: 'linear', angle: num(o.angle, 45, -360, 360), stops: checkStops(o.stops, fbStops) };
     case 'acrossBand':
       return { kind: 'acrossBand', stops: checkStops(o.stops, fbStops) };
+    case 'ring': {
+      const stops = Array.isArray(o.stops)
+        ? o.stops
+            .filter(isObj)
+            .slice(0, 36)
+            .map((s) => ({ angle: Math.round(((num(s.angle, 0, -720, 720) % 360) + 360) % 360 * 10) / 10, color: hex(s.color, '#ffffff') }))
+            .sort((a, b) => a.angle - b.angle)
+        : [];
+      if (stops.length < 2) return fallback;
+      return { kind: 'ring', stops, followLight: bool(o.followLight, true) };
+    }
     default:
       return fallback;
   }
@@ -257,6 +272,24 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
     }
     case 'group':
       return { ...common, type, children: checkLayers(o.children, warnings, ids, depth + 1), collapsed: bool(o.collapsed, false) };
+    case 'texture': {
+      const kind = oneOf(o.kind, TEXTURE_KINDS, 'marble');
+      const d = textureLayer(kind);
+      return {
+        ...common,
+        type,
+        kind,
+        from: num(o.from, d.from, -0.5, 1.5),
+        to: num(o.to, d.to, -0.5, 1.5),
+        color: hex(o.color, d.color),
+        color2: hexOrNull(o.color2, d.color2),
+        amount: num(o.amount, d.amount, 0, 4),
+        scale: num(o.scale, d.scale, 0.1, 4),
+        strength: num(o.strength, d.strength, 0, 3),
+        where: oneOf(o.where, TEXTURE_PLACES, d.where),
+        seed: Math.round(num(o.seed, d.seed, 0, 0xffffffff)),
+      };
+    }
     default: {
       const d = NEW_LAYER.repeat();
       if (d.type !== 'repeat') throw new Error('unreachable');

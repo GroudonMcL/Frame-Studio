@@ -42,11 +42,30 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] New layered template "Jewelled" (a vine, alternating diamonds and a mirrored pair of drawn gems in a group)
   - [x] Tests: 185 unit tests (78 new: shapes, paths, placement on every shape and thickness, free placement, mirroring, transform maths, handles, groups, clipping, wavy lines, patterns, new elements, the light, the migration and v1 fixtures, the store's group actions, panels) and 22 Playwright runs (11 flows × 2 desktop sizes, 4 new: drawing and editing a path, handles, the "done when" flow, the light dial)
   - **Done when:** draw a custom gem shape, mirror it on both sides of the token, group it with a ring of alternating diamonds, switch the token to a hexagon and see it all follow the band, and move the light to the bottom right ✔ (Playwright "done when" test)
-- [ ] **Phase 3 — Procedural layers**
+- [x] **Phase 3 — Procedural layers**
+  - [x] Texture layer with nine kinds: marble, hammered metal, battle wear, wood grain, stone blocks, scatter (stars and haze), rope, scales, glowing cracks; colour, amount, size, strength, seed, start/end across the band, and "where" (everywhere / shaded side / lit side, following the light)
+  - [x] Each painter re-implements Token Maker's texture and is pixel for pixel the original at its defaults (checked against the finishes' own texture functions on three shapes); lit textures turn with the light dial
+  - [x] "Colours round the ring" paint (stops by angle, optionally turning with the light) for band fills and lines; starts from the metal lighting when switched to
+  - [x] Per-layer cache: editing one layer redraws only that layer; opacity, blend, hiding, renaming and locking redraw nothing; clip-to-below masks reuse the cache; exports over 2048 px are not cached and cached/uncached renders are identical
+  - [x] Texture library in Add layer → Texture… with live thumbnails (11 presets), optionally with a matching band underneath (one undo step)
+  - [x] New layered templates "Battle-worn steel" and "Night sky"
+  - [x] Schema version 3 with a migration from version 2; version-2 fixture files saved by Phase 2, which open and draw as before (version-1 ones too)
+  - [x] Tests: 299 unit tests (114 new: painters against the originals, every kind on every shape, seeds, sizes, amount/size/strength, the light and "where", the ring paint, the cache, the performance budget, the format, panels and the library) and 28 Playwright runs (14 flows × 2 desktop sizes, 3 new: the library, texture settings and undo, the "done when" flow)
+  - **Done when:** a design with marble, hammered metal and stars renders the same in the preview and the export, and editing one layer doesn't redraw the others ✔ (Playwright "done when" test: the exported PNG scaled to the preview differs by about 1/255 on average; after editing the stars the preview drew 1 layer and reused 3)
 - [ ] **Phase 4 — Converting Token Maker frames**
 - [ ] **Phase 5 — Polish, library and sharing**
 
-## Known limitations after Phase 2
+## Known limitations after Phase 3
+
+- Token Maker frames are still one layer each, lit from the top left (Phase 4 converts them, now that every texture exists as a layer).
+- Old designs draw as before to within rounding: a few nearly transparent edge pixels can differ by a few 255ths, because every layer is now drawn on its own canvas so it can be cached.
+- The cache keeps up to about 128 MB of layer pictures; very large designs at a big preview size will redraw some layers.
+- "Where" (shaded/lit side) fades textures by the angle from the centre, which is close to, but not exactly, how the band's lighting falls on square and hexagon tokens.
+- Scales are always lit from the outer edge, as in Token Maker.
+- Picking on the canvas treats a texture like a band fill: clicking anywhere in its part of the band picks it, even between its marks.
+- Still from Phase 2: desktop only; no drop indicator line when dragging layers; path points sharp or smooth only; no zoom; small kinks in wavy lines at square and hexagon corners; groups can't be moved as a whole on the canvas.
+
+## Known limitations after Phase 2 (for the record)
 
 - Token Maker frames are one layer each: only their colour and highlights colour can be changed, and they stay lit from the top left when the light is moved (Phase 4 converts them).
 - No procedural textures as layers yet (Phase 3).

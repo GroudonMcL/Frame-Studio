@@ -5,14 +5,22 @@
 import { clipToBand, tracePolygon } from '../engine/legacy/frameKit';
 import { boundingBox, shapePolygon } from '../engine/legacy/shapes';
 import type { RenderSource } from '../engine/legacy/render';
-import type { FrameProject, Layer } from '../project/types';
+import type { FrameProject, Layer, StageSettings } from '../project/types';
 import { bandGeometry } from './band';
-import { context2d, newCanvas, type Ctx } from './canvas';
+import { context2d, newCanvas, type CanvasLike, type Ctx } from './canvas';
+import { cachedLayer, layerKey, MAX_CACHED_SIZE, renderStats } from './layerCache';
 import { drawLayer, type RenderEnv } from './layers';
 
 export interface RenderOptions {
   /** Draw the backing and this picture inside the frame (the stage's "show art"). */
   art?: RenderSource | null;
+  /** Reuse each layer's picture from earlier renders (default); renders over 2048 px never do. */
+  cache?: boolean;
+}
+
+interface StackEnv extends RenderEnv {
+  stage: StageSettings;
+  cache: boolean;
 }
 
 /** Paints the project into a `size`×`size` area starting at the context's origin. */
@@ -46,61 +54,72 @@ export function renderProject(ctx: Ctx, project: FrameProject, size: number, opt
     ctx.restore();
   }
 
-  drawStack(ctx, project.layers, { g, light: project.stage.light, size });
-  ctx.restore();
-}
-
-/** A layer on its own, with its band clip; a group draws its children as a stack. */
-function drawOne(ctx: Ctx, layer: Layer, env: RenderEnv): void {
-  ctx.save();
-  if (layer.clip === 'band') clipToBand(ctx, env.g);
-  if (layer.type === 'group') drawStack(ctx, layer.children, env);
-  else drawLayer(ctx, layer, env);
+  renderStats.drawn = 0;
+  renderStats.reused = 0;
+  const cache = options.cache !== false && size <= MAX_CACHED_SIZE;
+  drawStack(ctx, project.layers, { g, light: project.stage.light, size, stage: project.stage, cache });
   ctx.restore();
 }
 
 /** A blank canvas the size of the picture, with its origin at the centre. */
-function scratch(env: RenderEnv): { canvas: ReturnType<typeof newCanvas>; ctx: Ctx } {
-  const canvas = newCanvas(env.size, env.size);
+function scratch(size: number): { canvas: CanvasLike; ctx: Ctx } {
+  const canvas = newCanvas(size, size);
   const ctx = context2d(canvas);
-  ctx.translate(env.size / 2, env.size / 2);
+  ctx.translate(size / 2, size / 2);
   return { canvas, ctx };
 }
 
+/** Draws a picture made by `picture` (a full-size canvas) at the origin of a centred context. */
+function put(ctx: Ctx, canvas: CanvasLike, size: number): void {
+  ctx.drawImage(canvas as CanvasImageSource, -size / 2, -size / 2);
+}
+
 /**
- * Layers bottom first. A layer with opacity < 100 %, a blend mode other than
- * Normal, or a clip to the layer below is drawn on its own canvas first and
- * then composited, so its opacity is even where its parts overlap. A layer
- * clipped to the one below shows only where that layer (the nearest one
- * below that isn't itself clipped) has paint, like a clipping mask.
+ * The picture of one layer on its own canvas, with its band clip. A layer
+ * that isn't a group comes from the cache when it can (layerCache.ts); a
+ * group is drawn afresh from its layers' pictures.
  */
-function drawStack(ctx: Ctx, layers: Layer[], env: RenderEnv): void {
-  const R = env.size / 2;
+function picture(layer: Layer, env: StackEnv): CanvasLike {
+  const draw = () => {
+    const own = scratch(env.size);
+    if (layer.clip === 'band') clipToBand(own.ctx, env.g);
+    if (layer.type === 'group') drawStack(own.ctx, layer.children, env);
+    else drawLayer(own.ctx, layer, env);
+    return own.canvas;
+  };
+  if (!env.cache || layer.type === 'group') return draw();
+  return cachedLayer(`${env.size}|${layer.id}`, layerKey(layer, env.stage, env.size), env.size, draw);
+}
+
+/**
+ * Layers bottom first, each from its own picture, so editing one layer
+ * redraws only that one. Opacity and blend mode apply to the whole picture,
+ * so a layer's opacity is even where its parts overlap. A layer clipped to
+ * the one below shows only where that layer (the nearest one below that
+ * isn't itself clipped) has paint, like a clipping mask. A group at full
+ * opacity and Normal blend passes its layers straight through.
+ */
+function drawStack(ctx: Ctx, layers: Layer[], env: StackEnv): void {
   let base: Layer | null = null;
   for (const layer of layers) {
     if (layer.clip !== 'below') base = layer;
     if (!layer.visible || layer.opacity <= 0) continue;
     const mask = layer.clip === 'below' ? base : null;
     if (layer.clip === 'below' && (!mask || !mask.visible || mask.opacity <= 0)) continue;
-    if (!mask && layer.opacity >= 1 && layer.blend === 'source-over') {
-      drawOne(ctx, layer, env);
-      continue;
-    }
-    const own = scratch(env);
-    drawOne(own.ctx, layer, env);
-    if (mask) {
-      const m = scratch(env);
-      drawOne(m.ctx, mask, env);
-      own.ctx.save();
-      own.ctx.setTransform(1, 0, 0, 1, 0, 0);
-      own.ctx.globalCompositeOperation = 'destination-in';
-      own.ctx.drawImage(m.canvas as CanvasImageSource, 0, 0);
-      own.ctx.restore();
-    }
     ctx.save();
     ctx.globalAlpha = layer.opacity;
     ctx.globalCompositeOperation = layer.blend;
-    ctx.drawImage(own.canvas as CanvasImageSource, -R, -R);
+    if (!mask && layer.type === 'group' && layer.opacity >= 1 && layer.blend === 'source-over') {
+      if (layer.clip === 'band') clipToBand(ctx, env.g);
+      drawStack(ctx, layer.children, env);
+    } else if (mask) {
+      // A copy, so the cached picture itself isn't cut.
+      const own = scratch(env.size);
+      put(own.ctx, picture(layer, env), env.size);
+      own.ctx.globalCompositeOperation = 'destination-in';
+      put(own.ctx, picture(mask, env), env.size);
+      put(ctx, own.canvas, env.size);
+    } else put(ctx, picture(layer, env), env.size);
     ctx.restore();
   }
 }

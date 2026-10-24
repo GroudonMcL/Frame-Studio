@@ -50,7 +50,7 @@ function rowsOf(layers: Layer[], depth = 0): Row[] {
   ]);
 }
 
-export function LayersPanel({ onAddFrame }: { onAddFrame: () => void }) {
+export function LayersPanel({ onAddFrame, onAddTexture }: { onAddFrame: () => void; onAddTexture: () => void }) {
   const project = useProject();
   const selectedId = useUi((s) => s.selectedId);
   const selectedIds = useUi((s) => s.selectedIds);
@@ -100,6 +100,17 @@ export function LayersPanel({ onAddFrame }: { onAddFrame: () => void }) {
                   <span>{hint}</span>
                 </button>
               ))}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onAddTexture();
+                }}
+              >
+                <strong>Texture…</strong>
+                <span>Marble, hammered metal, wood, stone, stars, rope, scales and more, from the library.</span>
+              </button>
               <button
                 type="button"
                 role="menuitem"

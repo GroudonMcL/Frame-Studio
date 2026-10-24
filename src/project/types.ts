@@ -14,7 +14,7 @@
 import type { FrameStyle, ShapeId } from '../engine/legacy/catalog';
 
 export const PROJECT_FORMAT = 'frame-studio-project';
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export interface FrameProject {
   format: typeof PROJECT_FORMAT;
@@ -86,6 +86,12 @@ export interface GradientStop {
   color: string;
 }
 
+export interface RingStop {
+  /** Degrees round the token: 0 right, 90 below, 225 top left. */
+  angle: number;
+  color: string;
+}
+
 /** How an area or line is coloured. */
 export type Paint =
   | { kind: 'solid'; color: string }
@@ -94,7 +100,13 @@ export type Paint =
   /** Across the whole token at `angle` degrees (0 = left to right). */
   | { kind: 'linear'; angle: number; stops: GradientStop[] }
   /** Across the band, from its outer edge (0) to its inner edge (1). */
-  | { kind: 'acrossBand'; stops: GradientStop[] };
+  | { kind: 'acrossBand'; stops: GradientStop[] }
+  /**
+   * Colours round the ring, blended between stops at angles (like Stamped's
+   * hand-sampled colours). With `followLight` the colours turn with the
+   * stage's light (the angles are for a light at the top left).
+   */
+  | { kind: 'ring'; stops: RingStop[]; followLight: boolean };
 
 /** Fills part of the band, between two "across" positions. */
 export interface BandFillLayer extends LayerBase {
@@ -258,6 +270,38 @@ export interface PathLayer extends LayerBase, Placement, PlacedStyle {
   closed: boolean;
 }
 
+export const TEXTURE_KINDS = ['marble', 'hammered', 'wear', 'wood', 'stone', 'scatter', 'rope', 'scales', 'cracks'] as const;
+export type TextureKind = (typeof TEXTURE_KINDS)[number];
+
+export const TEXTURE_PLACES = ['everywhere', 'shaded', 'lit'] as const;
+export type TexturePlace = (typeof TEXTURE_PLACES)[number];
+
+/**
+ * A procedural surface drawn over part of the band: the textures Token
+ * Maker's frames are made of (DESIGN.md §4.6). Every number is relative, so
+ * 1 means "as Token Maker draws it"; the seed picks one of endless variations.
+ */
+export interface TextureLayer extends LayerBase {
+  type: 'texture';
+  kind: TextureKind;
+  /** Across positions it covers, as for a band fill. */
+  from: number;
+  to: number;
+  /** The colour its marks are made from (the band's colour); the stars of a scatter; the glow of cracks. */
+  color: string;
+  /** A second colour: the haze behind a scatter's stars. null = none. Unused by the other kinds. */
+  color2: string | null;
+  /** How many marks (1 = Token Maker's amount). */
+  amount: number;
+  /** How big the marks are (1 = Token Maker's size). */
+  scale: number;
+  /** How strongly they show (1 = Token Maker's strength). */
+  strength: number;
+  /** Everywhere, mostly on the band's shaded side, or mostly on its lit side (follows the stage's light). */
+  where: TexturePlace;
+  seed: number;
+}
+
 /** Layers kept together: hidden, locked, faded and moved as one. */
 export interface GroupLayer extends LayerBase {
   type: 'group';
@@ -278,7 +322,7 @@ export interface UnsupportedLayer extends LayerBase {
   reason: string;
 }
 
-export type Layer = LegacyFrameLayer | BandFillLayer | LineLayer | RepeatLayer | ShapeLayer | PathLayer | GroupLayer | UnsupportedLayer;
+export type Layer = LegacyFrameLayer | BandFillLayer | LineLayer | RepeatLayer | TextureLayer | ShapeLayer | PathLayer | GroupLayer | UnsupportedLayer;
 /** Layers with a placement (move, scale, rotate, mirror). */
 export type PlacedLayer = ShapeLayer | PathLayer;
 export type LayerType = Layer['type'];

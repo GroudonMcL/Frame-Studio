@@ -27,6 +27,7 @@ import {
 } from '../render/hitTest';
 import { lineOutline, repeatPlacements } from '../render/layers';
 import { placements, localBounds, toCanvas } from '../render/placed';
+import { renderStats } from '../render/layerCache';
 import { renderProject } from '../render/renderProject';
 import { commit, finishDrawing, select, setPathEdit, setPathPoints, updateLayer, updateStage, useProject, useUi, type PathEdit } from '../state/projectStore';
 import { ColorField, Segmented, Slider, Toggle } from './controls';
@@ -61,6 +62,7 @@ function outlineLayer(ctx: CanvasRenderingContext2D, layer: Layer, g: FrameGeome
       }
       break;
     case 'bandFill':
+    case 'texture':
       strokeOutline(ctx, outlineAt(g, layer.from));
       strokeOutline(ctx, outlineAt(g, layer.to));
       break;
@@ -187,6 +189,9 @@ export function Stage() {
     const ctx = canvas.current?.getContext('2d');
     if (!ctx) return;
     renderProject(ctx, project, px, { art: project.stage.showArt ? stageArt() : null });
+    // How many layers this render had to draw (the rest came from the cache): read by the end-to-end tests.
+    canvas.current!.dataset.drawn = String(renderStats.drawn);
+    canvas.current!.dataset.reused = String(renderStats.reused);
   }, [project, px]);
 
   useEffect(() => {

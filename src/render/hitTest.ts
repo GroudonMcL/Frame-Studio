@@ -46,6 +46,7 @@ function hits(layer: Layer, g: FrameGeometry, pt: Point): boolean {
       if (layer.waveAmplitude > 0) return distanceToOutline(lineOutline(layer, g), pt) <= (layer.width * bandWidthPx(g)) / 2 + 4;
       return Math.abs(across - layer.at) <= layer.width / 2 + slack;
     case 'bandFill':
+    case 'texture':
       return across >= Math.min(layer.from, layer.to) - slack && across <= Math.max(layer.from, layer.to) + slack;
     case 'legacyFrame':
       return across >= -slack && across <= 1 + slack;
@@ -103,6 +104,7 @@ export function dragLayer(layer: Layer, project: FrameProject, size: number, sta
     case 'line':
       return { at: clamp(layer.at + dAcross) };
     case 'bandFill':
+    case 'texture':
       return { from: clamp(layer.from + dAcross), to: clamp(layer.to + dAcross) };
     case 'shape':
     case 'path': {

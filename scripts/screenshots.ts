@@ -64,5 +64,36 @@ const dial = (await page.getByRole('slider', { name: 'Light direction' }).boundi
 await page.mouse.click(dial.x + dial.width * 0.85, dial.y + dial.height * 0.85);
 await page.screenshot({ path: `${out}/07-hexagon-light.png` });
 
+// 8. Phase 3: the texture library.
+await page.getByRole('radio', { name: 'Circle' }).click();
+await page.getByRole('button', { name: 'New' }).click();
+await page.getByRole('button', { name: /Blank project/ }).click();
+await page.getByRole('button', { name: 'Add layer' }).click();
+await page.getByRole('menuitem', { name: /^Texture…/ }).click();
+await page.locator('.dialog .tile img').nth(10).waitFor();
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${out}/08-texture-library.png` });
+
+// 9. Marble, hammered metal and stars, with the stars' settings showing.
+await page.getByRole('dialog', { name: 'Add a texture' }).getByRole('button', { name: 'Marble', exact: true }).click();
+for (const name of ['Hammered metal', 'Starfield']) {
+  await page.getByRole('button', { name: 'Add layer' }).click();
+  await page.getByRole('menuitem', { name: /^Texture…/ }).click();
+  await page.getByRole('dialog', { name: 'Add a texture' }).getByRole('button', { name, exact: true }).click();
+}
+await page.screenshot({ path: `${out}/09-textures.png` });
+
+// 10. The Battle-worn steel template, with its battle wear selected.
+await page.getByRole('button', { name: 'New' }).click();
+await page.getByRole('button', { name: 'Battle-worn steel' }).click();
+await page.getByRole('listbox', { name: /Layers/ }).getByRole('option', { name: /Battle wear Texture/ }).click();
+await page.screenshot({ path: `${out}/10-battle-worn-steel.png` });
+
+// 11. Night sky: colours round the ring, with the sky's paint showing.
+await page.getByRole('button', { name: 'New' }).click();
+await page.getByRole('button', { name: 'Night sky' }).click();
+await page.getByRole('listbox', { name: /Layers/ }).getByRole('option', { name: /Sky Band fill/ }).click();
+await page.screenshot({ path: `${out}/11-ring-paint.png` });
+
 await browser.close();
 console.log(`Screenshots in ${out}/`);

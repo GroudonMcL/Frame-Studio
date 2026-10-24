@@ -2,19 +2,22 @@
 
 A visual editor for code-drawn token frames. Start from one of [Token Maker](https://github.com/GroudonMcL/token-maker)'s 27 frames or from scratch, build a design from layers (bands of colour, lines, rings of beads, runes, gems, shapes and paths you draw yourself…), and save it or export it as a picture. No coding needed; technical settings live in **Advanced**.
 
-![Frame Studio with a group of drawn gems and alternating diamonds](docs/screenshots/05-shapes-paths-groups.png)
+![Frame Studio with marble, hammered metal and stars as texture layers](docs/screenshots/09-textures.png)
 
-## What works now (Phase 2)
+## What works now (Phase 3)
 
-- **Templates:** all 27 Token Maker frames (each as one layer whose colour you can change), three designs built from editable layers, or a blank project.
+- **Templates:** all 27 Token Maker frames (each as one layer whose colour you can change), five designs built from editable layers (two with textures), or a blank project.
 - **Layers:** Band fill, Line (plain or wavy), Repeated shapes, Shape (circle, rectangle, polygon, star) and Path (draw your own), plus Token Maker frames as layers. Show/hide, lock, rename, reorder, duplicate, delete.
 - **Groups:** Ctrl+click layers and press Group (Ctrl+G). Hide, lock or fade a whole group at once. Layers can also be clipped to the band or to the layer below.
 - **Drawing:** Add layer → Path, then click points on the canvas; click the first point (or press Enter) to finish. Drag points and their round handles; double-click a point to make it curved.
 - **Moving things:** drag shapes and paths on the canvas; use the square handle to resize and the round one to turn. Mirror a shape to get a matching pair on the other side.
 - **Patterns:** alternate colours and sizes round a ring, leave gaps beside bigger beads, put leaves on alternate sides; new shapes to repeat (chevrons, ticks, gears, eyes, notes, claw marks).
+- **Textures:** Add layer → Texture… opens a library of the surfaces Token Maker's frames are made of: marble, hammered metal, hide, battle wear, wood grain, stone blocks, stars, rope, dragon scales and magma cracks. Change their colour, how many marks, their size and strength, which side of the light they keep to, and shuffle for another variation. They are drawn the same way Token Maker draws them (tests check this pixel for pixel).
+- **Colours round the ring:** paint a band or line with colours that change as they go round the token (like Stamped's), turning with the light if you want.
+- **Faster editing:** each layer's picture is kept, so changing one layer only redraws that one.
 - **Light:** turn the light dial under the canvas to light your layers from any side (it starts at the top left, like Token Maker).
 - **Designs fit every token shape:** everything is placed relative to the frame band, so the same design works on a circle, square or hexagon, thick or thin. A shape can be set to "Place freely" if it should stay put instead.
-- **Undo/redo**, **autosave** (your work survives a refresh), **Save/Open** project files (`.framestudio.json`; files from Phase 1 still open and look the same) and **Export PNG**.
+- **Undo/redo**, **autosave** (your work survives a refresh), **Save/Open** project files (`.framestudio.json`; files from Phases 1 and 2 still open and look the same) and **Export PNG**.
 
 See [`docs/PROGRESS.md`](docs/PROGRESS.md) for what's next and the known limitations.
 

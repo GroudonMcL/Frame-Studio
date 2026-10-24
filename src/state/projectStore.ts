@@ -106,6 +106,14 @@ export function addLayer(layerOrType: Layer | EditableLayerType): Layer {
   return layer;
 }
 
+/** Adds several layers (bottom first) just above the selected one, as one undo step, and selects the top one. */
+export function addLayers(added: Layer[]): void {
+  if (added.length === 0) return;
+  const sel = ui.getState().selectedId ? locate(get().layers, ui.getState().selectedId!) : null;
+  update(withLayers((layers) => added.reduce((acc, layer, k) => (sel ? insertLayer(acc, sel.parent?.id ?? null, sel.index + 1 + k, layer) : [...acc, layer]), layers)));
+  select(added[added.length - 1].id);
+}
+
 /** Changes a layer's settings. Locked layers (or ones in a locked group) can't be changed, except to unlock, show/hide or fold them. */
 export function updateLayer(id: string, patch: Partial<Layer>, opts?: EditOptions): void {
   if (!findLayer(get().layers, id)) return;

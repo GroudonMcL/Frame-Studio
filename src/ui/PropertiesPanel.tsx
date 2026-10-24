@@ -1,10 +1,10 @@
 // Settings for the selected layer. Each layer type has its own controls; the
 // ones most people need come first and the technical ones sit in Advanced.
 
-import { PenTool, Plus, Trash2 } from 'lucide-react';
+import { PenTool, Plus, Shuffle, Trash2 } from 'lucide-react';
 import { FRAME_PRESETS } from '../engine/legacy/catalog';
 import { frameAccent } from '../engine/legacy/frames';
-import { LAYER_TYPE_NAMES } from '../project/defaults';
+import { LAYER_TYPE_NAMES, TEXTURES } from '../project/defaults';
 import { findLayer, locate } from '../project/tree';
 import {
   BLEND_MODES,
@@ -13,6 +13,8 @@ import {
   ELEMENT_KINDS,
   MIRROR_MODES,
   SHAPE_KINDS,
+  TEXTURE_KINDS,
+  TEXTURE_PLACES,
   type BlendMode,
   type ClipMode,
   type GradientStop,
@@ -21,9 +23,14 @@ import {
   type Paint,
   type PathLayer,
   type PlacedLayer,
+  type RingStop,
   type ShapeKind,
+  type TextureLayer,
+  type TexturePlace,
 } from '../project/types';
 import { bandGeometry } from '../render/band';
+import { litFor } from '../render/paint';
+import { TEXTURE_NAMES } from '../render/textures';
 import { ELEMENT_NAMES } from '../render/elements';
 import { switchPlace, toggleSmooth } from '../render/hitTest';
 import { commit, finishDrawing, setPathEdit, setPathPoints, ungroup, updateLayer, useProject, useUi } from '../state/projectStore';
@@ -58,6 +65,12 @@ const SHAPE_NAMES: Record<ShapeKind, string> = {
   rectangle: 'Rectangle',
   polygon: 'Polygon',
   star: 'Star',
+};
+
+const WHERE_NAMES: Record<TexturePlace, string> = {
+  everywhere: 'Everywhere',
+  shaded: 'Mostly on the shaded side',
+  lit: 'Mostly on the lit side',
 };
 
 type Set<L extends Layer> = (patch: Partial<L>, transient?: boolean) => void;
@@ -218,6 +231,8 @@ function LayerControls({ layer, light }: { layer: Layer; light: number }) {
         </>
       );
     }
+    case 'texture':
+      return <TextureControls layer={layer} />;
     case 'shape':
     case 'path':
       return <PlacedControls layer={layer} />;
@@ -321,16 +336,26 @@ const PAINT_KINDS: { value: Paint['kind']; label: string }[] = [
   { value: 'solid', label: 'Flat colour' },
   { value: 'linear', label: 'Gradient across the token' },
   { value: 'acrossBand', label: 'Gradient across the band' },
+  { value: 'ring', label: 'Colours round the ring' },
 ];
 
 function colorOf(paint: Paint): string {
   return 'color' in paint ? paint.color : paint.stops[0].color;
 }
 
+/** Ring colours that start out looking like the metal lighting: the lit table sampled every 30°. */
+function ringFromLit(color: string, light: number, dark: number, pressed: boolean): RingStop[] {
+  const t = litFor(color, light, dark);
+  const table = pressed ? t.step : t.band;
+  return Array.from({ length: 12 }, (_x, i) => ({ angle: i * 30, color: table[i * 30] }));
+}
+
 function convert(paint: Paint, kind: Paint['kind']): Paint {
   const c = colorOf(paint);
-  const stops: GradientStop[] = 'stops' in paint ? paint.stops : [{ at: 0, color: c }, { at: 1, color: '#000000' }];
+  const stops: GradientStop[] = paint.kind === 'linear' || paint.kind === 'acrossBand' ? paint.stops : [{ at: 0, color: c }, { at: 1, color: '#000000' }];
   switch (kind) {
+    case 'ring':
+      return { kind, stops: paint.kind === 'lit' ? ringFromLit(c, paint.light, paint.dark, paint.pressed) : ringFromLit(c, 0.85, 0.8, false), followLight: true };
     case 'solid':
       return { kind, color: c };
     case 'lit':
@@ -359,6 +384,7 @@ export function PaintEditor({ paint, disabled, onChange }: { paint: Paint; disab
           )}
         </>
       )}
+      {paint.kind === 'ring' && <RingStops paint={paint} disabled={disabled} onChange={onChange} />}
       {paint.kind === 'linear' && (
         <Slider label="Angle" value={paint.angle} min={-180} max={180} step={1} unit="°" disabled={disabled} onChange={(angle, t) => onChange({ ...paint, angle }, t)} onCommit={commit} />
       )}
@@ -402,6 +428,105 @@ export function PaintEditor({ paint, disabled, onChange }: { paint: Paint; disab
           )}
         </div>
       )}
+    </>
+  );
+}
+
+const ringCss = (stops: RingStop[]) => {
+  // CSS measures conic angles from the top; ours start at the right.
+  const sorted = [...stops].sort((a, b) => a.angle - b.angle);
+  const all = [...sorted, { angle: sorted[0].angle + 360, color: sorted[0].color }];
+  return `conic-gradient(from 90deg, ${all.map((s) => `${s.color} ${s.angle}deg`).join(', ')})`;
+};
+
+/** The colours of a ring paint, each at an angle round the token. */
+function RingStops({ paint, disabled, onChange }: { paint: Extract<Paint, { kind: 'ring' }>; disabled: boolean; onChange: (p: Paint, transient?: boolean) => void }) {
+  const setStop = (i: number, patch: Partial<RingStop>, transient?: boolean) => onChange({ ...paint, stops: paint.stops.map((x, k) => (k === i ? { ...x, ...patch } : x)) }, transient);
+  const addStop = () => {
+    // Halfway across the widest gap.
+    const sorted = [...paint.stops].sort((a, b) => a.angle - b.angle);
+    let best = { gap: -1, angle: 0, color: sorted[0].color };
+    sorted.forEach((s, i) => {
+      const next = sorted[(i + 1) % sorted.length];
+      const gap = (((next.angle - s.angle) % 360) + 360) % 360 || 360;
+      if (gap > best.gap) best = { gap, angle: Math.round((s.angle + gap / 2) % 360), color: s.color };
+    });
+    onChange({ ...paint, stops: [...paint.stops, { angle: best.angle, color: best.color }] });
+  };
+  return (
+    <div className="stops" role="group" aria-label="Colours round the ring">
+      <div className="ring-preview" aria-hidden="true" style={{ background: ringCss(paint.stops) }} />
+      <p className="note">Each colour sits at an angle round the token (0° right, 90° bottom, 180° left, 270° top) and blends into the next.</p>
+      {paint.stops.map((s, i) => (
+        <div className="stop" key={i}>
+          <ColorField label={`Colour ${i + 1}`} value={s.color} disabled={disabled} onChange={(color, t) => setStop(i, { color }, t)} />
+          <Slider label={`Colour ${i + 1} angle`} value={s.angle} min={0} max={359} step={1} unit="°" disabled={disabled} onChange={(angle, t) => setStop(i, { angle }, t)} onCommit={commit} />
+          {paint.stops.length > 2 && (
+            <button type="button" className="icon-btn" aria-label={`Remove colour ${i + 1}`} disabled={disabled} onClick={() => onChange({ ...paint, stops: paint.stops.filter((_x, k) => k !== i) })}>
+              <Trash2 size={16} />
+            </button>
+          )}
+        </div>
+      ))}
+      {paint.stops.length < 36 && (
+        <button type="button" className="btn small" disabled={disabled} onClick={addStop}>
+          <Plus size={16} /> Add a colour
+        </button>
+      )}
+      <Toggle
+        label="Turn with the light"
+        hint="On: the colours are for a light at the top left and turn when you move the light. Off: they stay where they are."
+        checked={paint.followLight}
+        disabled={disabled}
+        onChange={(followLight) => onChange({ ...paint, followLight })}
+      />
+    </div>
+  );
+}
+
+const TEXTURE_COLOUR_LABEL: Partial<Record<TextureLayer['kind'], [string, string]>> = {
+  scatter: ['Star colour', 'The colour of the stars.'],
+  cracks: ['Glow colour', 'The colour the cracks glow.'],
+};
+
+function TextureControls({ layer }: { layer: TextureLayer }) {
+  const disabled = layer.locked;
+  const set = setterFor(layer);
+  const [colourLabel, colourHint] = TEXTURE_COLOUR_LABEL[layer.kind] ?? ['Colour', 'Its marks are lighter and darker shades of this: match it to the band underneath.'];
+  return (
+    <>
+      <Select
+        label="Texture"
+        value={layer.kind}
+        disabled={disabled}
+        options={TEXTURE_KINDS.map((k) => ({ value: k, label: TEXTURE_NAMES[k] }))}
+        onChange={(kind) => {
+          const preset = TEXTURES.find((t) => t.layer.kind === kind)!.layer;
+          const named = layer.name === 'Texture' || TEXTURES.some((t) => t.layer.name === layer.name);
+          set({ kind, seed: preset.seed ?? layer.seed, color2: kind === 'scatter' ? (layer.color2 ?? preset.color2 ?? null) : layer.color2, ...(named ? { name: preset.name } : {}) });
+        }}
+      />
+      <ColorField label={colourLabel} hint={colourHint} value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+      {layer.kind === 'scatter' && <OptionalColor label="Haze" hint="Soft clouds of colour behind the stars." value={layer.color2} fallback="#6a5acd" disabled={disabled} onChange={(color2, t) => set({ color2 }, t)} />}
+      {num(layer, set, 'amount', 'How many', 0.1, 3, { ...pct, step: 0.05, hint: '100% is as many as Token Maker draws.' })}
+      {num(layer, set, 'scale', 'Size', 0.2, 3, { ...pct, step: 0.05, hint: '100% is the size Token Maker draws them.' })}
+      {num(layer, set, 'strength', 'Strength', 0, 2, { ...pct, step: 0.05, hint: 'How strongly it shows. 100% is as strong as in Token Maker.' })}
+      <Select
+        label="Where"
+        hint="Keep it to the side away from the light (like Stamped's marbling), the side facing it, or all the way round. Follows the light dial."
+        value={layer.where}
+        disabled={disabled}
+        options={TEXTURE_PLACES.map((w) => ({ value: w, label: WHERE_NAMES[w] }))}
+        onChange={(where) => set({ where })}
+      />
+      <div className="row">
+        {num(layer, set, 'seed', 'Variation', 0, 99999, { step: 1, hint: 'Each number gives a different arrangement of the same texture.' })}
+        <button type="button" className="icon-btn" aria-label="Shuffle" title="Try another variation" disabled={disabled} onClick={() => set({ seed: Math.floor(Math.random() * 99999) })}>
+          <Shuffle size={16} />
+        </button>
+      </div>
+      {num(layer, set, 'from', 'Starts at (outer edge = 0%)', -0.5, 1.5, pct)}
+      {num(layer, set, 'to', 'Ends at (inner edge = 100%)', -0.5, 1.5, pct)}
     </>
   );
 }
