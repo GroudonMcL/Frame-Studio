@@ -1,0 +1,14 @@
+{
+  "repo": "https://github.com/GroudonMcL/token-maker",
+  "commit": "d83f99a77d71edc463e038279ecb71fd89534441",
+  "from": "src/render",
+  "files": {
+    "catalog.ts": "3636feec379857f9e2700b5a90eb3dae5601ab2d8b20ba9cc2058a0a7f1f0e98",
+    "color.ts": "143021f90a893acece8e2da3d94625a20b392b41dc9db163d933821974ae3266",
+    "finishes.ts": "bedf03216c4ebed0be201f5ce46b36ecd17b2ea747d9864c96b587107a3fa49e",
+    "frameKit.ts": "0048328dd3d8b4c9af00bd3ee71ddae80fdd16a01477d5cb1945dec5f4d988bb",
+    "frames.ts": "ccc375b4b19ffb323687a4eff39812df9b977979f0ded95f0bcdc5392a4a1932",
+    "sampleArt.ts": "9d206950ca7d29139d327af8217819b094a49631290013e4bedea4e60c5d34fb",
+    "shapes.ts": "f7a1317ab1db099d1b99d7a61bdd7b612f685680b0f0442574d8d1956bd19e9e"
+  }
+}
