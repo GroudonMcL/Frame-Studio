@@ -118,6 +118,7 @@ export function repeatPlacements(layer: RepeatLayer, g: FrameGeometry): RepeatPl
   const colors = [layer.fill, ...layer.altColors];
   const out: RepeatPlacement[] = [];
   points.forEach((p, i) => {
+    if (layer.show.length && !layer.show[i % layer.show.length]) return;
     const accent = layer.accentEvery > 0 && i % layer.accentEvery === 0;
     if (!accent && layer.accentEvery > 0 && layer.skipAroundAccent > 0 && stepsFromAccent(i, n, layer.accentEvery) <= layer.skipAroundAccent) return;
     const size = h * (layer.altSizes.length ? layer.altSizes[i % layer.altSizes.length] : 1) * (accent ? layer.accentScale : 1);
@@ -160,6 +161,7 @@ function drawRepeat(ctx: Ctx, layer: RepeatLayer, env: RenderEnv): void {
         outlineWidth: layer.outlineWidth,
         rune: variants[index],
         light,
+        shaded: layer.shaded,
       });
     });
   }

@@ -147,7 +147,7 @@ describe('project files', () => {
     const r = roundTrip(p);
     expect(r.project).toEqual(p);
     expect(r.warnings).toEqual([]);
-    expect(JSON.parse(serializeProject(p)).schemaVersion).toBe(3);
+    expect(JSON.parse(serializeProject(p)).schemaVersion).toBe(SCHEMA_VERSION);
   });
 
   it('a version-2 file opens as version 3 unchanged', () => {
@@ -156,6 +156,57 @@ describe('project files', () => {
     const r = parseProject(JSON.stringify(v2));
     if (!r.ok) throw new Error(r.error);
     expect(r.project).toEqual(p);
+  });
+
+  it('a version-3 file opens as version 4 with the new settings switched off, in groups too', () => {
+    const v3 = {
+      format: 'frame-studio-project',
+      schemaVersion: 3,
+      name: 'Old',
+      stage: {},
+      layers: [
+        { id: 'a', type: 'bandFill', paint: { kind: 'lit', color: '#123456', light: 0.5, dark: 0.5, pressed: true } },
+        {
+          id: 'g',
+          type: 'group',
+          children: [
+            { id: 'b', type: 'line', paint: { kind: 'linear', angle: 10, stops: [{ at: 0, color: '#ffffff' }, { at: 1, color: '#000000' }] } },
+            { id: 'c', type: 'repeat', element: 'bead' },
+          ],
+        },
+      ],
+    };
+    const r = parseProject(JSON.stringify(v3));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.warnings).toEqual([]);
+    const [band, group] = r.project.layers;
+    expect(band.type === 'bandFill' && band.paint).toEqual({ kind: 'lit', color: '#123456', light: 0.5, dark: 0.5, pressed: true, highlight: null });
+    if (group.type !== 'group') throw new Error('not a group');
+    const [line, rep] = group.children;
+    expect(line.type === 'line' && line.paint).toEqual({ kind: 'linear', angle: 10, followLight: false, stops: [{ at: 0, color: '#ffffff', opacity: 1 }, { at: 1, color: '#000000', opacity: 1 }] });
+    expect(rep).toMatchObject({ shaded: true, show: [] });
+  });
+
+  it('a version-3 layer of an unknown kind is kept exactly, paint and all', () => {
+    const future = { id: 'f', name: 'Future', type: 'glimmer', visible: true, locked: false, opacity: 1, blend: 'source-over', clip: 'none', paint: { kind: 'lit', color: '#123456' } };
+    const r = parseProject(JSON.stringify({ format: 'frame-studio-project', schemaVersion: 3, name: 'Old', stage: {}, layers: [future] }));
+    if (!r.ok) throw new Error(r.error);
+    expect(JSON.parse(serializeProject(r.project)).layers[0]).toEqual(future);
+  });
+
+  it('version 4: new settings survive a round trip, and bad ones fall back', () => {
+    const p = createProject([
+      { ...bandFillLayer(), paint: { kind: 'lit', color: '#123456', light: 0.5, dark: 0.5, pressed: false, highlight: '#fafafa' } },
+      { ...repeatLayer(), shaded: false, show: [true, false, false] },
+    ]);
+    expect(roundTrip(p).project).toEqual(p);
+    const raw = JSON.parse(serializeProject(p));
+    raw.layers[0].paint.highlight = 'shiny';
+    Object.assign(raw.layers[1], { shaded: 'no', show: [false, false] });
+    const r = parseProject(raw);
+    if (!r.ok) throw new Error(r.error);
+    expect(r.project.layers[0]).toMatchObject({ paint: { highlight: null } });
+    expect(r.project.layers[1]).toMatchObject({ shaded: true, show: [] });
   });
 
   it('bad texture and ring values fall back; numbers are kept in range', () => {

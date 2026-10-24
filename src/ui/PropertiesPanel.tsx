@@ -3,7 +3,9 @@
 
 import { PenTool, Plus, Shuffle, Trash2 } from 'lucide-react';
 import { FRAME_PRESETS } from '../engine/legacy/catalog';
+import { mix, shade } from '../engine/legacy/color';
 import { frameAccent } from '../engine/legacy/frames';
+import { canConvert, differenceNote } from '../project/convert';
 import { LAYER_TYPE_NAMES, TEXTURES } from '../project/defaults';
 import { findLayer, locate } from '../project/tree';
 import {
@@ -33,8 +35,8 @@ import { litFor } from '../render/paint';
 import { TEXTURE_NAMES } from '../render/textures';
 import { ELEMENT_NAMES } from '../render/elements';
 import { switchPlace, toggleSmooth } from '../render/hitTest';
-import { commit, finishDrawing, setPathEdit, setPathPoints, ungroup, updateLayer, useProject, useUi } from '../state/projectStore';
-import { ColorField, ColorList, Fold, OptionalColor, PercentList, Select, Slider, Toggle } from './controls';
+import { commit, convertToLayers, finishDrawing, setPathEdit, setPathPoints, ungroup, updateLayer, useProject, useUi } from '../state/projectStore';
+import { ColorField, ColorList, Fold, OptionalColor, PatternField, PercentList, Select, Slider, Toggle } from './controls';
 import { DataView } from './DataView';
 
 const BLEND_NAMES: Record<BlendMode, string> = {
@@ -151,16 +153,29 @@ function LayerControls({ layer, light }: { layer: Layer; light: number }) {
     case 'legacyFrame': {
       const set = setterFor(layer);
       const accent = frameAccent(layer.style);
+      const convertible = canConvert(layer.style);
       return (
         <>
           <p className="note">
-            A Token Maker frame, drawn by its original code. It is one layer: its colour{accent ? ' and highlights colour' : ''} can be changed, but its parts can't
-            be edited one by one yet.
+            A Token Maker frame, drawn by its original code. It is one layer: its colour{accent ? ' and highlights colour' : ''} can be changed
+            {convertible ? '. Turn it into editable layers to change its parts one by one.' : ", but its parts can't be edited one by one yet."}
           </p>
           {light !== DEFAULT_LIGHT && (
             <p className="note warning" role="note">
-              This frame is always lit from the top left: Token Maker's drawing code can't follow the light you moved. Your own layers do follow it.
+              This frame is always lit from the top left: Token Maker's drawing code can't follow the light you moved. Your own layers do follow it
+              {convertible ? ', and so will this frame once it is turned into layers.' : '.'}
             </p>
+          )}
+          {convertible && (
+            <div className="convert">
+              <button type="button" className="btn small" disabled={disabled} onClick={() => convertToLayers(layer.id)}>
+                Turn into editable layers
+              </button>
+              <p className="note">
+                Puts a group of layers in its place (band, step, rims, textures, ornaments), drawn to look like this frame. Undo brings the original back.
+                {differenceNote(layer.style) && ` ${differenceNote(layer.style)}`}
+              </p>
+            </div>
           )}
           <Select
             label="Frame"
@@ -275,13 +290,27 @@ function LayerControls({ layer, light }: { layer: Layer; light: number }) {
           {num(layer, set, 'offset', 'Slide along', 0, 1, pct)}
           <Toggle label="Raised (small shadow)" checked={layer.raised} disabled={disabled} onChange={(raised) => set({ raised })} />
           <Toggle
+            label="Shaded by the light"
+            hint="Lighter on the side facing the light. Off: one flat colour."
+            checked={layer.shaded}
+            disabled={disabled}
+            onChange={(shaded) => set({ shaded })}
+          />
+          <Toggle
             label="One on every corner"
             hint="Rounds the number so square and hexagon corners each get one."
             checked={layer.snapToCorners}
             disabled={disabled}
             onChange={(snapToCorners) => set({ snapToCorners })}
           />
-          <Fold title="Patterns" defaultOpen={layer.altColors.length > 0 || layer.altSizes.length > 0 || layer.alternateSides > 0}>
+          <Fold title="Patterns" defaultOpen={layer.altColors.length > 0 || layer.altSizes.length > 0 || layer.alternateSides > 0 || layer.show.length > 0}>
+            <PatternField
+              label="Show"
+              hint="Which ones are drawn, as a pattern that repeats: on, off = every other one. Two layers with opposite patterns can alternate styles."
+              values={layer.show}
+              disabled={disabled}
+              onChange={(show) => set({ show })}
+            />
             <ColorList
               label="Alternate colours"
               hint="Colours taken in turn after the main one: light, dark, light, dark…"
@@ -344,24 +373,24 @@ function colorOf(paint: Paint): string {
 }
 
 /** Ring colours that start out looking like the metal lighting: the lit table sampled every 30°. */
-function ringFromLit(color: string, light: number, dark: number, pressed: boolean): RingStop[] {
-  const t = litFor(color, light, dark);
+function ringFromLit(color: string, light: number, dark: number, pressed: boolean, highlight: string | null = null): RingStop[] {
+  const t = litFor(color, light, dark, highlight);
   const table = pressed ? t.step : t.band;
   return Array.from({ length: 12 }, (_x, i) => ({ angle: i * 30, color: table[i * 30] }));
 }
 
 function convert(paint: Paint, kind: Paint['kind']): Paint {
   const c = colorOf(paint);
-  const stops: GradientStop[] = paint.kind === 'linear' || paint.kind === 'acrossBand' ? paint.stops : [{ at: 0, color: c }, { at: 1, color: '#000000' }];
+  const stops: GradientStop[] = paint.kind === 'linear' || paint.kind === 'acrossBand' ? paint.stops : [{ at: 0, color: c, opacity: 1 }, { at: 1, color: '#000000', opacity: 1 }];
   switch (kind) {
     case 'ring':
-      return { kind, stops: paint.kind === 'lit' ? ringFromLit(c, paint.light, paint.dark, paint.pressed) : ringFromLit(c, 0.85, 0.8, false), followLight: true };
+      return { kind, stops: paint.kind === 'lit' ? ringFromLit(c, paint.light, paint.dark, paint.pressed, paint.highlight) : ringFromLit(c, 0.85, 0.8, false), followLight: true };
     case 'solid':
       return { kind, color: c };
     case 'lit':
-      return { kind, color: c, light: 0.85, dark: 0.8, pressed: false };
+      return { kind, color: c, light: 0.85, dark: 0.8, pressed: false, highlight: null };
     case 'linear':
-      return { kind, angle: 45, stops };
+      return { kind, angle: 45, stops, followLight: false };
     case 'acrossBand':
       return { kind, stops };
   }
@@ -380,13 +409,30 @@ export function PaintEditor({ paint, disabled, onChange }: { paint: Paint; disab
             <>
               <Slider label="Highlight" value={paint.light} min={0} max={1} disabled={disabled} {...pct} onChange={(light, t) => onChange({ ...paint, light }, t)} onCommit={commit} />
               <Slider label="Shade" value={paint.dark} min={0} max={1} disabled={disabled} {...pct} onChange={(dark, t) => onChange({ ...paint, dark }, t)} onCommit={commit} />
+              <OptionalColor
+                label="Highlight colour"
+                hint="The colour of the lit side. Off: a warm, pale version of the colour, as Token Maker draws it."
+                value={paint.highlight}
+                fallback={mix(shade(paint.color, 0.6), '#fff3c4', 0.35)}
+                disabled={disabled}
+                onChange={(highlight, t) => onChange({ ...paint, highlight }, t)}
+              />
             </>
           )}
         </>
       )}
       {paint.kind === 'ring' && <RingStops paint={paint} disabled={disabled} onChange={onChange} />}
       {paint.kind === 'linear' && (
-        <Slider label="Angle" value={paint.angle} min={-180} max={180} step={1} unit="°" disabled={disabled} onChange={(angle, t) => onChange({ ...paint, angle }, t)} onCommit={commit} />
+        <>
+          <Slider label="Angle" value={paint.angle} min={-180} max={180} step={1} unit="°" disabled={disabled} onChange={(angle, t) => onChange({ ...paint, angle }, t)} onCommit={commit} />
+          <Toggle
+            label="Turn with the light"
+            hint="On: the angle is for a light at the top left and turns when you move the light, like a lit rim. Off: it stays where it is."
+            checked={paint.followLight}
+            disabled={disabled}
+            onChange={(followLight) => onChange({ ...paint, followLight })}
+          />
+        </>
       )}
       {(paint.kind === 'linear' || paint.kind === 'acrossBand') && (
         <div className="stops">
@@ -405,6 +451,18 @@ export function PaintEditor({ paint, disabled, onChange }: { paint: Paint; disab
                   onCommit={commit}
                 />
               )}
+              {advanced && (
+                <Slider
+                  label={`Colour ${i + 1} opacity`}
+                  value={s.opacity}
+                  min={0}
+                  max={1}
+                  disabled={disabled}
+                  {...pct}
+                  onChange={(opacity, t) => onChange({ ...paint, stops: paint.stops.map((x, k) => (k === i ? { ...x, opacity } : x)) }, t)}
+                  onCommit={commit}
+                />
+              )}
               {paint.stops.length > 2 && (
                 <button type="button" className="icon-btn" aria-label={`Remove colour ${i + 1}`} disabled={disabled} onClick={() => onChange({ ...paint, stops: paint.stops.filter((_x, k) => k !== i) })}>
                   <Trash2 size={16} />
@@ -420,7 +478,7 @@ export function PaintEditor({ paint, disabled, onChange }: { paint: Paint; disab
               onClick={() => {
                 const last = paint.stops[paint.stops.length - 1];
                 const spread = paint.stops.map((s, k) => ({ ...s, at: k / paint.stops.length }));
-                onChange({ ...paint, stops: [...spread, { at: 1, color: last.color }] });
+                onChange({ ...paint, stops: [...spread, { at: 1, color: last.color, opacity: last.opacity }] });
               }}
             >
               <Plus size={16} /> Add a colour

@@ -83,9 +83,9 @@ describe('editable layers', () => {
   it.each(['solid', 'lit', 'linear', 'acrossBand'] as const)('band fill paint %s draws', (kind) => {
     const paints = {
       solid: { kind: 'solid' as const, color: '#336699' },
-      lit: { kind: 'lit' as const, color: '#336699', light: 0.8, dark: 0.8, pressed: false },
-      linear: { kind: 'linear' as const, angle: 30, stops: [{ at: 0, color: '#ffffff' }, { at: 1, color: '#000000' }] },
-      acrossBand: { kind: 'acrossBand' as const, stops: [{ at: 0, color: '#ffffff' }, { at: 1, color: '#000000' }] },
+      lit: { kind: 'lit' as const, color: '#336699', light: 0.8, dark: 0.8, pressed: false, highlight: null },
+      linear: { kind: 'linear' as const, angle: 30, stops: [{ at: 0, color: '#ffffff', opacity: 1 }, { at: 1, color: '#000000', opacity: 1 }], followLight: false },
+      acrossBand: { kind: 'acrossBand' as const, stops: [{ at: 0, color: '#ffffff', opacity: 1 }, { at: 1, color: '#000000', opacity: 1 }] },
     } satisfies Record<string, Paint>;
     expect(opaque(draw(noArt([{ ...bandFillLayer(), paint: paints[kind] }])))).toBeGreaterThan(3000);
   });

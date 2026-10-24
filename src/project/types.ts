@@ -14,7 +14,7 @@
 import type { FrameStyle, ShapeId } from '../engine/legacy/catalog';
 
 export const PROJECT_FORMAT = 'frame-studio-project';
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export interface FrameProject {
   format: typeof PROJECT_FORMAT;
@@ -67,7 +67,8 @@ export type ClipMode = (typeof CLIP_MODES)[number];
 /**
  * One of token-maker's 27 frames, drawn by its own code. It is one composite
  * layer: only the settings token-maker has (colour, highlights colour) can be
- * edited. Phase 4 breaks frames into editable layers one by one.
+ * edited. Frames with a converter (project/convert.ts) can be turned into a
+ * stack of editable layers.
  */
 export interface LegacyFrameLayer extends LayerBase {
   type: 'legacyFrame';
@@ -84,6 +85,8 @@ export interface GradientStop {
   /** 0–1 */
   at: number;
   color: string;
+  /** 0 (see-through) – 1 (solid). Version 4. */
+  opacity: number;
 }
 
 export interface RingStop {
@@ -95,10 +98,19 @@ export interface RingStop {
 /** How an area or line is coloured. */
 export type Paint =
   | { kind: 'solid'; color: string }
-  /** token-maker's metal lighting: lit from the top left, shaded bottom right. `pressed` lights it the other way, like a stamped-in step. */
-  | { kind: 'lit'; color: string; light: number; dark: number; pressed: boolean }
-  /** Across the whole token at `angle` degrees (0 = left to right). */
-  | { kind: 'linear'; angle: number; stops: GradientStop[] }
+  /**
+   * token-maker's metal lighting: lit from the top left, shaded bottom right.
+   * `pressed` lights it the other way, like a stamped-in step. `highlight` is
+   * the lit side's colour (null: a warm, pale version of `color`, as Token
+   * Maker's default).
+   */
+  | { kind: 'lit'; color: string; light: number; dark: number; pressed: boolean; highlight: string | null }
+  /**
+   * Across the whole token at `angle` degrees (0 = left to right). With
+   * `followLight` the angle is for a light at the top left and turns with the
+   * stage's light (like Token Maker's lit outer rim).
+   */
+  | { kind: 'linear'; angle: number; stops: GradientStop[]; followLight: boolean }
   /** Across the band, from its outer edge (0) to its inner edge (1). */
   | { kind: 'acrossBand'; stops: GradientStop[] }
   /**
@@ -196,6 +208,10 @@ export interface RepeatLayer extends LayerBase {
   skipAroundAccent: number;
   /** Every other element moves this far inwards and the rest as far outwards (band widths), and points the other way, like Druid's leaves. 0 = off. */
   alternateSides: number;
+  /** Shade each element by the light (lit side brighter); off = one flat colour. Version 4. */
+  shaded: boolean;
+  /** Which elements are drawn, as a repeating on/off pattern: [true, false] = every other one. Empty = all. Version 4. */
+  show: boolean[];
 }
 
 /**

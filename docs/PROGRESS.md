@@ -52,10 +52,32 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Schema version 3 with a migration from version 2; version-2 fixture files saved by Phase 2, which open and draw as before (version-1 ones too)
   - [x] Tests: 299 unit tests (114 new: painters against the originals, every kind on every shape, seeds, sizes, amount/size/strength, the light and "where", the ring paint, the cache, the performance budget, the format, panels and the library) and 28 Playwright runs (14 flows × 2 desktop sizes, 3 new: the library, texture settings and undo, the "done when" flow)
   - **Done when:** a design with marble, hammered metal and stars renders the same in the preview and the export, and editing one layer doesn't redraw the others ✔ (Playwright "done when" test: the exported PNG scaled to the preview differs by about 1/255 on average; after editing the stars the preview drew 1 layer and reused 3)
-- [ ] **Phase 4 — Converting Token Maker frames**
+- [x] **Phase 4 — Converting Token Maker frames**
+  - [x] A converter per frame (`src/project/convert.ts`) writing the shared build (band, pressed-in step, crease, lit and shadow rims) plus each frame's textures and ornaments as editable layers, with Token Maker's own numbers
+  - [x] 18 frames converted: Polished and Paladin first, then Arcane, Infernal, Wizard, Double line, Harlequin, Cleric, Gilded, Fighter, Engraved, Oak, Cobblestone, Magma, Starfield, Monk, Rogue, Sorcerer
+  - [x] Not converted, with the reason recorded (DESIGN.md §4.7): Stamped, Ranger, Bard, Warlock, Barbarian, Artificer, Druid, Knotwork (each needs a new element or option to look right)
+  - [x] Small additions to the format, all off by default: a metal paint's own highlight colour, see-through gradient colours, gradients that turn with the light, repeats in one flat colour, and an on/off pattern of which repeated shapes are drawn
+  - [x] Schema version 4 with a migration from version 3; version-3 fixture files saved by Phase 3 open and draw as before (versions 1 and 2 too)
+  - [x] Template picker: "Token Maker frames, as editable layers" (marked Editable, with any small difference in the tooltip) above all 27 originals; "Add a Token Maker frame" adds an editable one as a group
+  - [x] Properties: **Turn into editable layers** on a Token Maker frame layer (a group in its place, keeping its name, opacity, blend and clip; one undo step)
+  - [x] Converted frames follow the light dial (the originals can't)
+  - [x] Visual comparison tests: each conversion drawn beside the original on every shape (Polished and Paladin also at three sizes and two thicknesses), with a limit per frame on the mean difference and the share of visibly different pixels; `npm run compare-conversions` draws them side by side
+  - [x] Tests: 427 unit tests (128 new: the conversions and their limits, colours, ids, groups, the light, the new paints and repeat options, the migration and v3 fixtures, the panels) and 34 Playwright runs (17 flows × 2 desktop sizes, 3 new: the "done when" flow, converting from Properties with the light and undo, the template picker)
+  - **Done when:** Polished and Paladin open as editable layer stacks that match the originals within the agreed limit ✔ (Playwright "done when" test, measured on the real preview; Polished is the same picture to within rounding, Paladin looks the same with its crosses shaded a little differently, see DESIGN.md §4.7)
+  - **Question for the owner:** is "looks the same" good enough for converted frames, or should some ornaments be copied exactly (they would then not follow the light)? Default until answered: "looks the same", with the originals still available.
 - [ ] **Phase 5 — Polish, library and sharing**
 
-## Known limitations after Phase 3
+## Known limitations after Phase 4
+
+- Eight Token Maker frames can't be converted yet (Stamped, Ranger, Bard, Warlock, Barbarian, Artificer, Druid, Knotwork); they stay one layer, lit from the top left.
+- Converted frames look like the originals but aren't identical in fine detail, mostly their ornaments (DESIGN.md §4.7 lists each). Paladin's crosses are lit from the stage's light; Cleric's rays can be one or two more or fewer.
+- A converted frame's colours are worked out when it is converted: changing the band's colour afterwards doesn't recolour the textures, grooves and rims to match (each layer has its own colour).
+- Arcane, Infernal and Wizard's marbling (and every marble texture keeping to the shaded side) judges "shaded" from its own colour lit the usual way, not from the band underneath.
+- Hexagon corners: a repeated shape exactly on a corner faces along one of its two sides, which can differ from Token Maker's choice.
+- Still from Phase 3: very large designs at a big preview size redraw some layers (128 MB cache); "Where" for textures follows the angle from the centre; scales are always lit from the outer edge; picking a texture picks anywhere in its part of the band.
+- Still from Phase 2: desktop only; no drop indicator line when dragging layers; path points sharp or smooth only; no zoom; small kinks in wavy lines at square and hexagon corners; groups can't be moved as a whole on the canvas.
+
+## Known limitations after Phase 3 (for the record)
 
 - Token Maker frames are still one layer each, lit from the top left (Phase 4 converts them, now that every texture exists as a layer).
 - Old designs draw as before to within rounding: a few nearly transparent edge pixels can differ by a few 255ths, because every layer is now drawn on its own canvas so it can be cached.

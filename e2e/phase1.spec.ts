@@ -21,7 +21,7 @@ test.beforeEach(async ({ page }) => {
 
 test('start from a Token Maker frame, add layers, edit, undo and redo', async ({ page }) => {
   await page.getByRole('button', { name: 'New' }).click();
-  await page.getByRole('button', { name: 'Infernal' }).click();
+  await page.getByRole('button', { name: 'Infernal', exact: true }).click();
   await expect(page.getByRole('img', { name: 'Preview of Infernal' })).toBeVisible();
   const plain = await previewHash(page);
 
@@ -98,7 +98,7 @@ test('save, open and export', async ({ page }, info) => {
   const path = info.outputPath('saved.json');
   await saved.saveAs(path);
   const json = JSON.parse(readFileSync(path, 'utf8'));
-  expect(json).toMatchObject({ format: 'frame-studio-project', schemaVersion: 3 });
+  expect(json).toMatchObject({ format: 'frame-studio-project', schemaVersion: 4 });
 
   await page.getByRole('button', { name: 'New' }).click();
   await page.getByRole('button', { name: /Blank project/ }).click();

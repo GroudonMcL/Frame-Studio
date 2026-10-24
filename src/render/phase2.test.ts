@@ -322,7 +322,7 @@ describe('the light direction', () => {
   });
 
   it('a lit band is brightest on the side the light comes from', () => {
-    const band = { ...bandFillLayer(), paint: { kind: 'lit', color: '#808080', light: 0.9, dark: 0.9, pressed: false } as const };
+    const band = { ...bandFillLayer(), paint: { kind: 'lit', color: '#808080', light: 0.9, dark: 0.9, pressed: false, highlight: null } as const };
     const g = bandGeometry(project([]).stage, SIZE);
     const r = g.R - (g.outer + g.inner) / 2;
     const at = (deg: number) => px({ x: Math.cos((deg * Math.PI) / 180) * r, y: Math.sin((deg * Math.PI) / 180) * r });

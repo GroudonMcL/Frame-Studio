@@ -1,7 +1,7 @@
 // Turning a Paint (project/types.ts) into canvas colours.
 
 import { angularFill, clipToBand, litTables, type FrameGeometry, type LitTables } from '../engine/legacy/frameKit';
-import { mix } from '../engine/legacy/color';
+import { mix, rgba } from '../engine/legacy/color';
 import { DEFAULT_LIGHT, type GradientStop, type Paint, type RingStop } from '../project/types';
 import { insetAt } from './band';
 import type { Ctx } from './canvas';
@@ -9,20 +9,23 @@ import { turn, turnTable } from './light';
 
 const litCache = new Map<string, LitTables>();
 
-/** token-maker's lighting tables for a colour (cached, they take 360 colour mixes). */
-export function litFor(color: string, light: number, dark: number): LitTables {
-  const key = `${color}|${light}|${dark}`;
+/** token-maker's lighting tables for a colour (cached, they take 360 colour mixes). `highlight` null = the engine's default. */
+export function litFor(color: string, light: number, dark: number, highlight: string | null = null): LitTables {
+  const key = `${color}|${light}|${dark}|${highlight ?? ''}`;
   let t = litCache.get(key);
   if (!t) {
-    t = litTables(color, { light, dark });
+    t = litTables(color, { light, dark, highlight: highlight ?? undefined });
     if (litCache.size > 64) litCache.clear();
     litCache.set(key, t);
   }
   return t;
 }
 
+/** A stop's colour as the canvas wants it: plain hex when solid, rgba() when see-through (as token-maker writes its rims). */
+const stopColor = (s: GradientStop) => (s.opacity >= 1 ? s.color : rgba(s.color, Math.max(0, s.opacity)));
+
 function addStops(gradient: CanvasGradient, stops: GradientStop[]): CanvasGradient {
-  for (const s of stops) gradient.addColorStop(Math.min(1, Math.max(0, s.at)), s.color);
+  for (const s of stops) gradient.addColorStop(Math.min(1, Math.max(0, s.at)), stopColor(s));
   return gradient;
 }
 
@@ -85,7 +88,7 @@ export function recolourRound(ctx: Ctx, R: number, table: string[]): void {
 
 /** The colour table of a lit paint, turned to the light. */
 function litTable(paint: Extract<Paint, { kind: 'lit' }>, light: number): string[] {
-  const tables = litFor(paint.color, paint.light, paint.dark);
+  const tables = litFor(paint.color, paint.light, paint.dark, paint.highlight);
   return turnTable(paint.pressed ? tables.step : tables.band, light);
 }
 
@@ -100,17 +103,17 @@ export function paintStyle(ctx: Ctx, g: FrameGeometry, paint: Paint, from: numbe
       return paint.color;
     case 'lit': {
       // Lines can't use the wedge fill; a gradient from the lit side to the shaded side stands in.
-      const tables = litFor(paint.color, paint.light, paint.dark);
+      const tables = litFor(paint.color, paint.light, paint.dark, paint.highlight);
       const table = paint.pressed ? tables.step : tables.band;
       // Top left to bottom right, turned with the light.
       const s = turn({ x: -g.R * 0.7, y: -g.R * 0.7 }, ((light - DEFAULT_LIGHT) * Math.PI) / 180);
       return addStops(ctx.createLinearGradient(s.x, s.y, -s.x, -s.y), [
-        { at: 0, color: table[225] },
-        { at: 1, color: table[45] },
+        { at: 0, color: table[225], opacity: 1 },
+        { at: 1, color: table[45], opacity: 1 },
       ]);
     }
     case 'linear': {
-      const a = (paint.angle * Math.PI) / 180;
+      const a = ((paint.angle + (paint.followLight ? light - DEFAULT_LIGHT : 0)) * Math.PI) / 180;
       const dx = Math.cos(a) * g.R;
       const dy = Math.sin(a) * g.R;
       return addStops(ctx.createLinearGradient(-dx, -dy, dx, dy), paint.stops);
@@ -122,7 +125,7 @@ export function paintStyle(ctx: Ctx, g: FrameGeometry, paint: Paint, from: numbe
       // Radial from the token's centre: matches the band exactly on a circle, closely on other shapes.
       const r0 = Math.max(0, g.R - insetAt(g, to));
       const r1 = Math.max(r0 + 0.01, g.R - insetAt(g, from));
-      const reversed = paint.stops.map((s) => ({ at: 1 - s.at, color: s.color })).reverse();
+      const reversed = paint.stops.map((s) => ({ ...s, at: 1 - s.at })).reverse();
       return addStops(ctx.createRadialGradient(0, 0, r0, 0, 0, r1), reversed);
     }
   }

@@ -149,7 +149,7 @@ All drawn frames share the build in §2.2 (band fill, step, crease, rims), which
 
 **Shared texture functions** (each would become one procedural layer type): `marble` (9 frames), `hammerTexture` (5), `battleWear` (2), `groove` (4, really two lines), `ropeStrands` (1), `drawScales` (1), wood grain (2), `stampedTexture` (1).
 
-**Honest limit:** until a frame is converted (Phase 4), Frame Studio shows it as **one layer** with only colour and highlights colour editable, and says so in the Properties panel.
+**Honest limit:** a frame that isn't converted shows as **one layer** with only colour and highlights colour editable, and says so in the Properties panel. Phase 4 converted 18 of the frames into editable layers; DESIGN.md §4.7 says how closely each matches, and why the other eight aren't converted yet.
 
 ---
 

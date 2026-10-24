@@ -86,7 +86,7 @@ Done when: a design with marble, hammered metal and stars renders the same in th
 
 ---
 
-## Phase 4 — Converting Token Maker frames
+## Phase 4 — Converting Token Maker frames (done)
 
 ```
 Ground rules: (as above)

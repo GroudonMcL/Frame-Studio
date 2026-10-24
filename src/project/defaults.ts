@@ -50,7 +50,7 @@ export function legacyFrameLayer(presetId: string): LegacyFrameLayer {
 }
 
 export function bandFillLayer(): BandFillLayer {
-  return { ...base('Band fill'), type: 'bandFill', from: 0, to: 1, paint: { kind: 'lit', color: '#c9a24a', light: 0.85, dark: 0.8, pressed: false } };
+  return { ...base('Band fill'), type: 'bandFill', from: 0, to: 1, paint: { kind: 'lit', color: '#c9a24a', light: 0.85, dark: 0.8, pressed: false, highlight: null } };
 }
 
 export function lineLayer(): LineLayer {
@@ -84,6 +84,8 @@ export function repeatLayer(): RepeatLayer {
     altSizes: [],
     skipAroundAccent: 0,
     alternateSides: 0,
+    shaded: true,
+    show: [],
   };
 }
 
@@ -129,7 +131,7 @@ export function textureFromPreset(preset: TexturePreset): TextureLayer {
 
 /** The band a library texture sits on in its picture, and under it when it is added with a band. */
 export function textureBand(preset: TexturePreset): BandFillLayer {
-  return { ...bandFillLayer(), name: `${preset.name} band`, paint: { kind: 'lit', color: preset.band, light: 0.75, dark: 0.8, pressed: false } };
+  return { ...bandFillLayer(), name: `${preset.name} band`, paint: { kind: 'lit', color: preset.band, light: 0.75, dark: 0.8, pressed: false, highlight: null } };
 }
 
 /** A new shape or path sits at the top of the band, upright, one band width tall. */
@@ -212,9 +214,9 @@ export const LAYERED_TEMPLATES: LayeredTemplate[] = [
     name: 'Brass & beads',
     description: 'A lit brass band, a pressed-in step, two rims and a ring of beads.',
     make: () => [
-      { ...bandFillLayer(), name: 'Brass band', paint: { kind: 'lit', color: '#b88635', light: 0.9, dark: 0.8, pressed: false } },
-      { ...bandFillLayer(), name: 'Pressed-in step', from: 0.6, to: 1, paint: { kind: 'lit', color: '#6e4a1c', light: 0.6, dark: 0.5, pressed: true } },
-      { ...lineLayer(), name: 'Outer rim', at: 0.02, width: 0.04, paint: { kind: 'linear', angle: 45, stops: [{ at: 0, color: '#fff6e0' }, { at: 0.5, color: '#b88635' }, { at: 1, color: '#2a1a08' }] } },
+      { ...bandFillLayer(), name: 'Brass band', paint: { kind: 'lit', color: '#b88635', light: 0.9, dark: 0.8, pressed: false, highlight: null } },
+      { ...bandFillLayer(), name: 'Pressed-in step', from: 0.6, to: 1, paint: { kind: 'lit', color: '#6e4a1c', light: 0.6, dark: 0.5, pressed: true, highlight: null } },
+      { ...lineLayer(), name: 'Outer rim', at: 0.02, width: 0.04, paint: { kind: 'linear', angle: 45, stops: [{ at: 0, color: '#fff6e0', opacity: 1 }, { at: 0.5, color: '#b88635', opacity: 1 }, { at: 1, color: '#2a1a08', opacity: 1 }], followLight: false } },
       { ...lineLayer(), name: 'Inner rim', at: 0.99, width: 0.03, paint: { kind: 'solid', color: '#1a0e04' } },
       { ...repeatLayer(), name: 'Beads', at: 0.6, size: 0.16, count: 24, fill: '#d9b060' },
     ],
@@ -224,7 +226,7 @@ export const LAYERED_TEMPLATES: LayeredTemplate[] = [
     name: 'Glowing runes',
     description: 'A dark stone band with a glowing line and runes all the way round.',
     make: () => [
-      { ...bandFillLayer(), name: 'Dark stone', paint: { kind: 'lit', color: '#2a2c36', light: 0.45, dark: 0.7, pressed: false } },
+      { ...bandFillLayer(), name: 'Dark stone', paint: { kind: 'lit', color: '#2a2c36', light: 0.45, dark: 0.7, pressed: false, highlight: null } },
       { ...lineLayer(), name: 'Glow line', at: 0.7, width: 0.035, paint: { kind: 'solid', color: '#a8e4ff' }, glow: '#6fc3ff' },
       {
         ...repeatLayer(),
@@ -248,7 +250,7 @@ export const LAYERED_TEMPLATES: LayeredTemplate[] = [
     name: 'Jewelled',
     description: 'Silver with a vine, alternating diamonds and a pair of drawn gems, grouped.',
     make: () => [
-      { ...bandFillLayer(), name: 'Silver band', paint: { kind: 'lit', color: '#9aa3ad', light: 0.9, dark: 0.75, pressed: false } },
+      { ...bandFillLayer(), name: 'Silver band', paint: { kind: 'lit', color: '#9aa3ad', light: 0.9, dark: 0.75, pressed: false, highlight: null } },
       { ...lineLayer(), name: 'Vine', at: 0.5, width: 0.05, paint: { kind: 'solid', color: '#2f5d36' }, waveAmplitude: 0.18, waves: 16 },
       { ...lineLayer(), name: 'Outer rim', at: 0.02, width: 0.04, paint: { kind: 'solid', color: '#e8ecf0' } },
       { ...lineLayer(), name: 'Inner rim', at: 0.98, width: 0.04, paint: { kind: 'solid', color: '#2a2e36' } },
@@ -273,8 +275,8 @@ export const LAYERED_TEMPLATES: LayeredTemplate[] = [
     name: 'Battle-worn steel',
     description: 'Hammered steel with dents and scratches, a pressed-in step and a ring of rivets.',
     make: () => [
-      { ...bandFillLayer(), name: 'Steel band', paint: { kind: 'lit', color: '#8a8f99', light: 0.75, dark: 0.8, pressed: false } },
-      { ...bandFillLayer(), name: 'Pressed-in step', from: 0.65, to: 1, paint: { kind: 'lit', color: '#8a8f99', light: 0.75, dark: 0.8, pressed: true } },
+      { ...bandFillLayer(), name: 'Steel band', paint: { kind: 'lit', color: '#8a8f99', light: 0.75, dark: 0.8, pressed: false, highlight: null } },
+      { ...bandFillLayer(), name: 'Pressed-in step', from: 0.65, to: 1, paint: { kind: 'lit', color: '#8a8f99', light: 0.75, dark: 0.8, pressed: true, highlight: null } },
       { ...textureLayer('hammered'), name: 'Hammered', color: '#8a8f99', amount: 0.6, seed: 0x2e3d },
       { ...textureLayer('wear'), name: 'Battle wear', color: '#8a8f99' },
       { ...lineLayer(), name: 'Outer rim', at: 0.02, width: 0.04, paint: { kind: 'solid', color: '#e8ecf0' } },

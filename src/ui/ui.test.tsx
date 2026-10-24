@@ -3,8 +3,9 @@ import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../App';
 import { FRAME_PRESETS } from '../engine/legacy/catalog';
-import { bandFillLayer, createProject, LAYERED_TEMPLATES, legacyFrameLayer, lineLayer, shapeLayer, TEXTURES, textureLayer } from '../project/defaults';
-import { history, loadProject, updateStage } from '../state/projectStore';
+import { canConvert } from '../project/convert';
+import { bandFillLayer, createProject, LAYERED_TEMPLATES, legacyFrameLayer, lineLayer, repeatLayer, shapeLayer, TEXTURES, textureLayer } from '../project/defaults';
+import { history, loadProject, select, setMode, undo, updateStage } from '../state/projectStore';
 import { LayersPanel } from './LayersPanel';
 import { PropertiesPanel } from './PropertiesPanel';
 import { TemplateDialog } from './TemplateDialog';
@@ -202,6 +203,84 @@ describe('textures (Phase 3)', () => {
     expect(stops().at(-1)!.angle).toBe(330);
     await userEvent.click(screen.getByRole('switch', { name: 'Turn with the light' }));
     expect(paint()).toMatchObject({ followLight: false });
+  });
+});
+
+describe('converting Token Maker frames (Phase 4)', () => {
+  const top = () => history.getState().present.layers.at(-1)!;
+  afterEach(() => setMode('basic'));
+
+  it('the template picker offers the converted frames as editable, and every original too', async () => {
+    render(<TemplateDialog mode="new" onClose={() => {}} />);
+    const editable = FRAME_PRESETS.filter((p) => canConvert(p.style));
+    // Arcane and Infernal share their drawing code: 17 converters, 18 frames.
+    expect(editable.length).toBe(18);
+    for (const f of editable) expect(screen.getByRole('button', { name: `${f.name} (editable)` })).toBeInTheDocument();
+    for (const f of FRAME_PRESETS) expect(screen.getByRole('button', { name: f.name })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Stamped (editable)' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Paladin (editable)' }));
+    const p = history.getState().present;
+    expect(p.name).toBe('Paladin');
+    expect(p.layers.map((l) => l.type)).not.toContain('legacyFrame');
+    expect(p.layers.map((l) => l.name)).toContain('Gold crosses');
+  });
+
+  it('in "add" mode an editable frame is added as a group', async () => {
+    loadProject(createProject([bandFillLayer()]));
+    render(<TemplateDialog mode="addFrame" onClose={() => {}} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Polished (editable)' }));
+    expect(top()).toMatchObject({ type: 'group', name: 'Polished' });
+  });
+
+  it('a Token Maker frame layer turns into editable layers in its place, and undo brings it back', async () => {
+    loadProject(createProject([bandFillLayer(), { ...legacyFrameLayer('paladin'), opacity: 0.7 }, lineLayer()]));
+    const frameId = history.getState().present.layers[1].id;
+    render(<PropertiesPanel />);
+    act(() => select(frameId));
+    await userEvent.click(screen.getByRole('button', { name: 'Turn into editable layers' }));
+    const layers = history.getState().present.layers;
+    expect(layers.map((l) => l.type)).toEqual(['bandFill', 'group', 'line']);
+    expect(layers[1]).toMatchObject({ name: 'Paladin', opacity: 0.7 });
+    expect(screen.getByText('Group', { selector: '.layer-kind' })).toBeInTheDocument();
+    act(() => undo());
+    expect(history.getState().present.layers[1]).toMatchObject({ type: 'legacyFrame', presetId: 'paladin' });
+  });
+
+  it('frames without a converter say their parts can’t be edited yet, and offer no button', () => {
+    loadProject(createProject([legacyFrameLayer('stamped')]));
+    render(<PropertiesPanel />);
+    expect(screen.getByText(/can't be edited one by one yet/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Turn into editable layers' })).toBeNull();
+  });
+
+  it('a repeat can be drawn flat and only every other one', async () => {
+    loadProject(createProject([repeatLayer()]));
+    render(<PropertiesPanel />);
+    await userEvent.click(screen.getByRole('switch', { name: 'Shaded by the light' }));
+    expect(top()).toMatchObject({ shaded: false });
+    await userEvent.click(screen.getByRole('button', { name: 'Show: add a step' }));
+    expect(top()).toMatchObject({ show: [true, false] });
+    await userEvent.click(screen.getByRole('button', { name: 'Show: add a step' }));
+    await userEvent.click(screen.getByRole('switch', { name: 'Show: step 2' }));
+    expect(top()).toMatchObject({ show: [true, true, false] });
+    await userEvent.click(screen.getByRole('button', { name: 'All' }));
+    expect(top()).toMatchObject({ show: [] });
+  });
+
+  it('a lit paint takes its own highlight colour, and a gradient can turn with the light (Advanced)', async () => {
+    act(() => setMode('advanced'));
+    loadProject(createProject([bandFillLayer()]));
+    render(<PropertiesPanel />);
+    const paint = () => {
+      const l = top();
+      return l.type === 'bandFill' ? l.paint : null;
+    };
+    await userEvent.click(screen.getByRole('switch', { name: 'Highlight colour' }));
+    expect(paint()).toMatchObject({ kind: 'lit', highlight: expect.stringMatching(/^#[0-9a-f]{6}$/) });
+    await userEvent.selectOptions(screen.getByLabelText('Paint'), 'linear');
+    await userEvent.click(screen.getByRole('switch', { name: 'Turn with the light' }));
+    expect(paint()).toMatchObject({ kind: 'linear', followLight: true });
+    expect(screen.getByLabelText('Colour 1 opacity')).toBeInTheDocument();
   });
 });
 

@@ -41,6 +41,27 @@ function addPhase2Fields(layer: unknown): unknown {
   return out;
 }
 
+/**
+ * Version 3 → 4 (Phase 4): a lit paint's own highlight colour, see-through
+ * gradient colours, gradients that turn with the light, and repeats drawn
+ * flat or only some of them; all off so old designs look the same.
+ */
+function addPhase4Fields(layer: unknown): unknown {
+  if (!isObj(layer)) return layer;
+  const out: Obj = { ...layer };
+  if (Array.isArray(layer.children)) out.children = layer.children.map(addPhase4Fields);
+  if (layer.type === 'repeat') Object.assign(out, { shaded: true, show: [] }, layer);
+  // Only the kinds that have a paint: a layer from a newer version is kept exactly as it was.
+  if ((layer.type === 'bandFill' || layer.type === 'line') && isObj(layer.paint)) {
+    const paint: Obj = { ...layer.paint };
+    if (paint.kind === 'lit') paint.highlight ??= null;
+    if (paint.kind === 'linear') paint.followLight ??= false;
+    if (Array.isArray(paint.stops) && (paint.kind === 'linear' || paint.kind === 'acrossBand')) paint.stops = paint.stops.map((s) => (isObj(s) ? { opacity: 1, ...s } : s));
+    out.paint = paint;
+  }
+  return out;
+}
+
 /** Migrations from version n to n + 1, keyed by n. */
 const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
   1: (p) => ({
@@ -51,6 +72,7 @@ const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
   }),
   // Version 2 → 3 (Phase 3) only adds things (texture layers, the ring paint), so nothing changes.
   2: (p) => ({ ...p, schemaVersion: 3 }),
+  3: (p) => ({ ...p, schemaVersion: 4, layers: Array.isArray(p.layers) ? p.layers.map(addPhase4Fields) : p.layers }),
 };
 
 export function parseProject(input: unknown): ParseResult {
@@ -127,21 +149,28 @@ const bool = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fa
 
 function checkStops(v: unknown, fallback: GradientStop[]): GradientStop[] {
   if (!Array.isArray(v)) return fallback;
-  const stops = v.filter(isObj).map((s) => ({ at: num(s.at, 0, 0, 1), color: hex(s.color, '#ffffff') }));
+  const stops = v.filter(isObj).map((s) => ({ at: num(s.at, 0, 0, 1), color: hex(s.color, '#ffffff'), opacity: num(s.opacity, 1, 0, 1) }));
   return stops.length >= 2 ? stops.slice(0, 16).sort((a, b) => a.at - b.at) : fallback;
 }
 
 function checkPaint(v: unknown, fallback: Paint): Paint {
   const o = isObj(v) ? v : {};
   const fbColor = 'color' in fallback ? fallback.color : '#ffffff';
-  const fbStops = fallback.kind === 'linear' || fallback.kind === 'acrossBand' ? fallback.stops : [{ at: 0, color: '#ffffff' }, { at: 1, color: '#000000' }];
+  const fbStops = fallback.kind === 'linear' || fallback.kind === 'acrossBand' ? fallback.stops : [{ at: 0, color: '#ffffff', opacity: 1 }, { at: 1, color: '#000000', opacity: 1 }];
   switch (o.kind) {
     case 'solid':
       return { kind: 'solid', color: hex(o.color, fbColor) };
     case 'lit':
-      return { kind: 'lit', color: hex(o.color, fbColor), light: num(o.light, 0.85, 0, 1), dark: num(o.dark, 0.8, 0, 1), pressed: bool(o.pressed, false) };
+      return {
+        kind: 'lit',
+        color: hex(o.color, fbColor),
+        light: num(o.light, 0.85, 0, 1),
+        dark: num(o.dark, 0.8, 0, 1),
+        pressed: bool(o.pressed, false),
+        highlight: hexOrNull(o.highlight, null),
+      };
     case 'linear':
-      return { kind: 'linear', angle: num(o.angle, 45, -360, 360), stops: checkStops(o.stops, fbStops) };
+      return { kind: 'linear', angle: num(o.angle, 45, -360, 360), stops: checkStops(o.stops, fbStops), followLight: bool(o.followLight, false) };
     case 'acrossBand':
       return { kind: 'acrossBand', stops: checkStops(o.stops, fbStops) };
     case 'ring': {
@@ -319,6 +348,8 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
         altSizes: Array.isArray(o.altSizes) ? o.altSizes.slice(0, 8).map((v) => num(v, 1, 0.05, 5)) : [],
         skipAroundAccent: Math.round(num(o.skipAroundAccent, d.skipAroundAccent, 0, 10)),
         alternateSides: num(o.alternateSides, d.alternateSides, 0, 2),
+        shaded: bool(o.shaded, d.shaded),
+        show: Array.isArray(o.show) && o.show.some((v) => v === true) ? o.show.slice(0, 8).map((v) => v === true) : [],
       };
     }
   }
