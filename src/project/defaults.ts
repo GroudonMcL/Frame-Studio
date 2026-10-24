@@ -21,6 +21,8 @@ import {
   type RepeatLayer,
   type ShapeLayer,
   type StageSettings,
+  type TextureKind,
+  type TextureLayer,
 } from './types';
 
 export const DEFAULT_STAGE: StageSettings = {
@@ -85,6 +87,51 @@ export function repeatLayer(): RepeatLayer {
   };
 }
 
+/** A texture over the whole band, as Token Maker draws it. */
+export function textureLayer(kind: TextureKind = 'marble'): TextureLayer {
+  const preset = TEXTURES.find((t) => t.layer.kind === kind)?.layer ?? {};
+  return { ...base('Texture'), type: 'texture', kind, from: 0, to: 1, color: '#c9a24a', color2: null, amount: 1, scale: 1, strength: 1, where: 'everywhere', seed: 1, ...preset };
+}
+
+export interface TexturePreset {
+  id: string;
+  name: string;
+  description: string;
+  /** The texture's settings (a new layer gets the rest from textureLayer). */
+  layer: Partial<TextureLayer> & { kind: TextureKind };
+  /** A band colour that suits it, used under it in the library and when it is added with a band. */
+  band: string;
+}
+
+/**
+ * The texture library (Add layer → Texture…). The first preset of each kind
+ * is that kind's default. Seeds and colours are Token Maker's where a frame
+ * uses the texture, so they look as they do there (variations go up to 99999).
+ */
+export const TEXTURES: TexturePreset[] = [
+  { id: 'marble', name: 'Marble', description: 'Soft marbling and flecks on the shaded side, like Stamped and Gilded.', layer: { kind: 'marble', name: 'Marble', color: '#b98a3c', where: 'shaded', seed: 0x5eed }, band: '#b98a3c' },
+  { id: 'dark-marble', name: 'Heavy marble', description: 'Marbling all the way round, like Warlock and Arcane.', layer: { kind: 'marble', name: 'Heavy marble', color: '#5a4a6a', amount: 1.4, strength: 1.4, where: 'everywhere', seed: 0xe7e }, band: '#4a3a5a' },
+  { id: 'hammered', name: 'Hammered metal', description: 'Dents with a bright fleck on their lit side, like Fighter.', layer: { kind: 'hammered', name: 'Hammered metal', color: '#8a8f99', amount: 0.6, seed: 0x2e3d }, band: '#8a8f99' },
+  { id: 'hide', name: 'Hide', description: 'Fine pitting, like Barbarian and Rogue leather.', layer: { kind: 'hammered', name: 'Hide', color: '#6e4a2c', amount: 1.5, scale: 0.45, strength: 0.8, seed: 0x5717 }, band: '#6e4a2c' },
+  { id: 'wear', name: 'Battle wear', description: 'Dents and bright scratches, like Fighter and Barbarian.', layer: { kind: 'wear', name: 'Battle wear', color: '#8a8f99', seed: 0xf16 }, band: '#8a8f99' },
+  { id: 'wood', name: 'Wood grain', description: 'Wavy grain and knots, like Oak and Druid.', layer: { kind: 'wood', name: 'Wood grain', color: '#7a5230', seed: 0x0a4 }, band: '#7a5230' },
+  { id: 'stone', name: 'Stone blocks', description: 'Blocks of varied tone with mortar and pitting, like Cobblestone.', layer: { kind: 'stone', name: 'Stone blocks', color: '#7d7a72', seed: 0x570e }, band: '#7d7a72' },
+  { id: 'stars', name: 'Starfield', description: 'Haze and scattered stars, like Starfield.', layer: { kind: 'scatter', name: 'Stars', color: '#ffffff', color2: '#6a5acd', seed: 0x57a2 }, band: '#1a1c3a' },
+  { id: 'rope', name: 'Rope', description: 'Twisted strands, like Monk’s cord.', layer: { kind: 'rope', name: 'Rope', color: '#a07a48', seed: 0xbead }, band: '#a07a48' },
+  { id: 'scales', name: 'Dragon scales', description: 'Overlapping scales in staggered rows, like Sorcerer.', layer: { kind: 'scales', name: 'Scales', color: '#3f8a5a' }, band: '#3f8a5a' },
+  { id: 'cracks', name: 'Magma cracks', description: 'Glowing wandering cracks, like Magma.', layer: { kind: 'cracks', name: 'Magma cracks', color: '#ff5a1a', seed: 0x1a7a }, band: '#2a1e1c' },
+];
+
+/** A texture layer from the library. */
+export function textureFromPreset(preset: TexturePreset): TextureLayer {
+  return { ...textureLayer(preset.layer.kind), ...preset.layer };
+}
+
+/** The band a library texture sits on in its picture, and under it when it is added with a band. */
+export function textureBand(preset: TexturePreset): BandFillLayer {
+  return { ...bandFillLayer(), name: `${preset.name} band`, paint: { kind: 'lit', color: preset.band, light: 0.75, dark: 0.8, pressed: false } };
+}
+
 /** A new shape or path sits at the top of the band, upright, one band width tall. */
 export const DEFAULT_PLACEMENT: Placement = { place: 'band', along: 0, across: 0.5, x: 0, y: -0.8, size: 0.8, stretch: 1, rotation: 0, mirror: 'none' };
 const DEFAULT_STYLE: PlacedStyle = { fill: '#5fa8d3', shaded: true, outline: '#1a1008', outlineWidth: 0.06, raised: true, glow: null };
@@ -116,6 +163,7 @@ export const NEW_LAYER: Record<EditableLayerType, () => Layer> = {
   bandFill: bandFillLayer,
   line: lineLayer,
   repeat: repeatLayer,
+  texture: () => textureLayer(),
   shape: shapeLayer,
   path: () => pathLayer(),
   group: () => groupLayer(),
@@ -127,6 +175,7 @@ export const LAYER_TYPE_NAMES: Record<Layer['type'], string> = {
   bandFill: 'Band fill',
   line: 'Line',
   repeat: 'Repeated shapes',
+  texture: 'Texture',
   shape: 'Shape',
   path: 'Path',
   group: 'Group',
@@ -219,4 +268,43 @@ export const LAYERED_TEMPLATES: LayeredTemplate[] = [
       },
     ],
   },
-];
+  {
+    id: 'battle-steel',
+    name: 'Battle-worn steel',
+    description: 'Hammered steel with dents and scratches, a pressed-in step and a ring of rivets.',
+    make: () => [
+      { ...bandFillLayer(), name: 'Steel band', paint: { kind: 'lit', color: '#8a8f99', light: 0.75, dark: 0.8, pressed: false } },
+      { ...bandFillLayer(), name: 'Pressed-in step', from: 0.65, to: 1, paint: { kind: 'lit', color: '#8a8f99', light: 0.75, dark: 0.8, pressed: true } },
+      { ...textureLayer('hammered'), name: 'Hammered', color: '#8a8f99', amount: 0.6, seed: 0x2e3d },
+      { ...textureLayer('wear'), name: 'Battle wear', color: '#8a8f99' },
+      { ...lineLayer(), name: 'Outer rim', at: 0.02, width: 0.04, paint: { kind: 'solid', color: '#e8ecf0' } },
+      { ...lineLayer(), name: 'Inner rim', at: 0.99, width: 0.03, paint: { kind: 'solid', color: '#14161a' } },
+      { ...repeatLayer(), name: 'Rivets', at: 0.33, size: 0.3, fill: '#9aa0aa' },
+    ],
+  },
+  {
+    id: 'night-sky',
+    name: 'Night sky',
+    description: 'Colours round the ring from dusk to midnight, with stars, haze and a glowing line.',
+    make: () => [
+      {
+        ...bandFillLayer(),
+        name: 'Sky',
+        paint: {
+          kind: 'ring',
+          stops: [
+            { angle: 0, color: '#1a1a4a' },
+            { angle: 90, color: '#0b0d1e' },
+            { angle: 180, color: '#3a2a6a' },
+            { angle: 225, color: '#6a4a9a' },
+            { angle: 270, color: '#3a2a6a' },
+          ],
+          followLight: true,
+        },
+      },
+      { ...textureLayer('scatter'), name: 'Stars', color: '#ffffff', color2: '#6a5acd', amount: 1.3 },
+      { ...lineLayer(), name: 'Glow line', at: 0.75, width: 0.03, paint: { kind: 'solid', color: '#cfc4ff' }, glow: '#8a7aff' },
+      { ...lineLayer(), name: 'Outer rim', at: 0.02, width: 0.04, paint: { kind: 'solid', color: '#b8b0e0' } },
+    ],
+  },
+]

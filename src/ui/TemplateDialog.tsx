@@ -2,50 +2,12 @@
 // each), designs built from editable layers, or a blank project. The same
 // dialog adds a Token Maker frame as a layer to the open project.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { FRAME_GROUPS, FRAME_PRESETS } from '../engine/legacy/catalog';
 import { createProject, LAYERED_TEMPLATES, legacyFrameLayer, projectFromFrame } from '../project/defaults';
-import type { FrameProject } from '../project/types';
-import { renderProject } from '../render/renderProject';
-import { addLayer, history, loadProject } from '../state/projectStore';
-import { stageArt } from './stageArt';
-
-const THUMB = 112;
-const thumbs = new Map<string, string>();
-
-/** A picture of a project, drawn by the real renderer, cached by key. */
-function useThumbnail(key: string, make: () => FrameProject): string | null {
-  const [url, setUrl] = useState(() => thumbs.get(key) ?? null);
-  useEffect(() => {
-    if (url) return;
-    // Spread the work out so the dialog opens at once.
-    const id = setTimeout(() => {
-      const c = document.createElement('canvas');
-      c.width = c.height = THUMB * 2;
-      const ctx = c.getContext('2d');
-      if (!ctx) return;
-      const project = make();
-      project.stage.shape = history.getState().present.stage.shape;
-      renderProject(ctx, project, THUMB * 2, { art: stageArt() });
-      const data = c.toDataURL('image/png');
-      thumbs.set(key, data);
-      setUrl(data);
-    }, 0);
-    return () => clearTimeout(id);
-  }, [key, make, url]);
-  return url;
-}
-
-function Tile({ id, name, description, make, onPick }: { id: string; name: string; description?: string; make: () => FrameProject; onPick: () => void }) {
-  const url = useThumbnail(`${id}|${history.getState().present.stage.shape}`, make);
-  return (
-    <button type="button" className="tile" onClick={onPick} title={description}>
-      {url ? <img src={url} alt="" width={THUMB} height={THUMB} /> : <span className="tile-placeholder" style={{ width: THUMB, height: THUMB }} />}
-      <span>{name}</span>
-    </button>
-  );
-}
+import { addLayer, loadProject } from '../state/projectStore';
+import { THUMB, Tile } from './Thumbnail';
 
 const frameMakers = new Map(FRAME_PRESETS.map((p) => [p.id, () => projectFromFrame(p.id)]));
 const layeredMakers = new Map(LAYERED_TEMPLATES.map((t) => [t.id, () => createProject(t.make(), t.name)]));

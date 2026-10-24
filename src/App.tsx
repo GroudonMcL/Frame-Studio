@@ -8,13 +8,14 @@ import { PropertiesPanel } from './ui/PropertiesPanel';
 import { pathEditKey } from './ui/pathKeys';
 import { Stage } from './ui/Stage';
 import { TemplateDialog } from './ui/TemplateDialog';
+import { TextureDialog } from './ui/TextureDialog';
 import { TopBar } from './ui/TopBar';
 
 const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 
 export function App() {
   const [ready, setReady] = useState(false);
-  const [dialog, setDialog] = useState<'new' | 'addFrame' | null>(null);
+  const [dialog, setDialog] = useState<'new' | 'addFrame' | 'texture' | null>(null);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
   // Pick up where the last visit left off; a first visit starts with Stamped.
@@ -73,7 +74,7 @@ export function App() {
     <div className="app">
       <TopBar onNew={() => setDialog('new')} onMessage={(text, error = false) => setMessage({ text, error })} />
       <main className="workspace">
-        <LayersPanel onAddFrame={() => setDialog('addFrame')} />
+        <LayersPanel onAddFrame={() => setDialog('addFrame')} onAddTexture={() => setDialog('texture')} />
         <Stage />
         <PropertiesPanel />
       </main>
@@ -82,7 +83,8 @@ export function App() {
           {message.text}
         </div>
       )}
-      {dialog && <TemplateDialog mode={dialog} onClose={() => setDialog(null)} />}
+      {dialog === 'texture' && <TextureDialog onClose={() => setDialog(null)} />}
+      {(dialog === 'new' || dialog === 'addFrame') && <TemplateDialog mode={dialog} onClose={() => setDialog(null)} />}
     </div>
   );
 }

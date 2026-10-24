@@ -3,11 +3,12 @@ import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../App';
 import { FRAME_PRESETS } from '../engine/legacy/catalog';
-import { createProject, LAYERED_TEMPLATES, legacyFrameLayer, lineLayer, shapeLayer } from '../project/defaults';
+import { bandFillLayer, createProject, LAYERED_TEMPLATES, legacyFrameLayer, lineLayer, shapeLayer, TEXTURES, textureLayer } from '../project/defaults';
 import { history, loadProject, updateStage } from '../state/projectStore';
 import { LayersPanel } from './LayersPanel';
 import { PropertiesPanel } from './PropertiesPanel';
 import { TemplateDialog } from './TemplateDialog';
+import { TextureDialog } from './TextureDialog';
 
 // jsdom has no <dialog> methods.
 HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
@@ -22,7 +23,7 @@ describe('editor panels', () => {
   it('lists layers top first and shows the selected one’s settings', async () => {
     render(
       <>
-        <LayersPanel onAddFrame={() => {}} />
+        <LayersPanel onAddFrame={() => {}} onAddTexture={() => {}} />
         <PropertiesPanel />
       </>,
     );
@@ -33,7 +34,7 @@ describe('editor panels', () => {
   });
 
   it('hide, lock, duplicate, delete and reorder from the panel', async () => {
-    render(<LayersPanel onAddFrame={() => {}} />);
+    render(<LayersPanel onAddFrame={() => {}} onAddTexture={() => {}} />);
     const top = () => history.getState().present.layers.at(-1)!;
     await userEvent.click(screen.getByRole('button', { name: 'Hide Beads' }));
     expect(top().visible).toBe(false);
@@ -49,7 +50,7 @@ describe('editor panels', () => {
   });
 
   it('renames with a double click', async () => {
-    render(<LayersPanel onAddFrame={() => {}} />);
+    render(<LayersPanel onAddFrame={() => {}} onAddTexture={() => {}} />);
     await userEvent.dblClick(rows()[0]);
     const box = screen.getByRole('textbox', { name: 'Layer name' });
     await userEvent.clear(box);
@@ -58,7 +59,7 @@ describe('editor panels', () => {
   });
 
   it('adds layers from the menu', async () => {
-    render(<LayersPanel onAddFrame={() => {}} />);
+    render(<LayersPanel onAddFrame={() => {}} onAddTexture={() => {}} />);
     await userEvent.click(screen.getByRole('button', { name: 'Add layer' }));
     await userEvent.click(screen.getByRole('menuitem', { name: /Repeated shapes/ }));
     expect(history.getState().present.layers).toHaveLength(6);
@@ -92,7 +93,7 @@ describe('editor panels', () => {
 describe('Phase 2 panels', () => {
   it('Ctrl+click two layers and group them; the group folds and unfolds', async () => {
     loadProject(createProject(LAYERED_TEMPLATES[0].make()));
-    render(<LayersPanel onAddFrame={() => {}} />);
+    render(<LayersPanel onAddFrame={() => {}} onAddTexture={() => {}} />);
     const user = userEvent.setup();
     await user.click(rows()[0]);
     await user.keyboard('{Control>}');
@@ -130,6 +131,77 @@ describe('Phase 2 panels', () => {
     expect(screen.queryByRole('note')).toBeNull();
     act(() => updateStage({ light: 45 }));
     expect(screen.getByRole('note')).toHaveTextContent(/always lit from the top left/);
+  });
+});
+
+describe('textures (Phase 3)', () => {
+  const top = () => history.getState().present.layers.at(-1)!;
+
+  it('the Add layer menu opens the texture library', async () => {
+    loadProject(createProject([bandFillLayer()]));
+    const onAddTexture = vi.fn();
+    render(<LayersPanel onAddFrame={() => {}} onAddTexture={onAddTexture} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Add layer' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /Texture…/ }));
+    expect(onAddTexture).toHaveBeenCalled();
+  });
+
+  it('the library shows every texture and adds the one picked, with a band under it if asked', async () => {
+    loadProject(createProject([]));
+    const onClose = vi.fn();
+    render(<TextureDialog onClose={onClose} />);
+    for (const t of TEXTURES) expect(screen.getByRole('button', { name: t.name })).toBeInTheDocument();
+    // An empty project gets a band too, by default, in one undo step.
+    expect(screen.getByRole('switch', { name: /matching band colour/ })).toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: 'Hammered metal' }));
+    expect(history.getState().present.layers.map((l) => l.type)).toEqual(['bandFill', 'texture']);
+    expect(top()).toMatchObject({ type: 'texture', kind: 'hammered' });
+    expect(history.getState().past).toHaveLength(1);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('a project with layers gets just the texture', async () => {
+    loadProject(createProject([bandFillLayer()]));
+    render(<TextureDialog onClose={() => {}} />);
+    expect(screen.getByRole('switch', { name: /matching band colour/ })).not.toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: 'Starfield' }));
+    expect(history.getState().present.layers.map((l) => l.type)).toEqual(['bandFill', 'texture']);
+  });
+
+  it('a texture shows its settings; changing the kind keeps its colour', async () => {
+    loadProject(createProject([{ ...textureLayer('marble'), color: '#123456' }]));
+    render(<PropertiesPanel />);
+    for (const label of ['How many', 'Size', 'Strength', 'Variation', 'Where']) expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    await userEvent.selectOptions(screen.getByLabelText('Texture'), 'scatter');
+    expect(top()).toMatchObject({ kind: 'scatter', color: '#123456', name: 'Stars' });
+    expect(screen.getByText('Star colour')).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('Where'), 'lit');
+    expect(top()).toMatchObject({ where: 'lit' });
+    const seed = (top() as { seed: number }).seed;
+    await userEvent.click(screen.getByRole('button', { name: 'Shuffle' }));
+    expect((top() as { seed: number }).seed).not.toBe(seed);
+  });
+
+  it('a band fill can be painted with colours round the ring', async () => {
+    loadProject(createProject([bandFillLayer()]));
+    render(<PropertiesPanel />);
+    await userEvent.selectOptions(screen.getByLabelText('Paint'), 'ring');
+    const paint = () => {
+      const l = top();
+      return l.type === 'bandFill' ? l.paint : null;
+    };
+    const stops = () => {
+      const p = paint();
+      return p?.kind === 'ring' ? p.stops : [];
+    };
+    // It starts from the metal lighting it was: twelve colours, 30° apart.
+    expect(paint()).toMatchObject({ kind: 'ring', followLight: true });
+    expect(stops()).toHaveLength(12);
+    await userEvent.click(screen.getByRole('button', { name: 'Remove colour 12' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add a colour' }));
+    expect(stops().at(-1)!.angle).toBe(330);
+    await userEvent.click(screen.getByRole('switch', { name: 'Turn with the light' }));
+    expect(paint()).toMatchObject({ followLight: false });
   });
 });
 

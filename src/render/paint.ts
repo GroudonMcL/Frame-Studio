@@ -1,7 +1,8 @@
 // Turning a Paint (project/types.ts) into canvas colours.
 
 import { angularFill, clipToBand, litTables, type FrameGeometry, type LitTables } from '../engine/legacy/frameKit';
-import { DEFAULT_LIGHT, type GradientStop, type Paint } from '../project/types';
+import { mix } from '../engine/legacy/color';
+import { DEFAULT_LIGHT, type GradientStop, type Paint, type RingStop } from '../project/types';
 import { insetAt } from './band';
 import type { Ctx } from './canvas';
 import { turn, turnTable } from './light';
@@ -23,6 +24,63 @@ export function litFor(color: string, light: number, dark: number): LitTables {
 function addStops(gradient: CanvasGradient, stops: GradientStop[]): CanvasGradient {
   for (const s of stops) gradient.addColorStop(Math.min(1, Math.max(0, s.at)), s.color);
   return gradient;
+}
+
+const ringCache = new Map<string, string[]>();
+
+/** A 360-entry table (one colour per degree) blending between colour stops round the ring. */
+export function ringTable(stops: RingStop[]): string[] {
+  const key = JSON.stringify(stops);
+  const cached = ringCache.get(key);
+  if (cached) return cached;
+  const s = [...stops].sort((a, b) => a.angle - b.angle);
+  const table: string[] = [];
+  for (let d = 0; d < 360; d++) {
+    if (s.length === 0) {
+      table.push('#000000');
+      continue;
+    }
+    // The stops either side of this angle, going round past 360° if need be.
+    let i = -1;
+    while (i + 1 < s.length && s[i + 1].angle <= d) i++;
+    const prev = i >= 0 ? s[i] : { angle: s[s.length - 1].angle - 360, color: s[s.length - 1].color };
+    const next = i >= 0 ? (s[i + 1] ?? { angle: s[0].angle + 360, color: s[0].color }) : s[0];
+    const span = next.angle - prev.angle;
+    table.push(mix(prev.color, next.color, span > 0 ? (d - prev.angle) / span : 0));
+  }
+  if (ringCache.size > 64) ringCache.clear();
+  ringCache.set(key, table);
+  return table;
+}
+
+/** The colour table of a ring paint, turned to the light if it follows it. */
+export function ringTableFor(paint: Extract<Paint, { kind: 'ring' }>, light: number): string[] {
+  const table = ringTable(paint.stops);
+  return paint.followLight ? turnTable(table, light) : table;
+}
+
+/**
+ * Fills everything already drawn on a context with a ring paint, keeping its
+ * alpha (for lines, which can't be filled with wedges directly). Thin wedges,
+ * as angularFill, each one colour.
+ */
+export function recolourRound(ctx: Ctx, R: number, table: string[]): void {
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-atop';
+  const far = R * 2;
+  const n = 240;
+  for (let i = 0; i < n; i++) {
+    const t0 = (i / n) * Math.PI * 2 - 0.004;
+    const t1 = ((i + 1) / n) * Math.PI * 2 + 0.004;
+    ctx.fillStyle = table[Math.floor(((i + 0.5) / n) * 360)];
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(t0) * far, Math.sin(t0) * far);
+    ctx.lineTo(Math.cos(t1) * far, Math.sin(t1) * far);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 /** The colour table of a lit paint, turned to the light. */
@@ -57,6 +115,9 @@ export function paintStyle(ctx: Ctx, g: FrameGeometry, paint: Paint, from: numbe
       const dy = Math.sin(a) * g.R;
       return addStops(ctx.createLinearGradient(-dx, -dy, dx, dy), paint.stops);
     }
+    case 'ring':
+      // Lines are recoloured with the wedges instead (recolourRound); this is the colour at the top left.
+      return ringTableFor(paint, light)[225];
     case 'acrossBand': {
       // Radial from the token's centre: matches the band exactly on a circle, closely on other shapes.
       const r0 = Math.max(0, g.R - insetAt(g, to));
@@ -76,6 +137,10 @@ export function fillBand(ctx: Ctx, g: FrameGeometry, from: number, to: number, p
   if (inner <= outer) return;
   if (paint.kind === 'lit') {
     angularFill(ctx, g, outer, inner, litTable(paint, light));
+    return;
+  }
+  if (paint.kind === 'ring') {
+    angularFill(ctx, g, outer, inner, ringTableFor(paint, light));
     return;
   }
   ctx.save();

@@ -68,7 +68,7 @@ Done when: draw a custom gem shape, mirror it on both sides of the token, group 
 
 ---
 
-## Phase 3 — Procedural layers
+## Phase 3 — Procedural layers (done)
 
 ```
 Ground rules: (as above)

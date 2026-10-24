@@ -1,12 +1,12 @@
 // @vitest-environment node
-// Version-1 project files (saved by Phase 1, in fixtures/v1/) must still open
-// and draw exactly as Phase 1 drew them. pixels.json holds a fingerprint of
-// each picture as Phase 1 rendered it at 160 px (the .png files show them).
-// If @napi-rs/canvas is upgraded and these change, check the pictures by eye
-// before regenerating the fingerprints.
-import { createCanvas } from '@napi-rs/canvas';
-import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync } from 'node:fs';
+// Project files saved by earlier versions (fixtures/v1/ by Phase 1,
+// fixtures/v2/ by Phase 2) must still open and draw as they did then. Each
+// .png beside a file is that picture as its version rendered it at 160 px.
+// Since Phase 3 every layer is drawn on its own canvas and then composited
+// (so it can be cached), which can change the rounding of a few edge pixels
+// by a few 255ths; anything more than that is a real change.
+import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { sampleArt } from '../engine/legacy/sampleArt';
 import { setCanvasFactory, type Ctx } from '../render/canvas';
@@ -17,32 +17,75 @@ import { DEFAULT_LIGHT, SCHEMA_VERSION } from './types';
 const make = (w: number, h: number) => createCanvas(w, h) as unknown as HTMLCanvasElement;
 setCanvasFactory(make);
 
-const dir = join(__dirname, 'fixtures', 'v1');
-const pixels: Record<string, string> = JSON.parse(readFileSync(join(dir, 'pixels.json'), 'utf8'));
-const files = readdirSync(dir).filter((f) => f.endsWith('.framestudio.json'));
+const SIZE = 160;
+const fixtures = (version: string) => {
+  const dir = join(__dirname, 'fixtures', version);
+  return readdirSync(dir)
+    .filter((f) => f.endsWith('.framestudio.json'))
+    .map((f) => ({ file: f, path: join(dir, f), png: join(dir, f.replace('.framestudio.json', '.png')) }));
+};
+const v1 = fixtures('v1');
+const v2 = fixtures('v2');
 
-describe('version-1 project files', () => {
-  it('there are fixtures for every one', () => {
-    expect(files.sort()).toEqual(Object.keys(pixels).sort());
+/** The largest difference between two pictures, per premultiplied channel (0–255), and the mean. */
+function difference(a: Uint8ClampedArray, b: Uint8ClampedArray): { max: number; mean: number } {
+  let max = 0;
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) {
+    const alpha = i - (i % 4) + 3;
+    const d = i % 4 === 3 ? Math.abs(a[i] - b[i]) : Math.abs(a[i] * a[alpha] - b[i] * b[alpha]) / 255;
+    max = Math.max(max, d);
+    sum += d;
+  }
+  return { max, mean: sum / a.length };
+}
+
+async function drawsAsBefore(fixture: { path: string; png: string }) {
+  const r = parseProject(readFileSync(fixture.path, 'utf8'));
+  if (!r.ok) throw new Error(r.error);
+  const c = createCanvas(SIZE, SIZE);
+  const ctx = c.getContext('2d') as unknown as Ctx;
+  renderProject(ctx, r.project, SIZE, { art: r.project.stage.showArt ? sampleArt(make, 200) : null });
+  const before = createCanvas(SIZE, SIZE);
+  const bctx = before.getContext('2d');
+  bctx.drawImage(await loadImage(readFileSync(fixture.png)), 0, 0);
+  const d = difference(ctx.getImageData(0, 0, SIZE, SIZE).data as unknown as Uint8ClampedArray, bctx.getImageData(0, 0, SIZE, SIZE).data as unknown as Uint8ClampedArray);
+  expect(d.max).toBeLessThanOrEqual(8);
+  expect(d.mean).toBeLessThan(0.5);
+}
+
+describe.each([
+  ['version-1', v1],
+  ['version-2', v2],
+])('%s project files', (_name, files) => {
+  it('there are fixtures, each with its picture', () => {
+    expect(files.length).toBeGreaterThan(1);
+    for (const f of files) expect(existsSync(f.png)).toBe(true);
   });
 
-  it.each(files)('%s opens as the current version with the light at the top left', (file) => {
-    const text = readFileSync(join(dir, file), 'utf8');
-    expect(JSON.parse(text).schemaVersion).toBe(1);
-    const r = parseProject(text);
+  it.each(files)('$file opens as the current version without warnings', ({ path }) => {
+    const r = parseProject(readFileSync(path, 'utf8'));
     if (!r.ok) throw new Error(r.error);
     expect(r.warnings).toEqual([]);
     expect(r.project.schemaVersion).toBe(SCHEMA_VERSION);
+  });
+
+  it.each(files)('$file draws as it did', drawsAsBefore);
+});
+
+describe('version-1 files', () => {
+  it.each(v1)('$file gets the light at the top left and no clipping', ({ path }) => {
+    const text = readFileSync(path, 'utf8');
+    expect(JSON.parse(text).schemaVersion).toBe(1);
+    const r = parseProject(text);
+    if (!r.ok) throw new Error(r.error);
     expect(r.project.stage.light).toBe(DEFAULT_LIGHT);
     for (const l of r.project.layers) expect(l.clip).toBe('none');
   });
+});
 
-  it.each(files)('%s draws exactly as it did in version 1', (file) => {
-    const r = parseProject(readFileSync(join(dir, file), 'utf8'));
-    if (!r.ok) throw new Error(r.error);
-    const c = createCanvas(160, 160);
-    const ctx = c.getContext('2d') as unknown as Ctx;
-    renderProject(ctx, r.project, 160, { art: r.project.stage.showArt ? sampleArt(make, 200) : null });
-    expect(createHash('sha256').update(ctx.getImageData(0, 0, 160, 160).data).digest('hex')).toBe(pixels[file]);
+describe('version-2 files', () => {
+  it.each(v2)('$file is a version-2 file', ({ path }) => {
+    expect(JSON.parse(readFileSync(path, 'utf8')).schemaVersion).toBe(2);
   });
 });

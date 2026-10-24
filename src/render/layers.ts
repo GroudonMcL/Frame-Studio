@@ -9,11 +9,12 @@ import { drawFrame } from '../engine/legacy/frames';
 import type { PerimeterSample, Point } from '../engine/legacy/shapes';
 import type { Layer, LegacyFrameLayer, LineLayer, RepeatLayer } from '../project/types';
 import { bandWidthPx, outlineAt, repeatCount, spacedAlong } from './band';
-import type { Ctx } from './canvas';
+import { context2d, newCanvas, type Ctx } from './canvas';
 import { drawElement, runeFor } from './elements';
 import { lightAt, raisedFrom } from './light';
-import { fillBand, paintStyle } from './paint';
+import { fillBand, paintStyle, recolourRound, ringTableFor } from './paint';
 import { drawPlaced } from './placed';
+import { drawTexture } from './textures';
 
 /** What every painter needs besides its layer. */
 export interface RenderEnv {
@@ -56,6 +57,29 @@ function drawLine(ctx: Ctx, layer: LineLayer, env: RenderEnv): void {
   if (layer.dash === 'dotted') {
     ctx.setLineDash([0.001, width * 2]);
     ctx.lineCap = 'round';
+  }
+  if (layer.paint.kind === 'ring') {
+    // Stroked on its own canvas, recoloured round the ring, then put down (with its glow).
+    const own = newCanvas(env.size, env.size);
+    const octx = context2d(own);
+    octx.translate(env.size / 2, env.size / 2);
+    octx.lineWidth = ctx.lineWidth;
+    octx.lineJoin = ctx.lineJoin;
+    octx.lineCap = ctx.lineCap;
+    octx.miterLimit = ctx.miterLimit;
+    octx.setLineDash(ctx.getLineDash());
+    tracePolygon(octx, outline);
+    octx.strokeStyle = '#000000';
+    octx.stroke();
+    recolourRound(octx, g.R, ringTableFor(layer.paint, env.light));
+    if (layer.glow) {
+      ctx.shadowColor = rgba(layer.glow, 1);
+      ctx.shadowBlur = bandWidthPx(g) * 0.5;
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(own as CanvasImageSource, 0, 0);
+    ctx.restore();
+    return;
   }
   ctx.strokeStyle = paintStyle(ctx, g, layer.paint, layer.at, layer.at, env.light);
   if (layer.glow) {
@@ -154,6 +178,8 @@ export function drawLayer(ctx: Ctx, layer: Layer, env: RenderEnv): void {
       return drawLine(ctx, layer, env);
     case 'repeat':
       return drawRepeat(ctx, layer, env);
+    case 'texture':
+      return drawTexture(ctx, layer, env.g, env.light, env.size);
     case 'shape':
     case 'path':
       return drawPlaced(ctx, layer, env.g, env.light);

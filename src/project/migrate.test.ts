@@ -1,5 +1,5 @@
 import { FRAME_PRESETS } from '../engine/legacy/catalog';
-import { createProject, GEM_POINTS, groupLayer, LAYERED_TEMPLATES, NEW_LAYER, pathLayer, projectFromFrame, repeatLayer, shapeLayer } from './defaults';
+import { bandFillLayer, createProject, GEM_POINTS, TEXTURES, textureFromPreset, textureLayer, groupLayer, LAYERED_TEMPLATES, NEW_LAYER, pathLayer, projectFromFrame, repeatLayer, shapeLayer } from './defaults';
 import { parseProject, serializeProject } from './migrate';
 import { SCHEMA_VERSION, type FrameProject } from './types';
 
@@ -136,5 +136,44 @@ describe('project files', () => {
   it('a light outside 0–359° is turned back into range', () => {
     const r = parseProject({ ...createProject(), stage: { ...createProject().stage, light: -90 } });
     expect(r.ok && r.project.stage.light).toBe(270);
+  });
+
+  it('version 3: texture layers and the ring paint survive a round trip', () => {
+    const p = createProject([
+      { ...bandFillLayer(), paint: { kind: 'ring', stops: [{ angle: 0, color: '#ff0000' }, { angle: 120, color: '#00ff00' }, { angle: 240, color: '#0000ff' }], followLight: false } },
+      ...TEXTURES.map(textureFromPreset),
+      { ...textureLayer('scatter'), from: 0.2, to: 0.8, amount: 2, scale: 0.5, strength: 1.5, where: 'lit', seed: 42, color2: null },
+    ]);
+    const r = roundTrip(p);
+    expect(r.project).toEqual(p);
+    expect(r.warnings).toEqual([]);
+    expect(JSON.parse(serializeProject(p)).schemaVersion).toBe(3);
+  });
+
+  it('a version-2 file opens as version 3 unchanged', () => {
+    const p = createProject([bandFillLayer()]);
+    const v2 = { ...JSON.parse(serializeProject(p)), schemaVersion: 2 };
+    const r = parseProject(JSON.stringify(v2));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.project).toEqual(p);
+  });
+
+  it('bad texture and ring values fall back; numbers are kept in range', () => {
+    const p = JSON.parse(serializeProject(createProject([bandFillLayer(), textureLayer('wood')])));
+    p.layers[0].paint = { kind: 'ring', stops: [{ angle: 400, color: '#ABCDEF' }, { angle: -90, color: 'nope' }] };
+    Object.assign(p.layers[1], { kind: 'lava', amount: 99, scale: -1, strength: 'lots', where: 'somewhere', color: 'red', color2: 5, seed: -3 });
+    const r = parseProject(p);
+    if (!r.ok) throw new Error(r.error);
+    const [band, tex] = r.project.layers;
+    expect(band.type === 'bandFill' && band.paint).toEqual({ kind: 'ring', stops: [{ angle: 40, color: '#abcdef' }, { angle: 270, color: '#ffffff' }], followLight: true });
+    expect(tex).toMatchObject({ type: 'texture', kind: 'marble', amount: 4, scale: 0.1, strength: 1, where: 'shaded', color: textureLayer('marble').color, color2: null, seed: 0 });
+  });
+
+  it('a ring paint with fewer than two colours falls back to the default paint', () => {
+    const p = JSON.parse(serializeProject(createProject([bandFillLayer()])));
+    p.layers[0].paint = { kind: 'ring', stops: [{ angle: 10, color: '#ffffff' }] };
+    const r = parseProject(p);
+    if (!r.ok) throw new Error(r.error);
+    expect(r.project.layers[0].type === 'bandFill' && r.project.layers[0].paint.kind).toBe('lit');
   });
 });
