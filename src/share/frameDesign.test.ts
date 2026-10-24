@@ -84,5 +84,7 @@ describe('a design drawn as a Token Maker frame', () => {
     // The preview is only extra: the file reads exactly as without it.
     expect(readFrameDesign(withPreview)).toEqual(readFrameDesign(serializeProject(p)));
     expect(readFrameDesign('not json').ok).toBe(false);
+    // The object a Token Maker document keeps reads the same as the file's text.
+    expect(readFrameDesign(JSON.parse(serializeProject(p)))).toEqual(readFrameDesign(serializeProject(p)));
   });
 });

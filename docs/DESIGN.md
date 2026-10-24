@@ -32,7 +32,7 @@ Behind the visual editing, a design is **structured data** (a `FrameProject`), n
 | How do designs reach Token Maker? *(after Phase 1)* | Token Maker **opens `.framestudio.json` project files** directly, so designs stay editable and scale cleanly. Planned for Phase 5 (§8). |
 | Free shapes and paths: tied to the band or placed freely? *(after Phase 1)* | **Adaptable by default**: placed at a point round the band (angle + across), so they still fit every shape and thickness. Placing freely stays available as an option. Built in Phase 2 (§4.4). |
 | Procedural textures? *(Phase 3 prompt)* | Nine **texture layers** re-implementing Token Maker's textures, each identical to the original at its default settings; a colour-round-the-ring paint; per-layer caching. Built in Phase 3 (§4.6, §5.3). |
-| Phase 5: layer library, sharing with Token Maker, phones *(Phase 5 prompt)* | A **personal layer library** in IndexedDB with library files; **copy and paste** through the system clipboard and a shared copy for other tabs; a **phone layout** (canvas over a bottom sheet, 44 px targets) with keyboard access and axe checks; **Token Maker gets Frame Studio's reader and renderer by copy with a manifest** (the engine's own pattern, in the other direction), one renderer in both apps (§10). Built in Phase 5; the Token Maker side waits for access to its repository (§9). |
+| Phase 5: layer library, sharing with Token Maker, phones *(Phase 5 prompt)* | A **personal layer library** in IndexedDB with library files; **copy and paste** through the system clipboard and a shared copy for other tabs; a **phone layout** (canvas over a bottom sheet, 44 px targets) with keyboard access and axe checks; **Token Maker gets Frame Studio's reader and renderer by copy with a manifest** (the engine's own pattern, in the other direction), one renderer in both apps (§10). Built in Phase 5, in both repositories. |
 | Converting Token Maker frames? *(Phase 4 prompt)* | A **converter per frame** writes its parts as editable layers with Token Maker's own numbers; each conversion is measured against the original and held to a limit. 18 frames (17 drawing styles) are converted; the originals all stay available. Where a conversion can't be exact, "looks the same" is enough (the owner's answer before Phase 5, §9). Built in Phase 4. |
 
 ## 3. Tech stack
@@ -318,7 +318,7 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 | 2 | Drawing tools: shapes and editable paths (adaptable by default, free placement optional), groups, clipping, transforms, mirroring, more elements, alternating patterns, wavy lines, direct handles on the canvas; the light-direction control **(done)** |
 | 3 | Procedural layers: marble, hammered metal, battle wear, wood grain, stone blocks, scatter (stars), rope, scales, cracks; the colour-around-the-ring paint; per-layer caching; texture library **(done)** |
 | 4 | Converting Token Maker frames into editable layers, with visual comparison tests: 18 frames, starting with Polished and Paladin **(done)** |
-| 5 | Polish and sharing: a personal layer library, copy/paste between projects, touch support, export options, help tips, Token Maker opening `.framestudio.json` files **(Frame Studio side done; Token Maker side waiting, §10)** |
+| 5 | Polish and sharing: a personal layer library, copy/paste between projects, touch support, export options, help tips, Token Maker opening `.framestudio.json` files **(done)** |
 
 ## 9. Owner answers and open questions
 
@@ -378,14 +378,14 @@ The owner's answer: Token Maker opens `.framestudio.json` project files, as a th
 
 **What Token Maker calls** (`src/share/frameDesign.ts`):
 
-- `readFrameDesign(text)`: reads any version of the file with every check of §4.3 (nothing in it is run).
+- `readFrameDesign(textOrObject)`: reads any version of the file (its text, or the object a Token Maker document keeps) with every check of §4.3 (nothing in it is run).
 - `drawFrameDesign(ctx, project, g)`: draws the design as a frame on Token Maker's band — the same `FrameGeometry` its `drawFrame` takes (origin at the token's centre, `R`, `outer`, `inner` in pixels) — on the token's shape, lit from the design's light, without clearing what is under it. `src/share/frameDesign.test.ts` checks that this is **the very same picture** Frame Studio draws for that band, on every shape, on a thin and a thick band, for three designs; the Phase 5 end-to-end test exports a project file from the editor, reads it and draws it this way, and compares it with the editor's own PNG export (mean difference 0.22/255; the browser and the test draw with different engines).
 - `previewOf(text)`: the preview picture saved in the file (§4.8), for Token Maker's tile.
 
-**The Token Maker side** (to do in token-maker, once this session can reach its repository):
+**The Token Maker side** (built; token-maker's `docs/DESIGN.md` §6.12):
 
-1. Run `npm run share:export -- ../token-maker` and add a test there that fails if `src/frameStudio/` differs from its `SOURCE.json` (like Frame Studio's `engine.test.ts`).
-2. Add a frame kind `'design'` beside drawn and picture frames in its `FrameSettings` (a schema bump with a migration), holding an id of the imported design.
-3. In the Frame & shape panel, **Open a Frame Studio design…** reads the file with `readFrameDesign` and shows its warnings or reason; designs are kept in IndexedDB beside uploaded picture frames and go into shared presets the same way (with `previewOf` for the tile, or a thumbnail drawn by `drawFrameDesign`).
-4. In `render.ts`, layer 9 draws a design frame with `drawFrameDesign(ctx, design, geometry)` on its cached frame canvas, using the same geometry as drawn frames, so the band follows Token Maker's thickness and spacing and the frame cache keeps working.
-5. Test that a design looks the same in both apps: draw the Phase 5 fixture designs through `renderToken` and through `drawFrameDesign` directly, and compare.
+- `src/frameStudio/` in token-maker is the copy, with `SOURCE.json` and a test there that fails if a copy is edited (`src/frameStudio/frameStudio.test.ts`).
+- **Frame type → Frame Studio** (beside Drawn and Picture): **Open a Frame Studio design** reads a `.framestudio.json` file with `readFrameDesign`, keeps it in the browser (`token-maker-designs` in IndexedDB) and uses it as the frame; the designs opened before are tiles to pick again.
+- The design is kept **inside the token document** (`frame.kind: 'design'`, `frame.design: { id, name, project }`, token document version 9 with a migration), so Token Maker's renderer stays a pure function of the document and undo, autosave, batch mode and shared presets carry it; a shared preset also adds its design to the other browser's designs.
+- Token Maker draws it with `drawFrameDesign` on its cached frame layer, with the same geometry as a drawn frame, so the band follows its Thickness, Outer spacing and Inner spacing and the token's shape.
+- **Looks the same in both apps:** token-maker's `src/render/designFrames.test.ts` draws designs saved by Frame Studio through `renderToken` and through this repository's `renderProject` on the same band, on every shape and at other thicknesses, spacings and token sizes, and they are the same picture pixel for pixel. Its Playwright test opens two designs, thickens the band, reloads and exports, on desktop, tablet and phone.
