@@ -95,3 +95,26 @@ export function insetOfPoint(g: FrameGeometry, pt: Point): number {
 
 /** The "across" position of a point (0 outer edge, 1 inner edge). */
 export const acrossOfPoint = (g: FrameGeometry, pt: Point) => (insetOfPoint(g, pt) - g.outer) / Math.max(1e-9, g.inner - g.outer);
+
+/** How far round an outline (0–1, clockwise from its first vertex) the point on it nearest `pt` is. */
+export function alongOfPoint(points: Point[], pt: Point): number {
+  if (points.length < 2) return 0;
+  const total = perimeterLength(points);
+  let walked = 0;
+  let best = { d: Infinity, along: 0 };
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % points.length];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 === 0 ? 0 : Math.min(1, Math.max(0, ((pt.x - a.x) * dx + (pt.y - a.y) * dy) / len2));
+    const d = Math.hypot(a.x + dx * t - pt.x, a.y + dy * t - pt.y);
+    if (d < best.d) best = { d, along: (walked + Math.sqrt(len2) * t) / total };
+    walked += Math.sqrt(len2);
+  }
+  return best.along % 1;
+}
+
+/** The largest "across" position whose outline still exists, with a little room to spare. */
+export const maxAcross = (g: FrameGeometry) => Math.min(1.5, (g.R * 0.95 - g.outer) / Math.max(1e-9, g.inner - g.outer));

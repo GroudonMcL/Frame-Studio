@@ -1,5 +1,5 @@
 import { FRAME_PRESETS } from '../engine/legacy/catalog';
-import { createProject, LAYERED_TEMPLATES, NEW_LAYER, projectFromFrame } from './defaults';
+import { createProject, GEM_POINTS, groupLayer, LAYERED_TEMPLATES, NEW_LAYER, pathLayer, projectFromFrame, repeatLayer, shapeLayer } from './defaults';
 import { parseProject, serializeProject } from './migrate';
 import { SCHEMA_VERSION, type FrameProject } from './types';
 
@@ -76,5 +76,65 @@ describe('project files', () => {
     const r = parseProject({ ...createProject(), layers: [a, { ...a }] });
     if (!r.ok) throw new Error();
     expect(new Set(r.project.layers.map((l) => l.id)).size).toBe(2);
+  });
+
+  it('version 2: shapes, paths, groups and the new options survive a round trip', () => {
+    const p = createProject([
+      { ...shapeLayer(), shape: 'star', sides: 7, mirror: 'four', place: 'free', x: 0.1, y: -0.2, clip: 'band' },
+      { ...pathLayer(GEM_POINTS.map((q, i) => (i === 2 ? { ...q, handle: { x: 0.2, y: -0.1 } } : q))), closed: false },
+      groupLayer([{ ...repeatLayer(), altColors: ['#123456'], altSizes: [1, 0.5], skipAroundAccent: 1, accentEvery: 9, alternateSides: 0.2 }, groupLayer([])]),
+      { ...NEW_LAYER.line(), waveAmplitude: 0.2, waves: 9, wavePhase: 0.25, clip: 'below' } as ReturnType<typeof NEW_LAYER.line>,
+    ]);
+    p.stage.light = 45;
+    const r = roundTrip(p);
+    expect(r.project).toEqual(p);
+    expect(r.warnings).toEqual([]);
+  });
+
+  it('migrates a version-1 file: light from the top left, nothing clipped, no waves or patterns', () => {
+    const v1 = {
+      format: 'frame-studio-project',
+      schemaVersion: 1,
+      name: 'Old',
+      stage: { shape: 'square', thickness: 0.2, outerSpacing: 0.1, showArt: false, backingColor: '#000000' },
+      layers: [
+        { id: 'a', name: 'L', type: 'line', visible: true, locked: false, opacity: 1, blend: 'source-over', at: 0.3, width: 0.1, paint: { kind: 'solid', color: '#ffffff' }, dash: 'solid', glow: null },
+        { id: 'b', name: 'R', type: 'repeat', visible: true, locked: false, opacity: 1, blend: 'source-over', element: 'bead', count: 5 },
+      ],
+    };
+    const r = parseProject(JSON.stringify(v1));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.project.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(r.project.stage.light).toBe(225);
+    expect(r.project.layers[0]).toMatchObject({ clip: 'none', waveAmplitude: 0, at: 0.3 });
+    expect(r.project.layers[1]).toMatchObject({ clip: 'none', altColors: [], altSizes: [], skipAroundAccent: 0, alternateSides: 0, count: 5 });
+  });
+
+  it('keeps unknown layers inside groups, and writes them back unchanged', () => {
+    const future = { id: 'f1', name: 'Future', type: 'sparkleField', visible: true, locked: false, opacity: 1, blend: 'source-over', density: 3 };
+    const p = { ...createProject(), layers: [{ ...groupLayer([]), children: [future] }] };
+    const r = parseProject(JSON.stringify(p));
+    if (!r.ok) throw new Error(r.error);
+    const g = r.project.layers[0];
+    expect(g.type === 'group' && g.children[0]).toMatchObject({ type: 'unsupported', originalType: 'sparkleField' });
+    expect(JSON.parse(serializeProject(r.project)).layers[0].children[0]).toEqual(future);
+  });
+
+  it('ids must be unique across groups too; bad shape and path values fall back', () => {
+    const a = NEW_LAYER.line();
+    const r = parseProject({
+      ...createProject(),
+      layers: [a, { ...groupLayer([{ ...a }]) }, { type: 'shape', shape: 'blob', sides: 99, mirror: 'sideways', place: 'nowhere' }, { type: 'path', points: [{ x: 'a', y: 2, handle: 7 }, 'junk'] }],
+    });
+    if (!r.ok) throw new Error(r.error);
+    const g = r.project.layers[1];
+    expect(g.type === 'group' && g.children[0].id).not.toBe(a.id);
+    expect(r.project.layers[2]).toMatchObject({ type: 'shape', shape: 'polygon', sides: 24, mirror: 'none', place: 'band' });
+    expect(r.project.layers[3]).toMatchObject({ type: 'path', points: [{ x: 0, y: 2, handle: null }] });
+  });
+
+  it('a light outside 0–359° is turned back into range', () => {
+    const r = parseProject({ ...createProject(), stage: { ...createProject().stage, light: -90 } });
+    expect(r.ok && r.project.stage.light).toBe(270);
   });
 });

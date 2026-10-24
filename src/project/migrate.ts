@@ -8,13 +8,20 @@ import { isValidHex } from '../engine/legacy/color';
 import { DEFAULT_STAGE, NEW_LAYER, newId } from './defaults';
 import {
   BLEND_MODES,
+  CLIP_MODES,
+  DEFAULT_LIGHT,
   ELEMENT_KINDS,
+  MIRROR_MODES,
   PROJECT_FORMAT,
   SCHEMA_VERSION,
+  SHAPE_KINDS,
   type FrameProject,
   type GradientStop,
   type Layer,
   type Paint,
+  type PathPoint,
+  type Placement,
+  type PlacedStyle,
   type StageSettings,
 } from './types';
 
@@ -23,8 +30,24 @@ export type ParseResult = { ok: true; project: FrameProject; warnings: string[] 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** Migrations from version n to n + 1, keyed by n. None yet: version 1 is the first. */
-const MIGRATIONS: Record<number, (p: Obj) => Obj> = {};
+/** Version 1 → 2 (Phase 2): the light direction, clipping, wavy lines and repeat patterns, all off by default so old designs look the same. */
+function addPhase2Fields(layer: unknown): unknown {
+  if (!isObj(layer)) return layer;
+  const out: Obj = { clip: 'none', ...layer };
+  if (layer.type === 'line') Object.assign(out, { waveAmplitude: 0, waves: 12, wavePhase: 0 }, layer);
+  if (layer.type === 'repeat') Object.assign(out, { altColors: [], altSizes: [], skipAroundAccent: 0, alternateSides: 0 }, layer);
+  return out;
+}
+
+/** Migrations from version n to n + 1, keyed by n. */
+const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
+  1: (p) => ({
+    ...p,
+    schemaVersion: 2,
+    stage: { ...(isObj(p.stage) ? p.stage : {}), light: DEFAULT_LIGHT },
+    layers: Array.isArray(p.layers) ? p.layers.map(addPhase2Fields) : p.layers,
+  }),
+};
 
 export function parseProject(input: unknown): ParseResult {
   let raw = input;
@@ -49,14 +72,7 @@ export function parseProject(input: unknown): ParseResult {
     version++;
   }
   const warnings: string[] = [];
-  const ids = new Set<string>();
-  const layers = (Array.isArray(p.layers) ? p.layers : []).map((l, i) => {
-    const layer = checkLayer(l, i, warnings);
-    // Ids must be unique; a clash (e.g. a hand-edited file) gets a fresh one.
-    if (ids.has(layer.id)) layer.id = newId();
-    ids.add(layer.id);
-    return layer;
-  });
+  const layers = checkLayers(p.layers, warnings, new Set<string>(), 0);
   if (!Array.isArray(p.layers)) warnings.push('The project had no layer list; it starts empty.');
   return {
     ok: true,
@@ -79,7 +95,22 @@ function checkStage(s: unknown): StageSettings {
     outerSpacing: num(o.outerSpacing, DEFAULT_STAGE.outerSpacing, 0, 0.5),
     showArt: typeof o.showArt === 'boolean' ? o.showArt : DEFAULT_STAGE.showArt,
     backingColor: hex(o.backingColor, DEFAULT_STAGE.backingColor),
+    light: ((num(o.light, DEFAULT_STAGE.light, -720, 720) % 360) + 360) % 360,
   };
+}
+
+/** Groups can hold groups, but not without end. */
+const MAX_DEPTH = 8;
+
+function checkLayers(v: unknown, warnings: string[], ids: Set<string>, depth: number): Layer[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((l, i) => {
+    const layer = checkLayer(l, i, warnings, ids, depth);
+    // Ids must be unique; a clash (e.g. a hand-edited file) gets a fresh one.
+    if (ids.has(layer.id)) layer.id = newId();
+    ids.add(layer.id);
+    return layer;
+  });
 }
 
 function num(v: unknown, fallback: number, min: number, max: number): number {
@@ -114,7 +145,46 @@ function checkPaint(v: unknown, fallback: Paint): Paint {
   }
 }
 
-function checkLayer(l: unknown, index: number, warnings: string[]): Layer {
+function checkPlacement(o: Obj, d: Placement): Placement {
+  return {
+    place: oneOf(o.place, ['band', 'free'] as const, d.place),
+    along: (((num(o.along, d.along, -10, 10) % 1) + 1) % 1),
+    across: num(o.across, d.across, -0.5, 1.5),
+    x: num(o.x, d.x, -2, 2),
+    y: num(o.y, d.y, -2, 2),
+    size: num(o.size, d.size, 0.01, 5),
+    stretch: num(o.stretch, d.stretch, 0.1, 5),
+    rotation: num(o.rotation, d.rotation, -360, 360),
+    mirror: oneOf(o.mirror, MIRROR_MODES, d.mirror),
+  };
+}
+
+function checkStyle(o: Obj, d: PlacedStyle): PlacedStyle {
+  return {
+    fill: hexOrNull(o.fill, d.fill),
+    shaded: bool(o.shaded, d.shaded),
+    outline: hexOrNull(o.outline, d.outline),
+    outlineWidth: num(o.outlineWidth, d.outlineWidth, 0, 0.5),
+    raised: bool(o.raised, d.raised),
+    glow: hexOrNull(o.glow, d.glow),
+  };
+}
+
+const MAX_POINTS = 500;
+
+function checkPoints(v: unknown): PathPoint[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter(isObj)
+    .slice(0, MAX_POINTS)
+    .map((p) => ({
+      x: num(p.x, 0, -50, 50),
+      y: num(p.y, 0, -50, 50),
+      handle: isObj(p.handle) ? { x: num(p.handle.x, 0, -50, 50), y: num(p.handle.y, 0, -50, 50) } : null,
+    }));
+}
+
+function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<string>, depth: number): Layer {
   const o = isObj(l) ? l : {};
   const type = typeof o.type === 'string' ? o.type : '(none)';
   const common = {
@@ -124,8 +194,9 @@ function checkLayer(l: unknown, index: number, warnings: string[]): Layer {
     locked: bool(o.locked, false),
     opacity: num(o.opacity, 1, 0, 1),
     blend: oneOf(o.blend, BLEND_MODES, 'source-over'),
+    clip: oneOf(o.clip, CLIP_MODES, 'none'),
   };
-  if (!(type in NEW_LAYER)) {
+  if (!(type in NEW_LAYER) || (type === 'group' && depth >= MAX_DEPTH)) {
     warnings.push(`Layer "${common.name}" is a kind this version can't draw (${type}); it is kept but hidden from the picture.`);
     const { id: _id, name: _n, visible: _v, locked: _l, opacity: _o, blend: _b, ...data } = o;
     return { ...common, type: 'unsupported', originalType: type, data, reason: `Unknown layer kind "${type}".` };
@@ -160,8 +231,32 @@ function checkLayer(l: unknown, index: number, warnings: string[]): Layer {
         paint: checkPaint(o.paint, d.paint),
         dash: oneOf(o.dash, ['solid', 'dashed', 'dotted'] as const, 'solid'),
         glow: hexOrNull(o.glow, null),
+        waveAmplitude: num(o.waveAmplitude, d.waveAmplitude, 0, 2),
+        waves: Math.round(num(o.waves, d.waves, 1, 200)),
+        wavePhase: num(o.wavePhase, d.wavePhase, 0, 1),
       };
     }
+    case 'shape': {
+      const d = NEW_LAYER.shape();
+      if (d.type !== 'shape') throw new Error('unreachable');
+      return {
+        ...common,
+        type,
+        ...checkPlacement(o, d),
+        ...checkStyle(o, d),
+        shape: oneOf(o.shape, SHAPE_KINDS, d.shape),
+        sides: Math.round(num(o.sides, d.sides, 3, 24)),
+        innerRatio: num(o.innerRatio, d.innerRatio, 0.05, 1),
+        corner: num(o.corner, d.corner, 0, 1),
+      };
+    }
+    case 'path': {
+      const d = NEW_LAYER.path();
+      if (d.type !== 'path') throw new Error('unreachable');
+      return { ...common, type, ...checkPlacement(o, d), ...checkStyle(o, d), points: checkPoints(o.points), closed: bool(o.closed, d.closed) };
+    }
+    case 'group':
+      return { ...common, type, children: checkLayers(o.children, warnings, ids, depth + 1), collapsed: bool(o.collapsed, false) };
     default: {
       const d = NEW_LAYER.repeat();
       if (d.type !== 'repeat') throw new Error('unreachable');
@@ -187,6 +282,10 @@ function checkLayer(l: unknown, index: number, warnings: string[]): Layer {
         accentScale: num(o.accentScale, d.accentScale, 0.1, 5),
         accentColor: hexOrNull(o.accentColor, d.accentColor),
         seed: Math.round(num(o.seed, d.seed, 0, 1e9)),
+        altColors: Array.isArray(o.altColors) ? o.altColors.filter((c) => typeof c === 'string' && isValidHex(c)).slice(0, 8).map((c) => (c as string).toLowerCase()) : [],
+        altSizes: Array.isArray(o.altSizes) ? o.altSizes.slice(0, 8).map((v) => num(v, 1, 0.05, 5)) : [],
+        skipAroundAccent: Math.round(num(o.skipAroundAccent, d.skipAroundAccent, 0, 10)),
+        alternateSides: num(o.alternateSides, d.alternateSides, 0, 2),
       };
     }
   }
@@ -194,10 +293,12 @@ function checkLayer(l: unknown, index: number, warnings: string[]): Layer {
 
 /** The text of a project file. Unsupported layers are written back as they came. */
 export function serializeProject(project: FrameProject): string {
-  const layers = project.layers.map((l) => {
+  const write = (l: Layer): unknown => {
+    if (l.type === 'group') return { ...l, children: l.children.map(write) };
     if (l.type !== 'unsupported') return l;
-    const { originalType, data, reason: _r, type: _t, ...common } = l;
+    // Its clip setting stays in `data` exactly as the file had it.
+    const { originalType, data, reason: _r, type: _t, clip: _c, ...common } = l;
     return { ...data, ...common, type: originalType };
-  });
-  return JSON.stringify({ ...project, layers }, null, 2) + '\n';
+  };
+  return JSON.stringify({ ...project, layers: project.layers.map(write) }, null, 2) + '\n';
 }

@@ -3,7 +3,7 @@
 // onCommit), as in token-maker.
 
 import { useId, useState, type ReactNode } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { isValidHex } from '../engine/legacy/color';
 import { commit } from '../state/projectStore';
 
@@ -154,5 +154,63 @@ export function Fold({ title, children, defaultOpen = false }: { title: string; 
       </summary>
       <div className="fold-body">{children}</div>
     </details>
+  );
+}
+
+/** A short list of colours that can grow and shrink (alternating colours). */
+export function ColorList({ label, values, onChange, disabled, hint, max = 8, fallback = '#3a7bd5' }: { label: string; values: string[]; onChange: (v: string[], transient?: boolean) => void; disabled?: boolean; hint?: string; max?: number; fallback?: string }) {
+  return (
+    <div className="list-field" role="group" aria-label={label}>
+      <p className="field-label" title={hint}>
+        {label}
+      </p>
+      {values.map((c, i) => (
+        <div className="stop" key={i}>
+          <ColorField label={`${label} ${i + 1}`} value={c} disabled={disabled} onChange={(v, t) => onChange(values.map((x, k) => (k === i ? v : x)), t)} />
+          <button type="button" className="icon-btn" aria-label={`Remove ${label.toLowerCase()} ${i + 1}`} disabled={disabled} onClick={() => onChange(values.filter((_x, k) => k !== i))}>
+            <Trash2 size={16} />
+          </button>
+        </div>
+      ))}
+      {values.length < max && (
+        <button type="button" className="btn small" disabled={disabled} onClick={() => onChange([...values, fallback])}>
+          <Plus size={16} /> Add
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** A list of numbers typed as "100, 60" (shown and typed as percentages). */
+export function PercentList({ label, values, onChange, disabled, hint }: { label: string; values: number[]; onChange: (v: number[]) => void; disabled?: boolean; hint?: string }) {
+  const id = useId();
+  const shown = values.map((v) => Math.round(v * 100)).join(', ');
+  const [typed, setTyped] = useState<string | null>(null);
+  const apply = () => {
+    if (typed === null) return;
+    const list = typed
+      .split(/[,;\s]+/)
+      .filter(Boolean)
+      .map(Number)
+      .filter((v) => Number.isFinite(v) && v > 0)
+      .slice(0, 8)
+      .map((v) => Math.min(500, Math.max(5, v)) / 100);
+    setTyped(null);
+    onChange(list.length > 1 ? list : []);
+  };
+  return (
+    <Field label={label} htmlFor={id} hint={hint}>
+      <input
+        id={id}
+        className="wide-text"
+        placeholder="e.g. 100, 60"
+        disabled={disabled}
+        value={typed ?? shown}
+        onChange={(e) => setTyped(e.target.value)}
+        onBlur={apply}
+        onKeyDown={(e) => e.key === 'Enter' && apply()}
+      />
+      <span className="number">%</span>
+    </Field>
   );
 }

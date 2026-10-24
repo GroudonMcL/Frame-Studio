@@ -1,16 +1,20 @@
 # Frame Studio
 
-A visual editor for code-drawn token frames. Start from one of [Token Maker](https://github.com/GroudonMcL/token-maker)'s 27 frames or from scratch, build a design from layers (bands of colour, lines, rings of beads, runes, gems…), and save it or export it as a picture. No coding needed; technical settings live in **Advanced**.
+A visual editor for code-drawn token frames. Start from one of [Token Maker](https://github.com/GroudonMcL/token-maker)'s 27 frames or from scratch, build a design from layers (bands of colour, lines, rings of beads, runes, gems, shapes and paths you draw yourself…), and save it or export it as a picture. No coding needed; technical settings live in **Advanced**.
 
-![Frame Studio with a Token Maker frame and a ring of spikes](docs/screenshots/04-frame-plus-layer.png)
+![Frame Studio with a group of drawn gems and alternating diamonds](docs/screenshots/05-shapes-paths-groups.png)
 
-## What works now (Phase 1)
+## What works now (Phase 2)
 
-- **Templates:** all 27 Token Maker frames (each as one layer whose colour you can change), two designs built from editable layers, or a blank project.
-- **Layers:** Band fill, Line and Repeated shapes, plus Token Maker frames as layers. Show/hide, lock, rename, reorder, duplicate, delete.
-- **Designs fit every token shape:** layers are placed relative to the frame band, so the same design works on a circle, square or hexagon, thick or thin.
-- **Canvas:** click to pick a layer; drag to move it in or out, or round the token to slide repeated shapes along.
-- **Undo/redo**, **autosave** (your work survives a refresh), **Save/Open** project files (`.framestudio.json`) and **Export PNG**.
+- **Templates:** all 27 Token Maker frames (each as one layer whose colour you can change), three designs built from editable layers, or a blank project.
+- **Layers:** Band fill, Line (plain or wavy), Repeated shapes, Shape (circle, rectangle, polygon, star) and Path (draw your own), plus Token Maker frames as layers. Show/hide, lock, rename, reorder, duplicate, delete.
+- **Groups:** Ctrl+click layers and press Group (Ctrl+G). Hide, lock or fade a whole group at once. Layers can also be clipped to the band or to the layer below.
+- **Drawing:** Add layer → Path, then click points on the canvas; click the first point (or press Enter) to finish. Drag points and their round handles; double-click a point to make it curved.
+- **Moving things:** drag shapes and paths on the canvas; use the square handle to resize and the round one to turn. Mirror a shape to get a matching pair on the other side.
+- **Patterns:** alternate colours and sizes round a ring, leave gaps beside bigger beads, put leaves on alternate sides; new shapes to repeat (chevrons, ticks, gears, eyes, notes, claw marks).
+- **Light:** turn the light dial under the canvas to light your layers from any side (it starts at the top left, like Token Maker).
+- **Designs fit every token shape:** everything is placed relative to the frame band, so the same design works on a circle, square or hexagon, thick or thin. A shape can be set to "Place freely" if it should stay put instead.
+- **Undo/redo**, **autosave** (your work survives a refresh), **Save/Open** project files (`.framestudio.json`; files from Phase 1 still open and look the same) and **Export PNG**.
 
 See [`docs/PROGRESS.md`](docs/PROGRESS.md) for what's next and the known limitations.
 

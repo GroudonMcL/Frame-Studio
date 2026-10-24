@@ -1,0 +1,94 @@
+{
+  "format": "frame-studio-project",
+  "schemaVersion": 1,
+  "name": "Glowing runes",
+  "stage": {
+    "shape": "circle",
+    "thickness": 0.14,
+    "outerSpacing": 0.1,
+    "showArt": false,
+    "backingColor": "#1d1f27"
+  },
+  "layers": [
+    {
+      "id": "v1-6",
+      "name": "Dark stone",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "type": "bandFill",
+      "from": 0,
+      "to": 1,
+      "paint": {
+        "kind": "lit",
+        "color": "#2a2c36",
+        "light": 0.45,
+        "dark": 0.7,
+        "pressed": false
+      }
+    },
+    {
+      "id": "v1-7",
+      "name": "Glow line",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "type": "line",
+      "at": 0.7,
+      "width": 0.035,
+      "paint": {
+        "kind": "solid",
+        "color": "#a8e4ff"
+      },
+      "dash": "solid",
+      "glow": "#6fc3ff"
+    },
+    {
+      "id": "v1-8",
+      "name": "Runes",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "type": "repeat",
+      "element": "rune",
+      "mode": "spacing",
+      "count": 12,
+      "spacing": 0.55,
+      "snapToCorners": false,
+      "at": 0.36,
+      "size": 0.34,
+      "stretch": 0.7,
+      "rotation": 0,
+      "offset": 0,
+      "fill": "#a8e4ff",
+      "outline": null,
+      "outlineWidth": 0.08,
+      "raised": false,
+      "glow": "#6fc3ff",
+      "accentEvery": 0,
+      "accentScale": 1.6,
+      "accentColor": null,
+      "seed": 1
+    },
+    {
+      "id": "v1-9",
+      "name": "Outer rim",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "type": "line",
+      "at": 0.02,
+      "width": 0.04,
+      "paint": {
+        "kind": "solid",
+        "color": "#6a6f7c"
+      },
+      "dash": "solid",
+      "glow": null
+    }
+  ]
+}

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { loadAutosave, startAutosave } from './state/autosave';
-import { deleteLayer, duplicateLayer, loadProject, redo, ui, undo, history } from './state/projectStore';
+import { findLayer, isLocked } from './project/tree';
+import { deleteLayer, duplicateLayer, groupSelected, loadProject, redo, ui, undo, ungroup, history } from './state/projectStore';
 import { projectFromFrame } from './project/defaults';
 import { LayersPanel } from './ui/LayersPanel';
 import { PropertiesPanel } from './ui/PropertiesPanel';
+import { pathEditKey } from './ui/pathKeys';
 import { Stage } from './ui/Stage';
 import { TemplateDialog } from './ui/TemplateDialog';
 import { TopBar } from './ui/TopBar';
@@ -36,10 +38,17 @@ export function App() {
       } else if (mod && e.key.toLowerCase() === 'y' && !isTyping(e.target)) {
         e.preventDefault();
         redo();
+      } else if (!isTyping(e.target) && pathEditKey(e)) {
+        e.preventDefault();
       } else if (!isTyping(e.target) && ui.getState().selectedId) {
         const id = ui.getState().selectedId!;
-        const layer = history.getState().present.layers.find((l) => l.id === id);
-        if ((e.key === 'Delete' || e.key === 'Backspace') && layer && !layer.locked) {
+        const layers = history.getState().present.layers;
+        const layer = findLayer(layers, id);
+        if (mod && e.key.toLowerCase() === 'g') {
+          e.preventDefault();
+          if (e.shiftKey) ungroup(id);
+          else groupSelected();
+        } else if ((e.key === 'Delete' || e.key === 'Backspace') && layer && !isLocked(layers, id)) {
           e.preventDefault();
           deleteLayer(id);
         } else if (mod && e.key.toLowerCase() === 'd') {

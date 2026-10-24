@@ -1,0 +1,55 @@
+{
+  "format": "frame-studio-project",
+  "schemaVersion": 1,
+  "name": "Framed",
+  "stage": {
+    "shape": "rounded",
+    "thickness": 0.14,
+    "outerSpacing": 0.1,
+    "showArt": true,
+    "backingColor": "#1d1f27"
+  },
+  "layers": [
+    {
+      "id": "v1-25",
+      "name": "Paladin",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "type": "legacyFrame",
+      "presetId": "paladin",
+      "style": "holy",
+      "color": "#c9d2de",
+      "accent": null
+    },
+    {
+      "id": "v1-26",
+      "name": "Repeated shapes",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "type": "repeat",
+      "element": "star",
+      "mode": "count",
+      "count": 8,
+      "spacing": 1,
+      "snapToCorners": true,
+      "at": 0.4,
+      "size": 0.3,
+      "stretch": 1,
+      "rotation": 0,
+      "offset": 0,
+      "fill": "#e0c070",
+      "outline": null,
+      "outlineWidth": 0.08,
+      "raised": true,
+      "glow": null,
+      "accentEvery": 0,
+      "accentScale": 1.6,
+      "accentColor": null,
+      "seed": 1
+    }
+  ]
+}

@@ -346,6 +346,64 @@ textarea {
   cursor: pointer;
   touch-action: none;
 }
+.stage-canvas .overlay.drawing {
+  cursor: crosshair;
+}
+.stage-well {
+  position: relative;
+}
+.stage-hint {
+  position: absolute;
+  bottom: var(--space-2);
+  pointer-events: none;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--text-sm);
+}
+
+/* ---- Light dial ---- */
+.light-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.light-dial {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  cursor: grab;
+  touch-action: none;
+}
+.light-dial:active {
+  cursor: grabbing;
+}
+.dial-ring {
+  fill: var(--surface-sunken);
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+.dial-token {
+  fill: var(--surface-raised);
+  stroke: var(--border-strong);
+}
+.dial-ray {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+.dial-sun {
+  fill: var(--focus);
+  stroke: var(--on-accent);
+}
+.light-value {
+  min-width: 9.5em;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
 .stage-bar {
   display: flex;
   flex-wrap: wrap;
@@ -417,6 +475,26 @@ textarea {
 .hex {
   width: 92px;
   text-align: left;
+}
+.wide-text {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+.list-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.list-field > .field-label {
+  margin: 0;
+}
+.fold-btn {
+  margin-right: -6px;
 }
 input[type='color'] {
   width: 44px;

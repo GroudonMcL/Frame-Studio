@@ -1,9 +1,10 @@
 // Turning a Paint (project/types.ts) into canvas colours.
 
 import { angularFill, clipToBand, litTables, type FrameGeometry, type LitTables } from '../engine/legacy/frameKit';
-import type { GradientStop, Paint } from '../project/types';
+import { DEFAULT_LIGHT, type GradientStop, type Paint } from '../project/types';
 import { insetAt } from './band';
 import type { Ctx } from './canvas';
+import { turn, turnTable } from './light';
 
 const litCache = new Map<string, LitTables>();
 
@@ -24,19 +25,28 @@ function addStops(gradient: CanvasGradient, stops: GradientStop[]): CanvasGradie
   return gradient;
 }
 
+/** The colour table of a lit paint, turned to the light. */
+function litTable(paint: Extract<Paint, { kind: 'lit' }>, light: number): string[] {
+  const tables = litFor(paint.color, paint.light, paint.dark);
+  return turnTable(paint.pressed ? tables.step : tables.band, light);
+}
+
 /**
- * A fill style for a Paint that isn't 'lit' (lit paints are drawn as wedges,
- * see fillBand). `from`/`to` are the across positions the gradient spans.
+ * A fill style for a Paint (lit paints on band fills are drawn as wedges
+ * instead, see fillBand). `from`/`to` are the across positions the gradient
+ * spans; `light` is the stage's light direction.
  */
-export function paintStyle(ctx: Ctx, g: FrameGeometry, paint: Paint, from = 0, to = 1): string | CanvasGradient {
+export function paintStyle(ctx: Ctx, g: FrameGeometry, paint: Paint, from: number, to: number, light: number): string | CanvasGradient {
   switch (paint.kind) {
     case 'solid':
       return paint.color;
     case 'lit': {
-      // Lines can't use the wedge fill; a top-left to bottom-right gradient stands in.
+      // Lines can't use the wedge fill; a gradient from the lit side to the shaded side stands in.
       const tables = litFor(paint.color, paint.light, paint.dark);
       const table = paint.pressed ? tables.step : tables.band;
-      return addStops(ctx.createLinearGradient(-g.R * 0.7, -g.R * 0.7, g.R * 0.7, g.R * 0.7), [
+      // Top left to bottom right, turned with the light.
+      const s = turn({ x: -g.R * 0.7, y: -g.R * 0.7 }, ((light - DEFAULT_LIGHT) * Math.PI) / 180);
+      return addStops(ctx.createLinearGradient(s.x, s.y, -s.x, -s.y), [
         { at: 0, color: table[225] },
         { at: 1, color: table[45] },
       ]);
@@ -58,20 +68,19 @@ export function paintStyle(ctx: Ctx, g: FrameGeometry, paint: Paint, from = 0, t
 }
 
 /** Fills the band between two across positions with a paint. */
-export function fillBand(ctx: Ctx, g: FrameGeometry, from: number, to: number, paint: Paint): void {
+export function fillBand(ctx: Ctx, g: FrameGeometry, from: number, to: number, paint: Paint, light: number): void {
   const lo = Math.min(from, to);
   const hi = Math.max(from, to);
   const outer = Math.max(0, insetAt(g, lo));
   const inner = insetAt(g, hi);
   if (inner <= outer) return;
   if (paint.kind === 'lit') {
-    const tables = litFor(paint.color, paint.light, paint.dark);
-    angularFill(ctx, g, outer, inner, paint.pressed ? tables.step : tables.band);
+    angularFill(ctx, g, outer, inner, litTable(paint, light));
     return;
   }
   ctx.save();
   clipToBand(ctx, { ...g, outer, inner });
-  ctx.fillStyle = paintStyle(ctx, g, paint, lo, hi);
+  ctx.fillStyle = paintStyle(ctx, g, paint, lo, hi, light);
   ctx.fillRect(-g.R, -g.R, g.R * 2, g.R * 2);
   ctx.restore();
 }
