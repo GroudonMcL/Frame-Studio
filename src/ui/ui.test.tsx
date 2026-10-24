@@ -1,10 +1,10 @@
 import 'fake-indexeddb/auto';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../App';
 import { FRAME_PRESETS } from '../engine/legacy/catalog';
-import { createProject, LAYERED_TEMPLATES } from '../project/defaults';
-import { history, loadProject } from '../state/projectStore';
+import { createProject, LAYERED_TEMPLATES, legacyFrameLayer, lineLayer, shapeLayer } from '../project/defaults';
+import { history, loadProject, updateStage } from '../state/projectStore';
 import { LayersPanel } from './LayersPanel';
 import { PropertiesPanel } from './PropertiesPanel';
 import { TemplateDialog } from './TemplateDialog';
@@ -86,6 +86,50 @@ describe('editor panels', () => {
     render(<TemplateDialog mode="addFrame" onClose={() => {}} />);
     await userEvent.click(screen.getByRole('button', { name: 'Wizard' }));
     expect(history.getState().present.layers.at(-1)).toMatchObject({ type: 'legacyFrame', presetId: 'wizard' });
+  });
+});
+
+describe('Phase 2 panels', () => {
+  it('Ctrl+click two layers and group them; the group folds and unfolds', async () => {
+    loadProject(createProject(LAYERED_TEMPLATES[0].make()));
+    render(<LayersPanel onAddFrame={() => {}} />);
+    const user = userEvent.setup();
+    await user.click(rows()[0]);
+    await user.keyboard('{Control>}');
+    await user.click(rows()[1]);
+    await user.keyboard('{/Control}');
+    await user.click(screen.getByRole('button', { name: 'Group' }));
+    const top = history.getState().present.layers.at(-1)!;
+    expect(top.type === 'group' && top.children.map((c) => c.name)).toEqual(['Inner rim', 'Beads']);
+    expect(rows()[0].textContent).toMatch(/Group of 2/);
+    expect(rows()).toHaveLength(6);
+    await user.click(screen.getByRole('button', { name: 'Fold Group' }));
+    expect(rows()).toHaveLength(4);
+    await user.click(screen.getByRole('button', { name: 'Ungroup' }));
+    expect(history.getState().present.layers).toHaveLength(5);
+  });
+
+  it('a shape shows its own settings, including Place freely and Mirror', () => {
+    loadProject(createProject([shapeLayer()]));
+    render(<PropertiesPanel />);
+    expect(screen.getByLabelText('Mirror')).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Place freely' })).not.toBeChecked();
+  });
+
+  it('switching a line to wavy shows the wave settings', async () => {
+    loadProject(createProject([lineLayer()]));
+    render(<PropertiesPanel />);
+    expect(screen.queryByText('Wave height')).toBeNull();
+    await userEvent.click(screen.getByRole('switch', { name: 'Wavy' }));
+    expect(screen.getByText('Wave height')).toBeInTheDocument();
+  });
+
+  it('a Token Maker frame says so when the light is moved', () => {
+    loadProject(createProject([legacyFrameLayer('gilded')]));
+    render(<PropertiesPanel />);
+    expect(screen.queryByRole('note')).toBeNull();
+    act(() => updateStage({ light: 45 }));
+    expect(screen.getByRole('note')).toHaveTextContent(/always lit from the top left/);
   });
 });
 

@@ -1,0 +1,126 @@
+{
+  "format": "frame-studio-project",
+  "schemaVersion": 1,
+  "name": "Brass & beads",
+  "stage": {
+    "shape": "circle",
+    "thickness": 0.14,
+    "outerSpacing": 0.1,
+    "showArt": false,
+    "backingColor": "#1d1f27"
+  },
+  "layers": [
+    {
+      "id": "v1-1",
+      "name": "Brass band",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "type": "bandFill",
+      "from": 0,
+      "to": 1,
+      "paint": {
+        "kind": "lit",
+        "color": "#b88635",
+        "light": 0.9,
+        "dark": 0.8,
+        "pressed": false
+      }
+    },
+    {
+      "id": "v1-2",
+      "name": "Pressed-in step",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "type": "bandFill",
+      "from": 0.6,
+      "to": 1,
+      "paint": {
+        "kind": "lit",
+        "color": "#6e4a1c",
+        "light": 0.6,
+        "dark": 0.5,
+        "pressed": true
+      }
+    },
+    {
+      "id": "v1-3",
+      "name": "Outer rim",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "type": "line",
+      "at": 0.02,
+      "width": 0.04,
+      "paint": {
+        "kind": "linear",
+        "angle": 45,
+        "stops": [
+          {
+            "at": 0,
+            "color": "#fff6e0"
+          },
+          {
+            "at": 0.5,
+            "color": "#b88635"
+          },
+          {
+            "at": 1,
+            "color": "#2a1a08"
+          }
+        ]
+      },
+      "dash": "solid",
+      "glow": null
+    },
+    {
+      "id": "v1-4",
+      "name": "Inner rim",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "type": "line",
+      "at": 0.99,
+      "width": 0.03,
+      "paint": {
+        "kind": "solid",
+        "color": "#1a0e04"
+      },
+      "dash": "solid",
+      "glow": null
+    },
+    {
+      "id": "v1-5",
+      "name": "Beads",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "type": "repeat",
+      "element": "bead",
+      "mode": "count",
+      "count": 24,
+      "spacing": 1,
+      "snapToCorners": true,
+      "at": 0.6,
+      "size": 0.16,
+      "stretch": 1,
+      "rotation": 0,
+      "offset": 0,
+      "fill": "#d9b060",
+      "outline": null,
+      "outlineWidth": 0.08,
+      "raised": true,
+      "glow": null,
+      "accentEvery": 0,
+      "accentScale": 1.6,
+      "accentColor": null,
+      "seed": 1
+    }
+  ]
+}

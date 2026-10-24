@@ -40,6 +40,29 @@ await page.getByLabel('Position across the band value').fill('-5');
 await page.getByLabel('Position across the band value').press('Enter');
 await page.getByRole('radio', { name: 'Advanced' }).click();
 await page.screenshot({ path: `${out}/04-frame-plus-layer.png` });
+await page.getByRole('radio', { name: 'Basic' }).click();
+
+// 5. Phase 2: shapes and paths in a group, with the drawn gems selected (mirrored left and right).
+await page.getByRole('button', { name: 'New' }).click();
+await page.getByRole('button', { name: 'Jewelled' }).click();
+await page.getByRole('option', { name: /Gems/ }).click();
+await page.screenshot({ path: `${out}/05-shapes-paths-groups.png` });
+
+// 6. Editing the gem's points: square points, round curve handles.
+await page.getByRole('button', { name: 'Edit points' }).click();
+const box = (await page.getByTestId('overlay').boundingBox())!;
+const r = box.width / 2;
+const bw = r * 0.14;
+// The gem's bottom point (y = 1 in its own units) on the right-hand side of the band, a quarter of the way round.
+await page.mouse.dblclick(box.x + r + r * (1 - 0.1 - 0.07) - (0.9 * bw) / 2, box.y + r);
+await page.screenshot({ path: `${out}/06-editing-points.png` });
+await page.getByRole('button', { name: 'Done editing' }).click();
+
+// 7. The same design on a hexagon, lit from the bottom right.
+await page.getByRole('radio', { name: 'Hexagon' }).click();
+const dial = (await page.getByRole('slider', { name: 'Light direction' }).boundingBox())!;
+await page.mouse.click(dial.x + dial.width * 0.85, dial.y + dial.height * 0.85);
+await page.screenshot({ path: `${out}/07-hexagon-light.png` });
 
 await browser.close();
 console.log(`Screenshots in ${out}/`);

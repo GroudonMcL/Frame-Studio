@@ -1,33 +1,80 @@
-// The layer list: top of the stack first, like Photoshop. Pick, rename (double
-// click or F2), show/hide, lock, reorder (buttons, Alt+arrows or drag),
-// duplicate and delete.
+// The layer list: top of the stack first, like Photoshop. Groups fold open
+// and shut and their layers sit indented under them. Pick (Ctrl+click or
+// Shift+click to pick several), rename (double click or F2), show/hide, lock,
+// reorder (buttons, Alt+arrows or drag), group (Ctrl+G), ungroup
+// (Ctrl+Shift+G), duplicate and delete.
 
 import { useState, type DragEvent } from 'react';
-import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, Lock, LockOpen, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, Eye, EyeOff, Folder, FolderOpen, Group, Lock, LockOpen, Plus, Trash2, TriangleAlert, Ungroup } from 'lucide-react';
 import { LAYER_TYPE_NAMES } from '../project/defaults';
+import { locate } from '../project/tree';
 import type { EditableLayerType, Layer } from '../project/types';
-import { addLayer, deleteLayer, duplicateLayer, moveLayer, moveLayerTo, renameLayer, select, toggleLocked, toggleVisible, useProject, useUi } from '../state/projectStore';
+import {
+  addLayer,
+  deleteLayer,
+  duplicateLayer,
+  groupSelected,
+  moveLayer,
+  moveLayerTo,
+  renameLayer,
+  select,
+  selectRange,
+  toggleCollapsed,
+  toggleLocked,
+  toggleSelect,
+  toggleVisible,
+  ungroup,
+  useProject,
+  useUi,
+} from '../state/projectStore';
 
 const ADDABLE: { type: EditableLayerType; hint: string }[] = [
   { type: 'bandFill', hint: 'Colour all or part of the band: flat, metal or a gradient.' },
-  { type: 'line', hint: 'A line running round the band: rims, grooves, glowing lines.' },
+  { type: 'line', hint: 'A line running round the band: rims, grooves, glowing or wavy lines.' },
   { type: 'repeat', hint: 'One shape repeated round the band: beads, studs, gems, runes, leaves.' },
+  { type: 'shape', hint: 'One circle, rectangle, polygon or star, placed on the band.' },
+  { type: 'path', hint: 'Draw your own shape by clicking points on the canvas.' },
+  { type: 'group', hint: 'An empty group to keep layers together.' },
 ];
+
+interface Row {
+  layer: Layer;
+  depth: number;
+}
+
+/** The rows of the list, top first, skipping the insides of folded groups. */
+function rowsOf(layers: Layer[], depth = 0): Row[] {
+  return [...layers].reverse().flatMap((layer) => [
+    { layer, depth },
+    ...(layer.type === 'group' && !layer.collapsed ? rowsOf(layer.children, depth + 1) : []),
+  ]);
+}
 
 export function LayersPanel({ onAddFrame }: { onAddFrame: () => void }) {
   const project = useProject();
   const selectedId = useUi((s) => s.selectedId);
+  const selectedIds = useUi((s) => s.selectedIds);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const selected = project.layers.find((l) => l.id === selectedId);
-  const topFirst = [...project.layers].reverse();
+  const found = selectedId ? locate(project.layers, selectedId) : null;
+  const selected = found?.layer;
+  const rows = rowsOf(project.layers);
 
   const onDrop = (e: DragEvent, target: Layer) => {
     e.preventDefault();
-    if (dragId && dragId !== target.id) moveLayerTo(dragId, project.layers.findIndex((l) => l.id === target.id));
+    if (dragId && dragId !== target.id) {
+      // Dropped on the top half of a row: above it. On a group's lower half: into it.
+      const r = e.currentTarget.getBoundingClientRect();
+      const upper = e.clientY < r.top + r.height / 2;
+      moveLayerTo(dragId, target.id, upper ? 'above' : target.type === 'group' ? 'into' : 'below');
+    }
     setDragId(null);
   };
+
+  const siblings = found ? (found.parent ? found.parent.children : project.layers) : [];
+  const atTop = !!found && found.index === siblings.length - 1 && !found.parent;
+  const atBottom = !!found && found.index === 0 && !found.parent;
 
   return (
     <aside className="panel layers" aria-label="Layers">
@@ -69,25 +116,34 @@ export function LayersPanel({ onAddFrame }: { onAddFrame: () => void }) {
         </div>
       </div>
 
-      {topFirst.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="muted">No layers yet. Add one, or start from a template with New.</p>
       ) : (
-        <ul className="layer-list" role="listbox" aria-label="Layers, top first">
-          {topFirst.map((layer) => {
-            const isSel = layer.id === selectedId;
+        <ul className="layer-list" role="listbox" aria-label="Layers, top first" aria-multiselectable="true">
+          {rows.map(({ layer, depth }) => {
+            const isSel = selectedIds.includes(layer.id);
             return (
               <li
                 key={layer.id}
                 role="option"
                 aria-selected={isSel}
-                tabIndex={isSel ? 0 : -1}
+                aria-level={depth + 1}
+                tabIndex={layer.id === selectedId ? 0 : -1}
                 className={`layer-row${isSel ? ' selected' : ''}${layer.visible ? '' : ' hidden-layer'}${dragId === layer.id ? ' dragging' : ''}`}
+                style={{ paddingLeft: `calc(var(--space-2) + ${depth * 18}px)` }}
                 draggable={renaming !== layer.id}
-                onDragStart={() => setDragId(layer.id)}
+                onDragStart={(e) => {
+                  e.stopPropagation();
+                  setDragId(layer.id);
+                }}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => onDrop(e, layer)}
                 onDragEnd={() => setDragId(null)}
-                onClick={() => select(layer.id)}
+                onClick={(e) => {
+                  if (e.ctrlKey || e.metaKey) toggleSelect(layer.id);
+                  else if (e.shiftKey) selectRange(layer.id);
+                  else select(layer.id);
+                }}
                 onDoubleClick={() => setRenaming(layer.id)}
                 onKeyDown={(e) => {
                   if (renaming) return;
@@ -96,6 +152,20 @@ export function LayersPanel({ onAddFrame }: { onAddFrame: () => void }) {
                   if (e.altKey && e.key === 'ArrowDown') moveLayer(layer.id, 'down');
                 }}
               >
+                {layer.type === 'group' ? (
+                  <button
+                    type="button"
+                    className="icon-btn fold-btn"
+                    aria-label={layer.collapsed ? `Open ${layer.name}` : `Fold ${layer.name}`}
+                    aria-expanded={!layer.collapsed}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleCollapsed(layer.id);
+                    }}
+                  >
+                    {layer.collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="icon-btn"
@@ -127,9 +197,13 @@ export function LayersPanel({ onAddFrame }: { onAddFrame: () => void }) {
                 ) : (
                   <span className="layer-name">
                     {layer.name}
-                    <small>{LAYER_TYPE_NAMES[layer.type]}</small>
+                    <small>
+                      {layer.type === 'group' ? `Group of ${layer.children.length}` : LAYER_TYPE_NAMES[layer.type]}
+                      {layer.clip === 'below' ? ' · clipped' : layer.clip === 'band' ? ' · in band' : ''}
+                    </small>
                   </span>
                 )}
+                {layer.type === 'group' && (layer.collapsed ? <Folder size={16} className="faint" aria-hidden="true" /> : <FolderOpen size={16} className="faint" aria-hidden="true" />)}
                 {layer.type === 'unsupported' && <TriangleAlert size={16} aria-label="Can't be drawn by this version" />}
                 <button
                   type="button"
@@ -151,15 +225,23 @@ export function LayersPanel({ onAddFrame }: { onAddFrame: () => void }) {
 
       {selected && (
         <div className="layer-actions" aria-label="Selected layer">
-          <button type="button" className="icon-btn" aria-label="Move up" title="Move up (Alt+↑)" disabled={project.layers.at(-1)?.id === selected.id} onClick={() => moveLayer(selected.id, 'up')}>
+          <button type="button" className="icon-btn" aria-label="Move up" title="Move up (Alt+↑); at the top of a group, out of it" disabled={atTop} onClick={() => moveLayer(selected.id, 'up')}>
             <ArrowUp size={18} />
           </button>
-          <button type="button" className="icon-btn" aria-label="Move down" title="Move down (Alt+↓)" disabled={project.layers[0]?.id === selected.id} onClick={() => moveLayer(selected.id, 'down')}>
+          <button type="button" className="icon-btn" aria-label="Move down" title="Move down (Alt+↓); at the bottom of a group, out of it" disabled={atBottom} onClick={() => moveLayer(selected.id, 'down')}>
             <ArrowDown size={18} />
           </button>
           <button type="button" className="icon-btn" aria-label="Rename" title="Rename (F2)" onClick={() => setRenaming(selected.id)}>
             Aa
           </button>
+          <button type="button" className="icon-btn" aria-label="Group" title="Put the picked layers in a group (Ctrl+G). Ctrl+click layers to pick several." onClick={groupSelected}>
+            <Group size={18} />
+          </button>
+          {selected.type === 'group' && (
+            <button type="button" className="icon-btn" aria-label="Ungroup" title="Take the layers out of this group (Ctrl+Shift+G)" onClick={() => ungroup(selected.id)}>
+              <Ungroup size={18} />
+            </button>
+          )}
           <button type="button" className="icon-btn" aria-label="Duplicate" title="Duplicate (Ctrl+D)" onClick={() => duplicateLayer(selected.id)}>
             <Copy size={18} />
           </button>

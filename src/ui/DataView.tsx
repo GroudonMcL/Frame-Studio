@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import { parseProject, serializeProject } from '../project/migrate';
+import { findLayer } from '../project/tree';
 import { history, select, ui, useProject } from '../state/projectStore';
 import { Fold } from './controls';
 
@@ -21,7 +22,7 @@ export function DataView() {
       return;
     }
     history.getState().set(result.project);
-    if (!result.project.layers.some((l) => l.id === ui.getState().selectedId)) select(result.project.layers.at(-1)?.id ?? null);
+    if (!findLayer(result.project.layers, ui.getState().selectedId)) select(result.project.layers.at(-1)?.id ?? null);
     setDraft(null);
     setMessage({ text: result.warnings.length ? `Applied, with changes: ${result.warnings.join(' ')}` : 'Applied. Undo takes it back.', error: false });
   };

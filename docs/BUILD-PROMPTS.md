@@ -47,7 +47,7 @@ Done when: load a Token Maker frame, add a ring of shapes, change their count an
 
 ---
 
-## Phase 2 — Drawing tools
+## Phase 2 — Drawing tools (done)
 
 ```
 Ground rules: (as above)

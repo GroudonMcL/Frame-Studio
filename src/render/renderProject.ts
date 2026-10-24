@@ -2,13 +2,13 @@
 // thumbnails, the PNG export and the tests all draw through renderProject, so
 // what you see is what you export.
 
-import { tracePolygon } from '../engine/legacy/frameKit';
+import { clipToBand, tracePolygon } from '../engine/legacy/frameKit';
 import { boundingBox, shapePolygon } from '../engine/legacy/shapes';
 import type { RenderSource } from '../engine/legacy/render';
-import type { FrameProject } from '../project/types';
+import type { FrameProject, Layer } from '../project/types';
 import { bandGeometry } from './band';
 import { context2d, newCanvas, type Ctx } from './canvas';
-import { drawLayer } from './layers';
+import { drawLayer, type RenderEnv } from './layers';
 
 export interface RenderOptions {
   /** Draw the backing and this picture inside the frame (the stage's "show art"). */
@@ -46,24 +46,61 @@ export function renderProject(ctx: Ctx, project: FrameProject, size: number, opt
     ctx.restore();
   }
 
-  for (const layer of project.layers) {
+  drawStack(ctx, project.layers, { g, light: project.stage.light, size });
+  ctx.restore();
+}
+
+/** A layer on its own, with its band clip; a group draws its children as a stack. */
+function drawOne(ctx: Ctx, layer: Layer, env: RenderEnv): void {
+  ctx.save();
+  if (layer.clip === 'band') clipToBand(ctx, env.g);
+  if (layer.type === 'group') drawStack(ctx, layer.children, env);
+  else drawLayer(ctx, layer, env);
+  ctx.restore();
+}
+
+/** A blank canvas the size of the picture, with its origin at the centre. */
+function scratch(env: RenderEnv): { canvas: ReturnType<typeof newCanvas>; ctx: Ctx } {
+  const canvas = newCanvas(env.size, env.size);
+  const ctx = context2d(canvas);
+  ctx.translate(env.size / 2, env.size / 2);
+  return { canvas, ctx };
+}
+
+/**
+ * Layers bottom first. A layer with opacity < 100 %, a blend mode other than
+ * Normal, or a clip to the layer below is drawn on its own canvas first and
+ * then composited, so its opacity is even where its parts overlap. A layer
+ * clipped to the one below shows only where that layer (the nearest one
+ * below that isn't itself clipped) has paint, like a clipping mask.
+ */
+function drawStack(ctx: Ctx, layers: Layer[], env: RenderEnv): void {
+  const R = env.size / 2;
+  let base: Layer | null = null;
+  for (const layer of layers) {
+    if (layer.clip !== 'below') base = layer;
     if (!layer.visible || layer.opacity <= 0) continue;
-    if (layer.opacity >= 1 && layer.blend === 'source-over') {
-      ctx.save();
-      drawLayer(ctx, layer, g);
-      ctx.restore();
+    const mask = layer.clip === 'below' ? base : null;
+    if (layer.clip === 'below' && (!mask || !mask.visible || mask.opacity <= 0)) continue;
+    if (!mask && layer.opacity >= 1 && layer.blend === 'source-over') {
+      drawOne(ctx, layer, env);
       continue;
     }
-    // Drawn on its own first so its opacity is even where its parts overlap.
-    const own = newCanvas(size, size);
-    const octx = context2d(own);
-    octx.translate(R, R);
-    drawLayer(octx, layer, g);
+    const own = scratch(env);
+    drawOne(own.ctx, layer, env);
+    if (mask) {
+      const m = scratch(env);
+      drawOne(m.ctx, mask, env);
+      own.ctx.save();
+      own.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      own.ctx.globalCompositeOperation = 'destination-in';
+      own.ctx.drawImage(m.canvas as CanvasImageSource, 0, 0);
+      own.ctx.restore();
+    }
     ctx.save();
     ctx.globalAlpha = layer.opacity;
     ctx.globalCompositeOperation = layer.blend;
-    ctx.drawImage(own as CanvasImageSource, -R, -R);
+    ctx.drawImage(own.canvas as CanvasImageSource, -R, -R);
     ctx.restore();
   }
-  ctx.restore();
 }
