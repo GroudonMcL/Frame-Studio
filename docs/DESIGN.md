@@ -28,6 +28,9 @@ Behind the visual editing, a design is **structured data** (a `FrameProject`), n
 | How does a design relate to the token's shape? | **Adapts to the shape**: layers are placed relative to the frame band, so one design works on circle, rounded, square and both hexagons at any thickness (§4.2). |
 | What does it produce first? | Project files (`.framestudio.json`) and PNG pictures. Using designs inside Token Maker is a later phase. |
 | How is work delivered? | A pull request per phase. |
+| Light direction? *(after Phase 1)* | Add a **light-direction control**, defaulting to the **top left** (225°, Token Maker's light). Planned for Phase 2 (§8). |
+| How do designs reach Token Maker? *(after Phase 1)* | Token Maker **opens `.framestudio.json` project files** directly, so designs stay editable and scale cleanly. Planned for Phase 5 (§8). |
+| Free shapes and paths: tied to the band or placed freely? *(after Phase 1)* | **Adaptable by default**: placed at a point round the band (angle + across), so they still fit every shape and thickness. Placing freely stays available as an option. Planned for Phase 2 (§8). |
 
 ## 3. Tech stack
 
@@ -136,15 +139,26 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 | Phase | Goal |
 |---|---|
 | 1 | Foundation: templates, the format, the first layer types, layers panel, properties, undo, save/open, PNG, autosave **(done)** |
-| 2 | Drawing tools: free shapes and editable paths placed anywhere, groups, transforms, more elements, alternating patterns, wavy lines, direct handles on the canvas |
+| 2 | Drawing tools: shapes and editable paths (adaptable by default, free placement optional), groups, transforms, more elements, alternating patterns, wavy lines, direct handles on the canvas; the light-direction control |
 | 3 | Procedural layers: marble, hammered metal, battle wear, wood grain, stone blocks, scatter (stars), rope, scales; the colour-around-the-ring paint; per-layer caching |
 | 4 | Converting Token Maker frames into editable layers, starting with Polished (simple) and Paladin or Arcane (intricate), with visual comparison tests |
-| 5 | Polish and sharing: a personal layer library, copy/paste between projects, touch support, using designs in Token Maker |
+| 5 | Polish and sharing: a personal layer library, copy/paste between projects, touch support, Token Maker opening `.framestudio.json` files |
 
-## 9. Open questions for the owner
+## 9. Owner answers and open questions
 
-Recorded with the default used until answered:
+**Answered after Phase 1** (recorded in §2):
 
-1. **Light direction.** Token Maker frames are lit from the top left. Should Frame Studio offer a light-direction control for its own layers? *Default: no, keep the top left so everything matches.*
-2. **Using designs in Token Maker.** Should Token Maker import `.framestudio.json` files (needing the Frame Studio renderer inside Token Maker), or PNGs only? *Default: decide in Phase 5.*
-3. **Phone support.** *Default: desktop first; touch in Phase 5.*
+1. **Light direction:** add a light-direction control; the default is the top left, as in Token Maker.
+   - It is a project setting (`stage.light`, degrees the light comes from: 0 right, 90 below, 225 top left), added in schema version 2 with a migration that gives older projects 225°.
+   - It drives everything Frame Studio's own code lights: the `lit` paint, shaded beads and element gradients, and the direction of raised shadows.
+   - Token Maker frames (legacy layers) are lit from the top left inside the copied engine, which must not be edited. They stay top-left lit until converted into editable layers (Phase 4); the Properties panel says so when the light is moved.
+2. **Using designs in Token Maker:** Token Maker opens `.framestudio.json` project files.
+   - Token Maker needs Frame Studio's project reader and renderer (`src/project/`, `src/render/`). Phase 5 decides how they are shared (copied with a manifest like the engine, or a shared package), keeping one renderer so the frame looks the same in both.
+   - In Token Maker the design becomes a third frame kind beside "drawn" and "picture", with its band following Token Maker's thickness and spacing.
+3. **Free shapes and paths:** adaptable by default.
+   - A new shape or path is anchored at a point round the band (an angle round the token and an across position) and sized in band widths, so it follows every shape and thickness.
+   - "Place freely" (token units, ignoring the band) is an option per layer, for artwork that should not move with the band.
+
+**Still open**, with the default used until answered:
+
+1. **Phone support.** *Default: desktop first; touch in Phase 5.*
