@@ -4,7 +4,8 @@
 // and blend mode are applied when the picture is composited, so changing
 // them redraws nothing.
 
-import type { Layer, StageSettings } from '../project/types';
+import type { FrameGeometry } from '../engine/legacy/frameKit';
+import type { Layer } from '../project/types';
 import type { CanvasLike } from './canvas';
 
 /** Renders bigger than this are not cached (like token-maker's frame cache). */
@@ -25,10 +26,10 @@ let used = 0;
 /** How many layers the last render drew, and how many it reused. */
 export const renderStats = { drawn: 0, reused: 0 };
 
-/** Everything that changes how a layer looks, but not how it is composited. */
-export function layerKey(layer: Layer, stage: StageSettings, size: number): string {
+/** Everything that changes how a layer looks, but not how it is composited: its settings, the band, the light and the size. */
+export function layerKey(layer: Layer, g: Pick<FrameGeometry, 'shape' | 'outer' | 'inner'>, light: number, size: number): string {
   const { id: _i, name: _n, visible: _v, locked: _l, opacity: _o, blend: _b, clip, ...look } = layer;
-  return `${size}|${stage.shape}|${stage.thickness}|${stage.outerSpacing}|${stage.light}|${clip === 'band' ? 'band' : ''}|${JSON.stringify(look)}`;
+  return `${size}|${g.shape}|${g.outer}|${g.inner}|${light}|${clip === 'band' ? 'band' : ''}|${JSON.stringify(look)}`;
 }
 
 function drop(key: string): void {

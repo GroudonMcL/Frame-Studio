@@ -4,7 +4,7 @@ A visual editor for code-drawn token frames. Start from one of [Token Maker](htt
 
 ![Token Maker's Paladin frame as editable layers in Frame Studio](docs/screenshots/13-paladin-editable.png)
 
-## What works now (Phase 4)
+## What works now (Phase 5)
 
 - **Templates:** all 27 Token Maker frames (each as one layer whose colour you can change), five designs built from editable layers (two with textures), or a blank project.
 - **Token Maker frames as editable layers:** 18 of the frames (Polished, Paladin, Gilded, Engraved, Arcane, Infernal, Wizard, Double line, Oak, Cobblestone, Magma, Harlequin, Starfield, Cleric, Fighter, Monk, Rogue, Sorcerer) can be opened as a stack of layers you can change one by one: the band, the pressed-in step, the rims, the textures and the ornaments. They look like the originals (tests measure how close each one is) and, unlike the originals, they follow the light dial. Pick one marked **Editable** in New, or select a Token Maker frame layer and press **Turn into editable layers**; the originals are all still there.
@@ -18,7 +18,14 @@ A visual editor for code-drawn token frames. Start from one of [Token Maker](htt
 - **Faster editing:** each layer's picture is kept, so changing one layer only redraws that one.
 - **Light:** turn the light dial under the canvas to light your layers from any side (it starts at the top left, like Token Maker).
 - **Designs fit every token shape:** everything is placed relative to the frame band, so the same design works on a circle, square or hexagon, thick or thin. A shape can be set to "Place freely" if it should stay put instead.
-- **Undo/redo**, **autosave** (your work survives a refresh), **Save/Open** project files (`.framestudio.json`; files from earlier phases still open and look the same) and **Export PNG**.
+- **Undo/redo**, **autosave** (your work survives a refresh) and **Save/Open** project files (`.framestudio.json`; files from earlier phases still open and look the same).
+- **Your library:** pick a layer or group and press **Add to library** (the bookmark under the layer list) to keep it; add it to any other design from **Add layer → From your library**. Export the library as a file to keep a copy or give it to someone, and import it again.
+- **Copy and paste layers** with Ctrl+C / Ctrl+V (or the Copy button and Add layer → Paste layers): within a design, into another design, or into another browser tab.
+- **Export:** a see-through PNG at any size (16–4096 px), a sheet showing the design on all five token shapes, or the project file with a small preview picture in it (for Token Maker).
+- **Help everywhere:** point at (or tap) the **?** beside any setting for a one-sentence tip. A welcome card greets first-time visitors; the **?** button in the top bar brings it back.
+- **Phones and tablets:** on a narrow screen the canvas sits on top and the layers and properties are in a sheet underneath; everything is big enough for a finger, and you can drag shapes with one.
+- **Keyboard:** move through the layers with the arrow keys, and move the selected layer on the canvas with the arrow keys once the canvas has focus. Accessibility is checked automatically (axe).
+- **Ready for Token Maker:** Frame Studio's reader and renderer can be copied into Token Maker (`npm run share:export`), which will let Token Maker open `.framestudio.json` files as frames. The Token Maker side still has to be built there (see `docs/DESIGN.md` §10).
 
 See [`docs/PROGRESS.md`](docs/PROGRESS.md) for what's next and the known limitations.
 
@@ -53,6 +60,8 @@ npm run screenshots                        # with npm run dev running: editor sc
 npm run compare-conversions                # each editable Token Maker frame beside its original, with the differences
 ```
 
+`npm run e2e` also runs the phone tests (a Pixel 7 with touch).
+
 ## Keeping the Token Maker engine in step
 
 The frame-drawing code in `src\engine\legacy\` is copied from Token Maker and must not be edited here. With both repositories side by side:
@@ -62,6 +71,17 @@ npm run engine:check -- ..\token-maker   # lists files that differ
 npm run engine:sync -- ..\token-maker    # copies them and records the commit
 npm test
 ```
+
+## Giving Token Maker the Frame Studio code
+
+Token Maker draws Frame Studio designs with a copy of Frame Studio's reader and renderer, kept in step like the engine (the other way round). With both repositories side by side:
+
+```powershell
+npm run share:check -- ..\token-maker    # lists files that differ
+npm run share:export -- ..\token-maker   # copies them into token-maker\src\frameStudio and records the commit
+```
+
+Then run `npm test` in token-maker.
 
 ## Documents
 

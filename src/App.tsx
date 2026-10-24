@@ -1,22 +1,44 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { loadAutosave, startAutosave } from './state/autosave';
 import { findLayer, isLocked } from './project/tree';
 import { deleteLayer, duplicateLayer, groupSelected, loadProject, redo, ui, undo, ungroup, history } from './state/projectStore';
+import { copyPicked, cutPicked, pasteLayers } from './state/clipboard';
+import { clearMessage, showMessage, useMessage } from './state/messages';
 import { projectFromFrame } from './project/defaults';
 import { LayersPanel } from './ui/LayersPanel';
+import { LibraryDialog } from './ui/LibraryDialog';
 import { PropertiesPanel } from './ui/PropertiesPanel';
 import { pathEditKey } from './ui/pathKeys';
 import { Stage } from './ui/Stage';
 import { TemplateDialog } from './ui/TemplateDialog';
 import { TextureDialog } from './ui/TextureDialog';
 import { TopBar } from './ui/TopBar';
+import { WelcomeCard } from './ui/WelcomeCard';
+import { hasBeenWelcomed } from './ui/welcome';
 
 const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 
+/** Below this width the panels move into a sheet under the canvas (phones and small tablets). */
+export const NARROW_QUERY = '(max-width: 959px)';
+
+function useMediaQuery(query: string): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      const m = window.matchMedia(query);
+      m.addEventListener('change', onChange);
+      return () => m.removeEventListener('change', onChange);
+    },
+    () => window.matchMedia(query).matches,
+  );
+}
+
 export function App() {
   const [ready, setReady] = useState(false);
-  const [dialog, setDialog] = useState<'new' | 'addFrame' | 'texture' | null>(null);
-  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const [dialog, setDialog] = useState<'new' | 'addFrame' | 'texture' | 'library' | null>(null);
+  const [welcome, setWelcome] = useState(() => !hasBeenWelcomed());
+  const [sheet, setSheet] = useState<'layers' | 'properties'>('layers');
+  const narrow = useMediaQuery(NARROW_QUERY);
+  const message = useMessage();
 
   // Pick up where the last visit left off; a first visit starts with Stamped.
   useEffect(() => {
@@ -58,32 +80,92 @@ export function App() {
         }
       }
     };
+    // Copy, cut and paste layers through the system clipboard, so they reach other tabs (and other browsers).
+    const onCopy = (e: ClipboardEvent, cut = false) => {
+      if (isTyping(e.target) || window.getSelection()?.toString()) return;
+      const text = cut ? cutPicked() : copyPicked();
+      if (text === null) return;
+      e.preventDefault();
+      e.clipboardData?.setData('text/plain', text);
+    };
+    const onCut = (e: ClipboardEvent) => onCopy(e, true);
+    const onPaste = (e: ClipboardEvent) => {
+      if (isTyping(e.target)) return;
+      if (pasteLayers(e.clipboardData?.getData('text/plain') ?? null)) e.preventDefault();
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    document.addEventListener('copy', onCopy);
+    document.addEventListener('cut', onCut);
+    document.addEventListener('paste', onPaste);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('copy', onCopy);
+      document.removeEventListener('cut', onCut);
+      document.removeEventListener('paste', onPaste);
+    };
   }, []);
 
   useEffect(() => {
     if (!message) return;
-    const id = setTimeout(() => setMessage(null), message.error ? 9000 : 5000);
+    const id = setTimeout(clearMessage, message.error ? 9000 : 5000);
     return () => clearTimeout(id);
   }, [message]);
 
   if (!ready) return <div className="loading">Loading Frame Studio…</div>;
 
+  const layers = <LayersPanel onAddFrame={() => setDialog('addFrame')} onAddTexture={() => setDialog('texture')} onOpenLibrary={() => setDialog('library')} />;
+
   return (
-    <div className="app">
-      <TopBar onNew={() => setDialog('new')} onMessage={(text, error = false) => setMessage({ text, error })} />
-      <main className="workspace">
-        <LayersPanel onAddFrame={() => setDialog('addFrame')} onAddTexture={() => setDialog('texture')} />
-        <Stage />
-        <PropertiesPanel />
-      </main>
+    <div className={`app${narrow ? ' narrow' : ''}`}>
+      <TopBar onNew={() => setDialog('new')} onHelp={() => setWelcome(true)} onMessage={showMessage} />
+      {narrow ? (
+        <main className="workspace narrow">
+          <Stage />
+          <div className="sheet">
+            <div className="sheet-tabs" role="tablist" aria-label="Panels">
+              {(['layers', 'properties'] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  role="tab"
+                  id={`tab-${t}`}
+                  aria-selected={sheet === t}
+                  aria-controls={`sheet-${t}`}
+                  tabIndex={sheet === t ? 0 : -1}
+                  className={sheet === t ? 'on' : ''}
+                  onClick={() => setSheet(t)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                      const next = t === 'layers' ? 'properties' : 'layers';
+                      setSheet(next);
+                      document.getElementById(`tab-${next}`)?.focus();
+                    }
+                  }}
+                >
+                  {t === 'layers' ? 'Layers' : 'Properties'}
+                </button>
+              ))}
+            </div>
+            <div className="sheet-body" role="tabpanel" id={`sheet-${sheet}`} aria-labelledby={`tab-${sheet}`}>
+              {sheet === 'layers' ? layers : <PropertiesPanel />}
+            </div>
+          </div>
+        </main>
+      ) : (
+        <main className="workspace">
+          {layers}
+          <Stage />
+          <PropertiesPanel />
+        </main>
+      )}
       {message && (
         <div className={`toast${message.error ? ' error' : ''}`} role={message.error ? 'alert' : 'status'}>
           {message.text}
         </div>
       )}
+      {welcome && <WelcomeCard onClose={() => setWelcome(false)} onTemplates={() => setDialog('new')} />}
       {dialog === 'texture' && <TextureDialog onClose={() => setDialog(null)} />}
+      {dialog === 'library' && <LibraryDialog onClose={() => setDialog(null)} />}
       {(dialog === 'new' || dialog === 'addFrame') && <TemplateDialog mode={dialog} onClose={() => setDialog(null)} />}
     </div>
   );

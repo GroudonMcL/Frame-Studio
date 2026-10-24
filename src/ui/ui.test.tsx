@@ -16,7 +16,7 @@ HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
   this.open = true;
 };
 
-const rows = () => within(screen.getByRole('listbox', { name: /Layers/ })).getAllByRole('option');
+const rows = () => within(screen.getByRole('tree', { name: /Layers/ })).getAllByRole('treeitem');
 
 describe('editor panels', () => {
   beforeEach(() => loadProject(createProject(LAYERED_TEMPLATES[0].make())));
@@ -215,10 +215,10 @@ describe('converting Token Maker frames (Phase 4)', () => {
     const editable = FRAME_PRESETS.filter((p) => canConvert(p.style));
     // Arcane and Infernal share their drawing code: 17 converters, 18 frames.
     expect(editable.length).toBe(18);
-    for (const f of editable) expect(screen.getByRole('button', { name: `${f.name} (editable)` })).toBeInTheDocument();
+    for (const f of editable) expect(screen.getByRole('button', { name: `${f.name} Editable` })).toBeInTheDocument();
     for (const f of FRAME_PRESETS) expect(screen.getByRole('button', { name: f.name })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Stamped (editable)' })).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Paladin (editable)' }));
+    expect(screen.queryByRole('button', { name: 'Stamped Editable' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Paladin Editable' }));
     const p = history.getState().present;
     expect(p.name).toBe('Paladin');
     expect(p.layers.map((l) => l.type)).not.toContain('legacyFrame');
@@ -228,7 +228,7 @@ describe('converting Token Maker frames (Phase 4)', () => {
   it('in "add" mode an editable frame is added as a group', async () => {
     loadProject(createProject([bandFillLayer()]));
     render(<TemplateDialog mode="addFrame" onClose={() => {}} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Polished (editable)' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Polished Editable' }));
     expect(top()).toMatchObject({ type: 'group', name: 'Polished' });
   });
 

@@ -1,22 +1,49 @@
 // Small form controls used by every panel. A slider drag is shown live and
 // becomes one undo step when it ends (onChange(v, true) while dragging, then
-// onCommit), as in token-maker.
+// onCommit), as in token-maker. Every control has a help tip: one plain
+// sentence, given as `hint` or looked up by its label in help.ts.
 
 import { useId, useState, type ReactNode } from 'react';
 import { ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { isValidHex } from '../engine/legacy/color';
 import { commit } from '../state/projectStore';
+import { helpFor, hintId } from './help';
+
+/**
+ * A small "?" beside a control's label that shows its help tip when pointed
+ * at, tapped or focused. Screen readers hear the tip as the control's
+ * description instead (`describedBy` on the control), so the "?" itself is
+ * left out of the tab order.
+ */
+export function HelpTip({ id, text }: { id: string; text: string }) {
+  return (
+    <span className="help">
+      <button type="button" className="help-tip" tabIndex={-1} aria-hidden="true" onClick={(e) => e.currentTarget.focus()}>
+        ?
+      </button>
+      <span className="help-text" id={id} role="tooltip">
+        {text}
+      </span>
+    </span>
+  );
+}
 
 export function Field({ label, htmlFor, children, hint }: { label: string; htmlFor?: string; children: ReactNode; hint?: string }) {
+  const own = useId();
+  const tip = hint ?? helpFor(label);
   return (
     <div className="field">
-      <label className="field-label" htmlFor={htmlFor} title={hint}>
-        {label}
-      </label>
+      <span className="field-label">
+        <label htmlFor={htmlFor}>{label}</label>
+        {tip && <HelpTip id={hintId(htmlFor ?? own)} text={tip} />}
+      </span>
       <div className="field-control">{children}</div>
     </div>
   );
 }
+
+/** aria-describedby for a control whose Field shows a help tip. */
+const described = (id: string, label: string, hint?: string) => (hint ?? helpFor(label) ? hintId(id) : undefined);
 
 interface SliderProps {
   label: string;
@@ -53,6 +80,7 @@ export function Slider({ label, value, min, max, step = 0.01, scale = 1, unit = 
         step={step}
         value={value}
         disabled={disabled}
+        aria-describedby={described(id, label, hint)}
         onChange={(e) => onChange(Number(e.target.value), true)}
         onPointerUp={onCommit}
         onKeyUp={onCommit}
@@ -80,7 +108,7 @@ export function ColorField({ label, value, onChange, disabled, hint }: { label: 
   const [typed, setTyped] = useState<string | null>(null);
   return (
     <Field label={label} htmlFor={id} hint={hint}>
-      <input id={id} type="color" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value, true)} onBlur={commit} />
+      <input id={id} type="color" value={value} disabled={disabled} aria-describedby={described(id, label, hint)} onChange={(e) => onChange(e.target.value, true)} onBlur={commit} />
       <input
         className="hex"
         aria-label={`${label} hex code`}
@@ -102,7 +130,15 @@ export function OptionalColor({ label, value, fallback, onChange, disabled, hint
   return (
     <>
       <Toggle label={label} checked={value !== null} disabled={disabled} hint={hint} onChange={(on) => onChange(on ? fallback : null)} />
-      {value !== null && <ColorField label={`${label} colour`} value={value} disabled={disabled} onChange={onChange} />}
+      {value !== null && (
+        <ColorField
+          label={`${label} colour`}
+          hint={/colour/i.test(label) ? 'Pick the colour.' : `The colour of the ${label.toLowerCase()}.`}
+          value={value}
+          disabled={disabled}
+          onChange={onChange}
+        />
+      )}
     </>
   );
 }
@@ -111,7 +147,7 @@ export function Select<T extends string>({ label, value, options, onChange, disa
   const id = useId();
   return (
     <Field label={label} htmlFor={id} hint={hint}>
-      <select id={id} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value as T)}>
+      <select id={id} value={value} disabled={disabled} aria-describedby={described(id, label, hint)} onChange={(e) => onChange(e.target.value as T)}>
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
@@ -123,20 +159,57 @@ export function Select<T extends string>({ label, value, options, onChange, disa
 }
 
 export function Toggle({ label, checked, onChange, disabled, hint }: { label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; hint?: string }) {
+  const id = useId();
+  const tip = hint ?? helpFor(label);
   return (
-    <label className="toggle" title={hint}>
-      <input type="checkbox" role="switch" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
-      <span className="toggle-track" aria-hidden="true" />
-      <span>{label}</span>
-    </label>
+    <div className="toggle-field">
+      <label className="toggle">
+        <input type="checkbox" role="switch" checked={checked} disabled={disabled} aria-describedby={tip ? hintId(id) : undefined} onChange={(e) => onChange(e.target.checked)} />
+        <span className="toggle-track" aria-hidden="true" />
+        <span>{label}</span>
+      </label>
+      {tip && <HelpTip id={hintId(id)} text={tip} />}
+    </div>
   );
 }
 
-export function Segmented<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
+export function Segmented<T extends string>({ label, value, options, onChange, hint }: { label: string; value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; hint?: string }) {
+  const id = useId();
+  const tip = hint ?? helpFor(label);
   return (
-    <div className="segmented" role="radiogroup" aria-label={label}>
+    <div className="segmented-field">
+      <SegmentedButtons label={label} value={value} options={options} onChange={onChange} describedBy={tip ? hintId(id) : undefined} />
+      {tip && <HelpTip id={hintId(id)} text={tip} />}
+    </div>
+  );
+}
+
+/**
+ * The buttons of a Segmented control: a radio group, so the arrow keys move
+ * the choice (and focus) along, as in any radio group.
+ */
+function SegmentedButtons<T extends string>({ label, value, options, onChange, describedBy }: { label: string; value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; describedBy?: string }) {
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const i = (options.findIndex((o) => o.value === value) + step + options.length) % options.length;
+    onChange(options[i].value);
+    const buttons = e.currentTarget.querySelectorAll<HTMLButtonElement>('button');
+    buttons[i]?.focus();
+  };
+  return (
+    <div className="segmented" role="radiogroup" aria-label={label} aria-describedby={describedBy} onKeyDown={onKeyDown}>
       {options.map((o) => (
-        <button key={o.value} type="button" role="radio" aria-checked={o.value === value} className={o.value === value ? 'on' : ''} onClick={() => onChange(o.value)}>
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={o.value === value}
+          tabIndex={o.value === value ? 0 : -1}
+          className={o.value === value ? 'on' : ''}
+          onClick={() => onChange(o.value)}
+        >
           {o.label}
         </button>
       ))}
@@ -160,10 +233,7 @@ export function Fold({ title, children, defaultOpen = false }: { title: string; 
 /** A short list of colours that can grow and shrink (alternating colours). */
 export function ColorList({ label, values, onChange, disabled, hint, max = 8, fallback = '#3a7bd5' }: { label: string; values: string[]; onChange: (v: string[], transient?: boolean) => void; disabled?: boolean; hint?: string; max?: number; fallback?: string }) {
   return (
-    <div className="list-field" role="group" aria-label={label}>
-      <p className="field-label" title={hint}>
-        {label}
-      </p>
+    <ListField label={label} hint={hint}>
       {values.map((c, i) => (
         <div className="stop" key={i}>
           <ColorField label={`${label} ${i + 1}`} value={c} disabled={disabled} onChange={(v, t) => onChange(values.map((x, k) => (k === i ? v : x)), t)} />
@@ -177,6 +247,21 @@ export function ColorList({ label, values, onChange, disabled, hint, max = 8, fa
           <Plus size={16} /> Add
         </button>
       )}
+    </ListField>
+  );
+}
+
+/** A labelled group of controls (lists of colours, on/off patterns), with its help tip. */
+function ListField({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  const id = useId();
+  const tip = hint ?? helpFor(label);
+  return (
+    <div className="list-field" role="group" aria-label={label} aria-describedby={tip ? hintId(id) : undefined}>
+      <p className="field-label">
+        <span>{label}</span>
+        {tip && <HelpTip id={hintId(id)} text={tip} />}
+      </p>
+      {children}
     </div>
   );
 }
@@ -205,6 +290,7 @@ export function PercentList({ label, values, onChange, disabled, hint }: { label
         className="wide-text"
         placeholder="e.g. 100, 60"
         disabled={disabled}
+        aria-describedby={described(id, label, hint)}
         value={typed ?? shown}
         onChange={(e) => setTyped(e.target.value)}
         onBlur={apply}
@@ -222,10 +308,7 @@ export function PercentList({ label, values, onChange, disabled, hint }: { label
 export function PatternField({ label, values, onChange, disabled, hint }: { label: string; values: boolean[]; onChange: (v: boolean[]) => void; disabled?: boolean; hint?: string }) {
   const steps = values.length ? values : [true];
   return (
-    <div className="list-field" role="group" aria-label={label}>
-      <p className="field-label" title={hint}>
-        {label}
-      </p>
+    <ListField label={label} hint={hint}>
       <div className="pattern">
         {steps.map((on, i) => (
           <button
@@ -253,6 +336,6 @@ export function PatternField({ label, values, onChange, disabled, hint }: { labe
           </button>
         )}
       </div>
-    </div>
+    </ListField>
   );
 }

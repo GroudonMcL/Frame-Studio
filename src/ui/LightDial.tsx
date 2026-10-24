@@ -3,10 +3,12 @@
 // Stored as stage.light: the direction the light comes from, in degrees
 // (0 right, 90 below, 225 top left).
 
-import { useRef } from 'react';
+import { useId, useRef } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { DEFAULT_LIGHT } from '../project/types';
 import { commit, updateStage } from '../state/projectStore';
+import { HelpTip } from './controls';
+import { helpFor, hintId } from './help';
 
 const NAMES = ['right', 'bottom right', 'bottom', 'bottom left', 'left', 'top left', 'top', 'top right'];
 
@@ -18,6 +20,7 @@ const norm = (d: number) => Math.round((((d % 360) + 360) % 360) * 10) / 10;
 export function LightDial({ value }: { value: number }) {
   const dial = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
+  const help = hintId(useId());
   const fromPointer = (e: React.PointerEvent) => {
     const r = dial.current!.getBoundingClientRect();
     const deg = (Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180) / Math.PI;
@@ -26,13 +29,17 @@ export function LightDial({ value }: { value: number }) {
   const a = (value * Math.PI) / 180;
   return (
     <div className="light-control">
-      <span className="field-label">Light</span>
+      <span className="field-label">
+        Light
+        <HelpTip id={help} text={helpFor('Light direction')!} />
+      </span>
       <div
         ref={dial}
         className="light-dial"
         role="slider"
         tabIndex={0}
         aria-label="Light direction"
+        aria-describedby={help}
         aria-valuemin={0}
         aria-valuemax={359}
         aria-valuenow={Math.round(value)}
@@ -64,10 +71,13 @@ export function LightDial({ value }: { value: number }) {
         </svg>
       </div>
       <span className="light-value">from the {lightName(value)}</span>
-      {value !== DEFAULT_LIGHT && (
+      {value !== DEFAULT_LIGHT ? (
         <button type="button" className="icon-btn" aria-label="Light from the top left again" title="Back to the top left (Token Maker's light)" onClick={() => updateStage({ light: DEFAULT_LIGHT })}>
           <RotateCcw size={16} />
         </button>
+      ) : (
+        // Keeps the button's room, so moving the light never changes the bar's layout (or the canvas's size).
+        <span className="icon-btn" aria-hidden="true" />
       )}
     </div>
   );

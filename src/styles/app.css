@@ -178,6 +178,10 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-1);
+}
+.panel-head > .icon-btn {
+  margin-left: auto;
 }
 .panel-title {
   margin: 0;
@@ -262,6 +266,7 @@ textarea {
 }
 .layer-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-1);
   justify-content: center;
   padding-top: var(--space-2);
@@ -371,6 +376,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  position: relative;
 }
 .light-dial {
   display: grid;
@@ -400,7 +406,10 @@ textarea {
   stroke: var(--on-accent);
 }
 .light-value {
-  min-width: 9.5em;
+  /* Fixed, so turning the light never changes the bar's layout (or the canvas's size). */
+  flex: none;
+  width: 10.5em;
+  white-space: nowrap;
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
@@ -441,6 +450,9 @@ textarea {
   gap: var(--space-1);
 }
 .field-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
@@ -780,6 +792,289 @@ select {
 }
 .toast.error {
   border-color: var(--danger);
+}
+
+/* ---- Help tips: a "?" beside a control; its sentence shows under the control when pointed at, tapped or focused ---- */
+.field,
+.toggle-field,
+.list-field,
+.segmented-field {
+  position: relative;
+}
+.toggle-field,
+.segmented-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.help-tip {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+}
+.help-tip.demo {
+  display: inline-grid;
+  vertical-align: middle;
+}
+.help-text {
+  display: none;
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  min-width: 200px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: normal;
+  pointer-events: none;
+}
+.help:hover .help-text,
+.help-tip:focus + .help-text {
+  display: block;
+}
+.help-tip:hover,
+.help-tip:focus {
+  border-color: var(--accent);
+  color: var(--accent);
+  outline: none;
+}
+.topbar .help-text {
+  left: auto;
+  right: 0;
+  width: 240px;
+}
+
+/* ---- Welcome card ---- */
+.welcome {
+  position: fixed;
+  z-index: 30;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 2 * var(--space-5));
+  overflow-y: auto;
+  padding: var(--space-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
+}
+.welcome-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.welcome h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-xl);
+  color: var(--accent);
+}
+.welcome ul {
+  margin: var(--space-3) 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  line-height: 1.45;
+}
+.welcome .row {
+  justify-content: flex-end;
+}
+
+/* ---- Library ---- */
+.library-actions {
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+}
+.library-items {
+  list-style: none;
+  padding: 0;
+}
+.library-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+.library-item .rename {
+  width: 128px;
+  flex: none;
+}
+.library-item-actions {
+  display: flex;
+}
+.library-empty {
+  margin-top: var(--space-4);
+}
+
+/* ---- The canvas takes every finger movement (no scrolling or zooming the page while dragging) ---- */
+.stage-canvas .overlay {
+  touch-action: none;
+}
+
+/* ---- Touch: every target at least 44 px ---- */
+@media (pointer: coarse) {
+  .btn.small,
+  .segmented button,
+  .number input,
+  .hex,
+  .wide-text,
+  .rename,
+  .sheet-tabs button {
+    min-height: 44px;
+  }
+  .layer-row {
+    min-height: 48px;
+  }
+  .pattern-step {
+    width: 44px;
+    height: 44px;
+  }
+  input[type='color'] {
+    width: 52px;
+    height: 44px;
+  }
+  .toggle-track {
+    width: 44px;
+    height: 26px;
+  }
+  .toggle-track::after {
+    width: 20px;
+    height: 20px;
+  }
+  .toggle input:checked + .toggle-track::after {
+    transform: translateX(18px);
+  }
+  .help-tip {
+    width: 24px;
+    height: 24px;
+    font-size: 13px;
+  }
+  .menu button {
+    min-height: 44px;
+  }
+}
+
+/* ---- Phones and small tablets: the canvas on top, the panels in a sheet under it ---- */
+.app.narrow {
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  height: 100dvh;
+}
+.app.narrow .topbar {
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+}
+.app.narrow .brand span,
+.app.narrow .btn-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.app.narrow .project-name {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+.app.narrow .actions {
+  margin-left: 0;
+}
+.app.narrow .actions .btn {
+  min-width: var(--hit);
+  justify-content: center;
+}
+.workspace.narrow {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.workspace.narrow .stage {
+  flex: 1 1 auto;
+  min-height: 200px;
+}
+.workspace.narrow .stage-bar {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: var(--space-2) var(--space-3);
+}
+.workspace.narrow .stage-bar > *,
+.workspace.narrow .stage-sliders > * {
+  flex: none;
+}
+.workspace.narrow .segmented {
+  flex-wrap: nowrap;
+}
+.workspace.narrow .stage-sliders {
+  flex-wrap: nowrap;
+}
+.workspace.narrow .stage-sliders .field {
+  min-width: 180px;
+}
+.sheet {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  height: 40dvh;
+  min-height: 0;
+  border-top: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.sheet-tabs {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+.sheet-tabs button {
+  flex: 1;
+  min-height: var(--hit);
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 700;
+}
+.sheet-tabs button.on {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+.sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.sheet-body .panel {
+  overflow: visible;
+  border: 0;
 }
 
 @media (max-width: 1200px) {

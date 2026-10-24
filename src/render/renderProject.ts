@@ -2,10 +2,10 @@
 // thumbnails, the PNG export and the tests all draw through renderProject, so
 // what you see is what you export.
 
-import { clipToBand, tracePolygon } from '../engine/legacy/frameKit';
+import { clipToBand, tracePolygon, type FrameGeometry } from '../engine/legacy/frameKit';
 import { boundingBox, shapePolygon } from '../engine/legacy/shapes';
 import type { RenderSource } from '../engine/legacy/render';
-import type { FrameProject, Layer, StageSettings } from '../project/types';
+import type { FrameProject, Layer } from '../project/types';
 import { bandGeometry } from './band';
 import { context2d, newCanvas, type CanvasLike, type Ctx } from './canvas';
 import { cachedLayer, layerKey, MAX_CACHED_SIZE, renderStats } from './layerCache';
@@ -16,19 +16,26 @@ export interface RenderOptions {
   art?: RenderSource | null;
   /** Reuse each layer's picture from earlier renders (default); renders over 2048 px never do. */
   cache?: boolean;
+  /**
+   * The band to draw on, in place of the one the stage's thickness and
+   * spacing make (Token Maker's own band, when it draws a design as a frame).
+   * Its shape replaces the stage's; its edges are pixels in from the edge.
+   */
+  band?: Pick<FrameGeometry, 'shape' | 'outer' | 'inner'>;
+  /** Clear the area first (default). Off: draw over what is already there. */
+  clear?: boolean;
 }
 
 interface StackEnv extends RenderEnv {
-  stage: StageSettings;
   cache: boolean;
 }
 
 /** Paints the project into a `size`×`size` area starting at the context's origin. */
 export function renderProject(ctx: Ctx, project: FrameProject, size: number, options: RenderOptions = {}): void {
   const R = size / 2;
-  const g = bandGeometry(project.stage, size);
+  const g = options.band ? { ...bandGeometry(project.stage, size), ...options.band } : bandGeometry(project.stage, size);
   ctx.save();
-  ctx.clearRect(0, 0, size, size);
+  if (options.clear !== false) ctx.clearRect(0, 0, size, size);
   // Nothing is drawn outside the square, as in token-maker.
   ctx.beginPath();
   ctx.rect(0, 0, size, size);
@@ -57,7 +64,7 @@ export function renderProject(ctx: Ctx, project: FrameProject, size: number, opt
   renderStats.drawn = 0;
   renderStats.reused = 0;
   const cache = options.cache !== false && size <= MAX_CACHED_SIZE;
-  drawStack(ctx, project.layers, { g, light: project.stage.light, size, stage: project.stage, cache });
+  drawStack(ctx, project.layers, { g, light: project.stage.light, size, cache });
   ctx.restore();
 }
 
@@ -88,7 +95,7 @@ function picture(layer: Layer, env: StackEnv): CanvasLike {
     return own.canvas;
   };
   if (!env.cache || layer.type === 'group') return draw();
-  return cachedLayer(`${env.size}|${layer.id}`, layerKey(layer, env.stage, env.size), env.size, draw);
+  return cachedLayer(`${env.size}|${layer.id}`, layerKey(layer, env.g, env.light, env.size), env.size, draw);
 }
 
 /**

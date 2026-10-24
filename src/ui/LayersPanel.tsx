@@ -1,11 +1,32 @@
 // The layer list: top of the stack first, like Photoshop. Groups fold open
 // and shut and their layers sit indented under them. Pick (Ctrl+click or
-// Shift+click to pick several), rename (double click or F2), show/hide, lock,
-// reorder (buttons, Alt+arrows or drag), group (Ctrl+G), ungroup
-// (Ctrl+Shift+G), duplicate and delete.
+// Shift+click to pick several; ↑/↓ to move through the list), rename (double
+// click or F2), show/hide, lock, reorder (buttons, Alt+arrows or drag), group
+// (Ctrl+G), ungroup (Ctrl+Shift+G), duplicate, copy and paste, save to the
+// library and delete.
 
-import { useState, type DragEvent } from 'react';
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, Eye, EyeOff, Folder, FolderOpen, Group, Lock, LockOpen, Plus, Trash2, TriangleAlert, Ungroup } from 'lucide-react';
+import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
+import {
+  ArrowDown,
+  ArrowUp,
+  BookmarkPlus,
+  ChevronDown,
+  ChevronRight,
+  ClipboardCopy,
+  Copy,
+  Eye,
+  EyeOff,
+  Folder,
+  FolderOpen,
+  Group,
+  Library,
+  Lock,
+  LockOpen,
+  Plus,
+  Trash2,
+  TriangleAlert,
+  Ungroup,
+} from 'lucide-react';
 import { LAYER_TYPE_NAMES } from '../project/defaults';
 import { locate } from '../project/tree';
 import type { EditableLayerType, Layer } from '../project/types';
@@ -27,6 +48,8 @@ import {
   useProject,
   useUi,
 } from '../state/projectStore';
+import { copyToClipboard, pasteFromClipboard } from '../state/clipboard';
+import { menuKeys, saveSelectionToLibrary } from './actions';
 
 const ADDABLE: { type: EditableLayerType; hint: string }[] = [
   { type: 'bandFill', hint: 'Colour all or part of the band: flat, metal or a gradient.' },
@@ -50,13 +73,16 @@ function rowsOf(layers: Layer[], depth = 0): Row[] {
   ]);
 }
 
-export function LayersPanel({ onAddFrame, onAddTexture }: { onAddFrame: () => void; onAddTexture: () => void }) {
+export function LayersPanel({ onAddFrame, onAddTexture, onOpenLibrary }: { onAddFrame: () => void; onAddTexture: () => void; onOpenLibrary?: () => void }) {
   const project = useProject();
   const selectedId = useUi((s) => s.selectedId);
   const selectedIds = useUi((s) => s.selectedIds);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLUListElement>(null);
   const found = selectedId ? locate(project.layers, selectedId) : null;
   const selected = found?.layer;
   const rows = rowsOf(project.layers);
@@ -72,6 +98,32 @@ export function LayersPanel({ onAddFrame, onAddTexture }: { onAddFrame: () => vo
     setDragId(null);
   };
 
+  // When the focused row goes (deleted or cut), the focus moves to the row picked in its place rather than being lost.
+  useEffect(() => {
+    if (selectedId && document.activeElement === document.body) list.current?.querySelector<HTMLElement>(`[data-id="${selectedId}"]`)?.focus();
+  }, [selectedId, project]);
+
+  // An opened menu takes the focus to its first item; closing it gives it back.
+  useEffect(() => {
+    if (menuOpen) menu.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [menuOpen]);
+  const closeMenu = (refocus = true) => {
+    setMenuOpen(false);
+    if (refocus) menuButton.current?.focus();
+  };
+
+  /** ↑/↓ pick the row above or below (Shift adds to the picked ones), Home/End the first and last; the focus follows. */
+  const moveFocus = (e: KeyboardEvent, id: string) => {
+    const i = rows.findIndex((r) => r.layer.id === id);
+    const to = e.key === 'ArrowUp' ? i - 1 : e.key === 'ArrowDown' ? i + 1 : e.key === 'Home' ? 0 : e.key === 'End' ? rows.length - 1 : -1;
+    const next = rows[to]?.layer;
+    if (!next) return false;
+    if (e.shiftKey) selectRange(next.id);
+    else select(next.id);
+    requestAnimationFrame(() => list.current?.querySelector<HTMLElement>(`[data-id="${next.id}"]`)?.focus());
+    return true;
+  };
+
   const siblings = found ? (found.parent ? found.parent.children : project.layers) : [];
   const atTop = !!found && found.index === siblings.length - 1 && !found.parent;
   const atBottom = !!found && found.index === 0 && !found.parent;
@@ -80,12 +132,17 @@ export function LayersPanel({ onAddFrame, onAddTexture }: { onAddFrame: () => vo
     <aside className="panel layers" aria-label="Layers">
       <div className="panel-head">
         <h2 className="panel-title">Layers</h2>
+        {onOpenLibrary && (
+          <button type="button" className="icon-btn" aria-label="Your library" title="Your library: layers and groups you saved, to reuse in any design" onClick={onOpenLibrary}>
+            <Library size={18} />
+          </button>
+        )}
         <div className="add-menu">
-          <button type="button" className="btn small primary" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
+          <button ref={menuButton} type="button" className="btn small primary" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
             <Plus size={16} /> Add layer
           </button>
           {menuOpen && (
-            <div className="menu" role="menu">
+            <div className="menu" role="menu" aria-label="Add layer" ref={menu} onKeyDown={(e) => menuKeys(e, closeMenu)}>
               {ADDABLE.map(({ type, hint }) => (
                 <button
                   key={type}
@@ -93,7 +150,7 @@ export function LayersPanel({ onAddFrame, onAddTexture }: { onAddFrame: () => vo
                   role="menuitem"
                   onClick={() => {
                     addLayer(type);
-                    setMenuOpen(false);
+                    closeMenu(false);
                   }}
                 >
                   <strong>{LAYER_TYPE_NAMES[type]}</strong>
@@ -104,7 +161,7 @@ export function LayersPanel({ onAddFrame, onAddTexture }: { onAddFrame: () => vo
                 type="button"
                 role="menuitem"
                 onClick={() => {
-                  setMenuOpen(false);
+                  closeMenu(false);
                   onAddTexture();
                 }}
               >
@@ -115,12 +172,36 @@ export function LayersPanel({ onAddFrame, onAddTexture }: { onAddFrame: () => vo
                 type="button"
                 role="menuitem"
                 onClick={() => {
-                  setMenuOpen(false);
+                  closeMenu(false);
                   onAddFrame();
                 }}
               >
                 <strong>Token Maker frame…</strong>
                 <span>Add one of the 27 existing frames as a layer.</span>
+              </button>
+              {onOpenLibrary && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    closeMenu(false);
+                    onOpenLibrary();
+                  }}
+                >
+                  <strong>From your library…</strong>
+                  <span>Layers and groups you saved, to reuse in this design.</span>
+                </button>
+              )}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  closeMenu(false);
+                  void pasteFromClipboard();
+                }}
+              >
+                <strong>Paste layers</strong>
+                <span>The layers you last copied (Ctrl+V), from this design, another one or another tab.</span>
               </button>
             </div>
           )}
@@ -130,16 +211,18 @@ export function LayersPanel({ onAddFrame, onAddTexture }: { onAddFrame: () => vo
       {rows.length === 0 ? (
         <p className="muted">No layers yet. Add one, or start from a template with New.</p>
       ) : (
-        <ul className="layer-list" role="listbox" aria-label="Layers, top first" aria-multiselectable="true">
+        <ul className="layer-list" role="tree" aria-label="Layers, top first" aria-multiselectable="true" ref={list}>
           {rows.map(({ layer, depth }) => {
             const isSel = selectedIds.includes(layer.id);
             return (
               <li
                 key={layer.id}
-                role="option"
+                role="treeitem"
                 aria-selected={isSel}
                 aria-level={depth + 1}
-                tabIndex={layer.id === selectedId ? 0 : -1}
+                aria-expanded={layer.type === 'group' ? !layer.collapsed : undefined}
+                data-id={layer.id}
+                tabIndex={layer.id === selectedId || (!selectedId && layer === rows[0].layer) ? 0 : -1}
                 className={`layer-row${isSel ? ' selected' : ''}${layer.visible ? '' : ' hidden-layer'}${dragId === layer.id ? ' dragging' : ''}`}
                 style={{ paddingLeft: `calc(var(--space-2) + ${depth * 18}px)` }}
                 draggable={renaming !== layer.id}
@@ -157,10 +240,17 @@ export function LayersPanel({ onAddFrame, onAddTexture }: { onAddFrame: () => vo
                 }}
                 onDoubleClick={() => setRenaming(layer.id)}
                 onKeyDown={(e) => {
-                  if (renaming) return;
+                  if (renaming || e.target !== e.currentTarget) return;
                   if (e.key === 'F2') setRenaming(layer.id);
-                  if (e.altKey && e.key === 'ArrowUp') moveLayer(layer.id, 'up');
-                  if (e.altKey && e.key === 'ArrowDown') moveLayer(layer.id, 'down');
+                  else if (e.altKey && e.key === 'ArrowUp') moveLayer(layer.id, 'up');
+                  else if (e.altKey && e.key === 'ArrowDown') moveLayer(layer.id, 'down');
+                  else if (e.key === ' ' || e.key === 'Enter') {
+                    if (e.ctrlKey || e.metaKey) toggleSelect(layer.id);
+                    else select(layer.id);
+                  } else if (layer.type === 'group' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+                    if (layer.collapsed === (e.key === 'ArrowRight')) toggleCollapsed(layer.id);
+                  } else if (e.altKey || e.ctrlKey || e.metaKey || !moveFocus(e, layer.id)) return;
+                  e.preventDefault();
                 }}
               >
                 {layer.type === 'group' ? (
@@ -255,6 +345,12 @@ export function LayersPanel({ onAddFrame, onAddTexture }: { onAddFrame: () => vo
           )}
           <button type="button" className="icon-btn" aria-label="Duplicate" title="Duplicate (Ctrl+D)" onClick={() => duplicateLayer(selected.id)}>
             <Copy size={18} />
+          </button>
+          <button type="button" className="icon-btn" aria-label="Copy" title="Copy the picked layers (Ctrl+C), to paste here, in another design or in another tab (Ctrl+V)" onClick={() => void copyToClipboard()}>
+            <ClipboardCopy size={18} />
+          </button>
+          <button type="button" className="icon-btn" aria-label="Add to library" title="Keep the picked layers in your library, to reuse in any design" onClick={() => void saveSelectionToLibrary()}>
+            <BookmarkPlus size={18} />
           </button>
           <button type="button" className="icon-btn danger" aria-label="Delete" title="Delete (Del)" onClick={() => deleteLayer(selected.id)}>
             <Trash2 size={18} />

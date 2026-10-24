@@ -10,7 +10,7 @@ const previewHash = (page: Page) =>
     return h;
   });
 
-const layerNames = (page: Page) => page.getByRole('listbox', { name: /Layers/ }).getByRole('option').locator('.layer-name').evaluateAll((els) => els.map((e) => e.firstChild?.textContent));
+const layerNames = (page: Page) => page.getByRole('tree', { name: /Layers/ }).getByRole('treeitem').locator('.layer-name').evaluateAll((els) => els.map((e) => e.firstChild?.textContent));
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -55,7 +55,7 @@ test('layer visibility, order, duplicate and delete change the picture predictab
   expect(await previewHash(page)).toBe(full);
 
   // Send the beads to the bottom: the band now covers them.
-  await page.getByRole('option', { name: /Beads/ }).click();
+  await page.getByRole('treeitem', { name: /Beads/ }).click();
   for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Move down' }).click();
   expect((await layerNames(page)).at(-1)).toBe('Beads');
   expect(await previewHash(page)).toBe(noBeads);
@@ -69,13 +69,13 @@ test('layer visibility, order, duplicate and delete change the picture predictab
 test('clicking the canvas picks a layer, and dragging moves it', async ({ page }) => {
   await page.getByRole('button', { name: 'New' }).click();
   await page.getByRole('button', { name: 'Brass & beads' }).click();
-  await page.getByRole('option', { name: /Brass band/ }).click();
+  await page.getByRole('treeitem', { name: /Brass band/ }).click();
   const box = (await page.getByTestId('overlay').boundingBox())!;
   // The bead at the top of the ring, 60% across a band that starts 10% in and is 14% thick.
   const r = box.width / 2;
   const y = box.y + r * (0.1 + 0.14 * 0.6);
   await page.mouse.click(box.x + r, y);
-  await expect(page.getByRole('option', { name: /Beads/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('treeitem', { name: /Beads/ })).toHaveAttribute('aria-selected', 'true');
   const before = await previewHash(page);
   await page.mouse.move(box.x + r, y);
   await page.mouse.down();
@@ -107,8 +107,8 @@ test('save, open and export', async ({ page }, info) => {
   await expect(page.getByRole('status')).toContainText('Opened "Glowing runes"');
   expect(await previewHash(page)).toBe(original);
 
-  await page.getByRole('button', { name: 'Export PNG' }).click();
-  await page.getByLabel('Size').selectOption('512');
+  await page.getByRole('button', { name: 'Export' }).click();
+  await page.getByLabel('Picture size').selectOption('512');
   const exporting = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download' }).click();
   const png = await exporting;
@@ -129,7 +129,7 @@ test('the project survives a reload', async ({ page }) => {
   const hash = await previewHash(page);
   await page.waitForTimeout(800);
   await page.reload();
-  await expect(page.getByRole('option', { name: /Line/ })).toBeVisible();
+  await expect(page.getByRole('treeitem', { name: /Line/ })).toBeVisible();
   expect(await previewHash(page)).toBe(hash);
 });
 

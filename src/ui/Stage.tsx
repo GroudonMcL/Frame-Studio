@@ -3,6 +3,8 @@
 // pick it; drag it in or out to move it across the band, or round the token
 // to slide repeated shapes along it. Shapes and paths get handles to move,
 // resize and turn them, and paths can be drawn and their points edited.
+// Works with a finger too (handles are easier to catch), and from the
+// keyboard: with the canvas focused, the arrow keys move the selected layer.
 
 import { useEffect, useRef, useState } from 'react';
 import { SHAPES } from '../engine/legacy/catalog';
@@ -14,6 +16,7 @@ import { bandGeometry, outlineAt } from '../render/band';
 import {
   dragLayer,
   movePathPart,
+  nudgeLayer,
   pathHandles,
   pathLocal,
   pickLayer,
@@ -206,17 +209,21 @@ export function Stage() {
     return { x: ((e.clientX - r.left) / r.width - 0.5) * px, y: ((e.clientY - r.top) / r.height - 0.5) * px };
   };
   const g = bandGeometry(project.stage, px);
-  const near = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y) <= 9 * dpr;
+  // A finger is less exact than a mouse, so handles and points are easier to catch with one.
+  const reach = (e: React.PointerEvent | React.MouseEvent) => ('pointerType' in e && e.pointerType !== 'mouse' ? 20 : 9) * dpr;
   const editable = (l: Layer | undefined): l is Layer => !!l && isShown(project.layers, l.id) && !isLocked(project.layers, l.id);
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const pt = toPoint(e);
+    const tolerance = reach(e);
+    const dist = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+    const near = (a: Point, b: Point) => dist(a, b) <= tolerance;
     const capture = () => e.currentTarget.setPointerCapture(e.pointerId);
     const sel = selected;
 
     // Drawing or editing a path's points.
     if (sel?.type === 'path' && pathEdit && editable(sel)) {
-      const part = pickPathPart(sel, g, pt, pathEdit.point, 8 * dpr);
+      const part = pickPathPart(sel, g, pt, pathEdit.point, tolerance * 0.9);
       if (pathEdit.drawing && part?.part === 'point' && part.point === 0 && sel.points.length >= 3) {
         finishDrawing(true);
         return;
@@ -246,12 +253,14 @@ export function Stage() {
     // The resize and turn handles of a shape or path.
     if ((sel?.type === 'shape' || sel?.type === 'path') && editable(sel) && !pathEdit) {
       const h = transformHandles(sel, g, dpr);
-      if (h && near(pt, h.scale)) {
+      // On a small shape a fingertip covers the shape and its handles: a handle wins only when it is nearer than the shape's centre.
+      const handle = (at: Point) => !!h && near(pt, at) && dist(pt, at) < dist(pt, h.anchor);
+      if (h && handle(h.scale)) {
         drag.current = { kind: 'scale', layer: sel, anchor: h.anchor, start: pt };
         capture();
         return;
       }
-      if (h && near(pt, h.rotate)) {
+      if (h && handle(h.rotate)) {
         drag.current = { kind: 'rotate', layer: sel, anchor: h.anchor, start: pt };
         capture();
         return;
@@ -286,6 +295,16 @@ export function Stage() {
     drag.current = null;
   };
 
+  /** Arrow keys move the selected layer a little (Shift: more), one undo step each. */
+  const onKeyDown = (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+    const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (!dir || e.altKey || e.ctrlKey || e.metaKey || !editable(selected) || pathEdit) return;
+    e.preventDefault();
+    const step = px * (e.shiftKey ? 0.02 : 0.004);
+    const patch = nudgeLayer(selected, project, px, dir[0] * step, dir[1] * step);
+    if (patch) updateLayer(selected.id, patch);
+  };
+
   return (
     <section className="stage" aria-label="Canvas">
       <div className="stage-well" ref={wrap}>
@@ -297,6 +316,11 @@ export function Stage() {
             height={px}
             className={`overlay${pathEdit?.drawing ? ' drawing' : ''}`}
             data-testid="overlay"
+            tabIndex={0}
+            role="application"
+            aria-roledescription="canvas"
+            aria-label={selected ? `Canvas. ${selected.name} is selected: the arrow keys move it, Shift for bigger steps.` : 'Canvas. Click a layer to pick it.'}
+            onKeyDown={onKeyDown}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={endDrag}
@@ -304,7 +328,7 @@ export function Stage() {
             onDoubleClick={(e) => {
               const sel = selected;
               if (sel?.type !== 'path' || !pathEdit || pathEdit.drawing || !editable(sel)) return;
-              const part = pickPathPart(sel, g, toPoint(e), pathEdit.point, 8 * dpr);
+              const part = pickPathPart(sel, g, toPoint(e), pathEdit.point, reach(e) * 0.9);
               if (part?.part === 'point') setPathPoints(sel.id, toggleSmooth(sel.points, part.point, sel.closed));
             }}
           />

@@ -4,7 +4,7 @@
 import type { FrameGeometry } from '../engine/legacy/frameKit';
 import type { Point } from '../engine/legacy/shapes';
 import type { FrameProject, Layer, PathPoint, Placement, PlacedLayer } from '../project/types';
-import { acrossOfPoint, alongOfPoint, bandGeometry, bandWidthPx, maxAcross, outlineAt } from './band';
+import { acrossOfPoint, alongOfPoint, bandGeometry, bandWidthPx, insetAt, maxAcross, outlineAt } from './band';
 import { lineOutline, repeatPlacements } from './layers';
 import { localBounds, placement, placements, toCanvas, toLocal, unitPx } from './placed';
 
@@ -115,6 +115,26 @@ export function dragLayer(layer: Layer, project: FrameProject, size: number, sta
     default:
       return null;
   }
+}
+
+/**
+ * Moves a layer with the arrow keys: as if it were dragged `dx`, `dy` pixels
+ * from a point on it at the top of the token (a shape or path from its
+ * anchor). So ↑/↓ move a band layer out and in across the band, ←/→ slide a
+ * repeat's elements round it, and shapes and paths move on the screen.
+ */
+export function nudgeLayer(layer: Layer, project: FrameProject, size: number, dx: number, dy: number): Partial<Layer> | null {
+  const g = bandGeometry(project.stage, size);
+  let start: Point;
+  if (layer.type === 'shape' || layer.type === 'path') {
+    const t = placement(layer, g);
+    if (!t) return null;
+    start = { x: t.x, y: t.y };
+  } else {
+    const across = layer.type === 'line' || layer.type === 'repeat' ? layer.at : layer.type === 'bandFill' || layer.type === 'texture' ? (layer.from + layer.to) / 2 : 0.5;
+    start = { x: 0, y: -(g.R - insetAt(g, across)) };
+  }
+  return dragLayer(layer, project, size, start, { x: start.x + dx, y: start.y + dy });
 }
 
 /** The editing handles of a selected shape or path, in canvas pixels. */

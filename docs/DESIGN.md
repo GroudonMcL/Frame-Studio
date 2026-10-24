@@ -17,7 +17,7 @@ Behind the visual editing, a design is **structured data** (a `FrameProject`), n
 - Save, reopen and share designs as files; export pictures.
 - Later: turn Token Maker's frames into fully editable layers, and use Frame Studio designs inside Token Maker.
 
-**Non-goals for now:** phone/touch layout (the code is structured so it can come later), accounts, running user-supplied code.
+**Non-goals for now:** accounts, sharing online (designs travel as files), running user-supplied code. *(Phones and touch came in Phase 5, §6.3.)*
 
 ## 2. Owner decisions (October 2026)
 
@@ -32,11 +32,12 @@ Behind the visual editing, a design is **structured data** (a `FrameProject`), n
 | How do designs reach Token Maker? *(after Phase 1)* | Token Maker **opens `.framestudio.json` project files** directly, so designs stay editable and scale cleanly. Planned for Phase 5 (§8). |
 | Free shapes and paths: tied to the band or placed freely? *(after Phase 1)* | **Adaptable by default**: placed at a point round the band (angle + across), so they still fit every shape and thickness. Placing freely stays available as an option. Built in Phase 2 (§4.4). |
 | Procedural textures? *(Phase 3 prompt)* | Nine **texture layers** re-implementing Token Maker's textures, each identical to the original at its default settings; a colour-round-the-ring paint; per-layer caching. Built in Phase 3 (§4.6, §5.3). |
-| Converting Token Maker frames? *(Phase 4 prompt)* | A **converter per frame** writes its parts as editable layers with Token Maker's own numbers; each conversion is measured against the original and held to a limit. 18 frames (17 drawing styles) are converted; the originals all stay available. Where a conversion can't be exact, "looks the same" is the default until the owner says otherwise (§4.7, §9). Built in Phase 4. |
+| Phase 5: layer library, sharing with Token Maker, phones *(Phase 5 prompt)* | A **personal layer library** in IndexedDB with library files; **copy and paste** through the system clipboard and a shared copy for other tabs; a **phone layout** (canvas over a bottom sheet, 44 px targets) with keyboard access and axe checks; **Token Maker gets Frame Studio's reader and renderer by copy with a manifest** (the engine's own pattern, in the other direction), one renderer in both apps (§10). Built in Phase 5; the Token Maker side waits for access to its repository (§9). |
+| Converting Token Maker frames? *(Phase 4 prompt)* | A **converter per frame** writes its parts as editable layers with Token Maker's own numbers; each conversion is measured against the original and held to a limit. 18 frames (17 drawing styles) are converted; the originals all stay available. Where a conversion can't be exact, "looks the same" is enough (the owner's answer before Phase 5, §9). Built in Phase 4. |
 
 ## 3. Tech stack
 
-Same as Token Maker, so code and habits carry over: TypeScript, React 19 + Vite, Canvas 2D, Zustand (with token-maker's `history.ts` for undo), `idb-keyval` for autosave, Vitest (+ `@napi-rs/canvas` for pixel tests), Playwright, ESLint. Same visual identity ("Lamplit Workbench", `src/styles/tokens.css` copied from Token Maker). No new dependencies beyond Token Maker's.
+Same as Token Maker, so code and habits carry over: TypeScript, React 19 + Vite, Canvas 2D, Zustand (with token-maker's `history.ts` for undo), `idb-keyval` for autosave and the layer library, Vitest (+ `@napi-rs/canvas` for pixel tests), Playwright, ESLint. Same visual identity ("Lamplit Workbench", `src/styles/tokens.css` copied from Token Maker). No new dependencies beyond Token Maker's, except `@axe-core/playwright` (a test-only tool, added in Phase 5 for the accessibility checks the brief asks for).
 
 **The engine copy.** `src/engine/legacy/` holds unchanged copies of token-maker's `src/render/{catalog,color,frameKit,frames,finishes,shapes,sampleArt}.ts` (plus a 9-line `render.ts` stand-in for one type). `SOURCE.json` records the token-maker commit and each file's SHA-256.
 
@@ -201,6 +202,21 @@ Token Maker's see-through colours (`rgba(…, 0.55)`) become a solid colour and 
   (Worst over every shape, size and thickness tested. A mean of 1/255 is invisible; the differences above are in fine detail, which is why the default is "looks the same", §9.)
 - **Not converted yet** (they stay one Token Maker layer, and say so): **Stamped** (its veins and dark-side marbling need a texture judged by its ring colours), **Ranger** (its fletching is thin stroked chevrons; the chevron element is a filled arrowhead), **Bard** (notes with Token Maker's own random placement and shapes), **Warlock** (the detailed eyes), **Barbarian** (claw gashes as paired strokes), **Artificer** (gear teeth on the inner edge and its gears), **Druid** and **Knotwork** (their waves are counted to fit the band, where a wavy line has a fixed number of waves). Each needs a new element or option; until then the original is the better choice.
 
+### 4.8 Layers on the move: copied, saved and in library files (Phase 5)
+
+`src/project/transfer.ts`. Layers that leave a project travel as a small project-shaped object, so they are read by `parseProject` with every check and migration of §4.3 (an old copy is migrated, a layer from a newer version stays `unsupported` and is written back as it came):
+
+```ts
+{ format: 'frame-studio-layers', schemaVersion, name, stage, layers }   // copied layers, or one library item
+{ format: 'frame-studio-library', schemaVersion, items: [ …the above… ] } // a library file (.framestudio-library.json)
+```
+
+- `stage` is the stage they were made on; it is only used to draw the item's thumbnail. Put into a design, the layers follow that design's band (§4.2).
+- A project file is accepted anywhere layers are (its layers become one item, named after it). A library file's items that can't be read are left out, each with a warning.
+- When layers are put into a design every id is renewed (`cloneWithNewIds`), so the same item can be added any number of times.
+
+**Project files can carry a preview** (Export → Project file with a preview): a 256 px see-through PNG as a data URL in a top-level `preview` field, after the layers, for apps that list designs (Token Maker's frame tiles). Reading a file ignores it; it changes nothing else in the format, so the schema version stays 4.
+
 ## 5. The renderer
 
 `renderProject(ctx, project, size, { art })` in `src/render/renderProject.ts` draws the preview, the template thumbnails, the PNG export and the test images. One renderer, so the export always matches the preview.
@@ -209,9 +225,13 @@ Token Maker's see-through colours (`rgba(…, 0.55)`) become a solid colour and 
 2. If `stage.showArt`: the backing colour and the sample picture inside the band's middle (where token-maker's art runs to).
 3. Layers, bottom first (`drawStack`). Every layer is drawn on its own canvas (its *picture*, kept in the cache, §5.3) and then composited with its opacity and blend mode, so its opacity is even where its parts overlap. A group at full opacity and Normal blend passes its layers straight through; otherwise it is drawn on its own canvas from its layers' pictures and composited the same way.
 
+Two options exist for Token Maker (§10): `band` draws on a given band (shape and edges in pixels) instead of the one the stage makes, and `clear: false` draws over what is already there. The cache key (§5.3) is the band's edges, not the stage's numbers, so both give the same pictures.
+
 Painters per type are in `src/render/layers.ts` (shapes and paths in `src/render/placed.ts`). The legacy layer calls token-maker's `drawFrame` with exactly the geometry token-maker would use; a test checks every frame is pixel-identical to a direct `drawFrame` call.
 
 Editor-only drawing (selection outlines, handles, path points) is on a separate overlay canvas and never reaches the export.
+
+The stage bar keeps a fixed layout (the light's caption has a fixed width and its reset button's room is kept), so moving the light never resizes the canvas.
 
 ### 5.1 The light direction
 
@@ -244,16 +264,33 @@ Budget (tested): a 10-layer textured design draws at 512 px in about 140 ms from
 
 ## 6. The editor
 
-`src/App.tsx` + `src/ui/`. Desktop layout (min 960 px wide):
+`src/App.tsx` + `src/ui/`. Desktop layout from 960 px wide (narrower screens: §6.3):
 
-- **Top bar:** name (click to rename), New (template picker), Open, Save (`.framestudio.json`), Export PNG (256–2048 px, with or without the sample picture), Undo/Redo, **Basic / Advanced** switch.
-- **Layers panel (left):** top of the stack first; a group's layers sit indented under it and the group folds open and shut. Click to select; **Ctrl+click** adds a layer to the selection and **Shift+click** selects a run; eye = show/hide; padlock = lock; double-click or F2 to rename; drag, Alt+↑/↓ or the arrow buttons to reorder (at the top or bottom of a group, moving steps out of it; dropping on the lower half of a group's row puts the layer in it); **Group** (Ctrl+G) puts the selected layers in a new group where the top-most of them was; **Ungroup** (Ctrl+Shift+G); Duplicate (Ctrl+D, a group with everything in it); Delete (Del). **Add layer** offers Band fill, Line, Repeated shapes, Shape, Path, Group, **Texture…** (the texture library) and Token Maker frame… (as editable layers or the original).
+- **Top bar:** name (click to rename), New (template picker), Open, Save (`.framestudio.json`), **Export** (below), Undo/Redo, **Basic / Advanced** switch, **Help** (the welcome card).
+- **Layers panel (left):** top of the stack first; a group's layers sit indented under it and the group folds open and shut. Click to select; **Ctrl+click** adds a layer to the selection and **Shift+click** selects a run; eye = show/hide; padlock = lock; double-click or F2 to rename; drag, Alt+↑/↓ or the arrow buttons to reorder (at the top or bottom of a group, moving steps out of it; dropping on the lower half of a group's row puts the layer in it); **Group** (Ctrl+G) puts the selected layers in a new group where the top-most of them was; **Ungroup** (Ctrl+Shift+G); Duplicate (Ctrl+D, a group with everything in it); **Copy** (Ctrl+C; §6.2); **Add to library** (§6.1); Delete (Del). **Add layer** offers Band fill, Line, Repeated shapes, Shape, Path, Group, **Texture…** (the texture library), Token Maker frame… (as editable layers or the original), **From your library…** and **Paste layers**. The books button beside it opens **Your library**.
 - **Canvas (middle):** live preview on a checkerboard. Click picks the top-most layer under the pointer (inside groups too). Dragging a line, band fill or repeat moves it across the band; dragging a repeat round the token slides its elements along. Dragging a shape or path moves it (round the band, or anywhere when placed freely). A selected shape or path shows its box, a **square resize handle** (bottom right) and a **round turn handle** beyond the box (Shift snaps to 15°); the turn handle moves to the inner side when the outer side would be off the picture. A drag is one undo step. Below it: token shape, band thickness, the **light dial**, show sample picture (Advanced: outer spacing, backing colour).
 - **Drawing a path:** Add layer → Path starts drawing. Each click adds a point (the first click places the path on the band); click the first point or press Enter to finish (the path is then closed), Escape to stop without closing. When drawing ends the path's anchor moves to the middle of what was drawn, so it turns and resizes about its centre. **Edit points** (Properties) shows the points (squares) and curve handles (circles): drag them; double-click a point to make it smooth or sharp; Delete removes the chosen point; **Add points** carries on drawing.
 - **Light dial:** drag the sun round, or focus it and use the arrow keys (Shift = 15° steps); the reset button returns it to the top left.
 - **Properties panel (right):** controls for the selected layer's type. Basic shows the common ones (for a Token Maker frame with a converter, **Turn into editable layers**; for repeats, **Shaded by the light** and a **Patterns** section: which ones to show (a row of on/off switches), alternate colours and sizes, alternate sides; for lines, **Wavy**; for shapes and paths: fill, shading, outline, mirror, raised, **Place freely**; for textures: kind, colour(s), how many, size, strength, where, variation with a shuffle button, start and end across the band; for the ring paint: a ring preview and each colour with its angle, "Turn with the light"). Advanced adds opacity, blend mode, **clip**, outline, glow, "bigger one every…" and "leave gaps beside the bigger ones", rune/note pattern, gradient stop positions and opacities, "Turn with the light" for gradients across the token, highlight/shade amounts and the **highlight colour** of metal paints, the **numeric position, size, stretch and rotation** of shapes and paths, and **Project data** (the JSON, editable and checked like an opened file).
 - **Template picker:** Blank, designs built from editable layers ("Brass & beads", "Glowing runes", "Jewelled", and from Phase 3 "Battle-worn steel" and "Night sky"), the 18 Token Maker frames that convert into editable layers (marked *Editable*; hovering shows any small difference from the original), and all 27 Token Maker frames as the originals, with live thumbnails. Also used to add a Token Maker frame to a project, as a group of editable layers or as the original.
 - **Texture library:** the 11 texture presets as tiles drawn by the renderer on a thick band; "Also add a matching band colour under it" (on by default when the project is empty) adds a lit band fill and the texture as one undo step.
+- **Export** (top bar, Phase 5): a picture (PNG) at 256–2048 px or **any size from 16 to 4096 px**, with the middle see-through or the sample picture; a **sheet of the design on every token shape** (five pictures side by side, each up to 1024 px, 1/16 of a picture apart, see-through); or the **project file with a preview picture** (§4.8). All drawn by `renderProject`.
+- **Help:** every control has a help tip, one plain sentence (`ui/help.ts`, or a control's own `hint`): a small "?" beside its label shows it when pointed at, tapped or focused, and screen readers hear it as the control's description (`aria-describedby`). A test opens every kind of layer and paint in Advanced mode, the stage bar and the export menu, and fails on any control without one. The **welcome card** shows on a first visit (remembered in localStorage, `frame-studio:welcomed`) and again from the **Help** button in the top bar; it doesn't block the editor.
+
+### 6.1 The layer library (Phase 5)
+
+`src/state/library.ts`, `src/ui/LibraryDialog.tsx`. Pick a layer or group (or several) and press **Add to library** (the bookmark under the layer list). **Your library** (the books button over the list, or Add layer → From your library…) shows every item as a tile drawn by the renderer on a thick plain band; clicking one adds its layers just above the selected layer, as one undo step, with new ids. Items can be renamed, removed and exported one at a time; **Export all** downloads a library file and **Import…** adds the items of a library file, a file of copied layers or a project file. The library is kept in this browser's IndexedDB (`frame-studio:library`, each item stored as the text of a layers file, so it is migrated when Frame Studio is updated).
+
+### 6.2 Copy, cut and paste (Phase 5)
+
+`src/state/clipboard.ts`. **Ctrl+C / Ctrl+X / Ctrl+V** (when not typing in a box), the **Copy** button under the layer list and **Add layer → Paste layers**. Copied layers (the picked ones, bottom first; a picked group brings its layers) go on the system clipboard as the text of a layers file, so they reach another tab, another browser window or even another browser, and into localStorage (`frame-studio:clipboard`), which every Frame Studio tab of the browser shares, for when the clipboard can't be read without asking (the Paste menu item). Pasting puts them above the selected layer with new ids, as one undo step; other text on the clipboard is left alone. Cut leaves locked layers where they are.
+
+### 6.3 Phones, touch and the keyboard (Phase 5)
+
+- **Narrow screens** (under 960 px): the canvas fills the top, the stage bar scrolls sideways under it, and the panels move into a **bottom sheet** with **Layers / Properties** tabs. Top-bar buttons show only their icons (their names are still read out).
+- **Touch:** every target is at least **44 px** on a touch screen (`pointer: coarse`, as in Token Maker); help "?" marks are 24 px. The canvas takes every finger movement (`touch-action: none`), and handles and path points are easier to catch with a finger (20 px instead of 9); on a small shape a handle only wins when the finger is nearer to it than to the shape's centre, so a fingertip on the shape moves it.
+- **Keyboard:** the layer list is a tree: ↑/↓, Home/End move the selection (Shift adds), →/← open and fold groups, Space/Enter pick, F2 renames, Alt+↑/↓ reorder; only the picked row is in the tab order. Menus take the focus, move with the arrows and close with Escape (giving the focus back); radio groups (Basic/Advanced, token shape) move with the arrows; the export menu closes with Escape. The **canvas** can be focused: the arrow keys move the selected layer (Shift for bigger steps), each press one undo step. When the focused row is deleted or cut, the focus moves to the row picked in its place.
+- **Accessibility checks:** the Playwright tests run **axe** (WCAG 2.1 A/AA and best practice) on the editor in Basic and Advanced, the Add layer menu, the export menu, the template picker, the library and the welcome card, on desktop and on a phone, and fail on any serious or critical problem.
 
 Undo/redo works on the structured project (token-maker's `history.ts`): every edit is one step; a slider, colour-picker, handle or point drag is one step. Loading a project starts a fresh history.
 
@@ -281,7 +318,7 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 | 2 | Drawing tools: shapes and editable paths (adaptable by default, free placement optional), groups, clipping, transforms, mirroring, more elements, alternating patterns, wavy lines, direct handles on the canvas; the light-direction control **(done)** |
 | 3 | Procedural layers: marble, hammered metal, battle wear, wood grain, stone blocks, scatter (stars), rope, scales, cracks; the colour-around-the-ring paint; per-layer caching; texture library **(done)** |
 | 4 | Converting Token Maker frames into editable layers, with visual comparison tests: 18 frames, starting with Polished and Paladin **(done)** |
-| 5 | Polish and sharing: a personal layer library, copy/paste between projects, touch support, Token Maker opening `.framestudio.json` files |
+| 5 | Polish and sharing: a personal layer library, copy/paste between projects, touch support, export options, help tips, Token Maker opening `.framestudio.json` files **(Frame Studio side done; Token Maker side waiting, §10)** |
 
 ## 9. Owner answers and open questions
 
@@ -321,7 +358,34 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 3. **A converted frame is a group** when it replaces a layer (keeping that layer's name, opacity, blend and clip), and a flat list of layers when it starts a new project.
 4. **Frames that would look noticeably different stay unconverted** (Stamped, Ranger, Bard, Warlock, Barbarian, Artificer, Druid, Knotwork) rather than being offered as poor copies.
 
-**Still open**, with the default used until answered:
+**Decided while building Phase 5** (sensible defaults; say if any should change):
 
-1. **Phone support.** *Default: desktop first; touch in Phase 5.*
-2. **Is "looks the same" good enough for converted frames?** Polished converts exactly; Paladin and the others look the same at a glance but differ in fine detail, mostly in their ornaments (§4.7 lists each). Exact copies would mean adding each frame's own ornaments as special elements, which would then not follow the light. *Default: "looks the same" is good enough, with the limits in §4.7; the originals stay available beside the editable versions.*
+1. **Token Maker gets Frame Studio's code by copy with a manifest** (§10), not a shared package: it is the pattern already used for the engine, it needs no package publishing, and a test on each side catches edits to the copies. One renderer, as the owner asked.
+2. **A design is drawn on Token Maker's band** (its thickness and spacing), on the token's shape, lit from the design's own light.
+3. **The library is per browser** (IndexedDB), with library files to move it, like the autosave; nothing is uploaded.
+4. **Copied layers are plain text on the clipboard**, so pasting needs no permission prompt; a shared copy in localStorage covers the cases where the clipboard can't be read.
+5. **The layer list became a tree** (it was a list box), the right pattern for nested layers with buttons in each row, which the accessibility checks asked for.
+
+**Answered before Phase 5:** "looks the same" is good enough for converted frames (they don't have to be exact copies). The limits in §4.7 stay as they are and the originals stay available beside the editable versions.
+
+**Still open:** none.
+
+## 10. Using designs in Token Maker (Phase 5)
+
+The owner's answer: Token Maker opens `.framestudio.json` project files, as a third frame kind beside drawn frames and picture frames.
+
+**How the code is shared: copied with a manifest.** `npm run share:export -- ../token-maker` copies `src/project/`, `src/render/` and `src/share/` (not the tests) into token-maker's `src/frameStudio/`, changing only the imports of the engine copy (`../engine/legacy/x` → `../../render/x`, the token-maker files it was copied from), and writes `src/frameStudio/SOURCE.json` with this repository's commit and each file's SHA-256. `npm run share:check -- ../token-maker` reports what differs. `scripts/share-bundle.test.ts` checks that every import of every copied file resolves inside the copy or to one of token-maker's `src/render/` files, and that no editor code (state, UI, React) comes along; the copy was also type-checked in a folder laid out like token-maker. Token Maker never edits these files; it changes Frame Studio and exports again, just as Frame Studio syncs the engine (§3).
+
+**What Token Maker calls** (`src/share/frameDesign.ts`):
+
+- `readFrameDesign(text)`: reads any version of the file with every check of §4.3 (nothing in it is run).
+- `drawFrameDesign(ctx, project, g)`: draws the design as a frame on Token Maker's band — the same `FrameGeometry` its `drawFrame` takes (origin at the token's centre, `R`, `outer`, `inner` in pixels) — on the token's shape, lit from the design's light, without clearing what is under it. `src/share/frameDesign.test.ts` checks that this is **the very same picture** Frame Studio draws for that band, on every shape, on a thin and a thick band, for three designs; the Phase 5 end-to-end test exports a project file from the editor, reads it and draws it this way, and compares it with the editor's own PNG export (mean difference 0.22/255; the browser and the test draw with different engines).
+- `previewOf(text)`: the preview picture saved in the file (§4.8), for Token Maker's tile.
+
+**The Token Maker side** (to do in token-maker, once this session can reach its repository):
+
+1. Run `npm run share:export -- ../token-maker` and add a test there that fails if `src/frameStudio/` differs from its `SOURCE.json` (like Frame Studio's `engine.test.ts`).
+2. Add a frame kind `'design'` beside drawn and picture frames in its `FrameSettings` (a schema bump with a migration), holding an id of the imported design.
+3. In the Frame & shape panel, **Open a Frame Studio design…** reads the file with `readFrameDesign` and shows its warnings or reason; designs are kept in IndexedDB beside uploaded picture frames and go into shared presets the same way (with `previewOf` for the tile, or a thumbnail drawn by `drawFrameDesign`).
+4. In `render.ts`, layer 9 draws a design frame with `drawFrameDesign(ctx, design, geometry)` on its cached frame canvas, using the same geometry as drawn frames, so the band follows Token Maker's thickness and spacing and the frame cache keeps working.
+5. Test that a design looks the same in both apps: draw the Phase 5 fixture designs through `renderToken` and through `drawFrameDesign` directly, and compare.
