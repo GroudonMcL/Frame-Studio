@@ -12,7 +12,7 @@ import { bandWidthPx, outlineAt, repeatCount, spacedAlong } from './band';
 import { context2d, newCanvas, type Ctx } from './canvas';
 import { drawElement, runeFor } from './elements';
 import { lightAt, raisedFrom } from './light';
-import { fillBand, paintStyle, recolourRound, ringTableFor } from './paint';
+import { fillBand, paintCanvas, paintStyle, recolourRound, ringTableFor } from './paint';
 import { drawPlaced } from './placed';
 import { drawTexture } from './textures';
 
@@ -180,6 +180,7 @@ function drawRepeat(ctx: Ctx, layer: RepeatLayer, env: RenderEnv): void {
   const variants = runeFor(layer.seed, placements.at(-1) ? placements.at(-1)!.index + 1 : 0);
   const w = bandWidthPx(g);
   const turn = (layer.rotation * Math.PI) / 180;
+  const paint = layer.fillPaint ? { canvas: paintCanvas(layer.fillPaint, g, env.light, env.size), each: layer.paintEach } : null;
   ctx.save();
   if (layer.raised) raisedFrom(ctx, w, env.light);
   if (layer.glow) {
@@ -205,6 +206,7 @@ function drawRepeat(ctx: Ctx, layer: RepeatLayer, env: RenderEnv): void {
         shaded: layer.shaded,
         detail: layer.detail,
         variant,
+        paint,
       });
     });
   }
@@ -227,7 +229,7 @@ export function drawLayer(ctx: Ctx, layer: Layer, env: RenderEnv): void {
       return drawTexture(ctx, layer, env.g, env.light, env.size);
     case 'shape':
     case 'path':
-      return drawPlaced(ctx, layer, env.g, env.light);
+      return drawPlaced(ctx, layer, env.g, env.light, env.size);
     case 'group':
     case 'unsupported':
       return;

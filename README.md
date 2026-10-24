@@ -4,7 +4,7 @@ A visual editor for code-drawn token frames. Start from one of [Token Maker](htt
 
 ![Token Maker's Paladin frame as editable layers in Frame Studio](docs/screenshots/13-paladin-editable.png)
 
-## What works now (Phase 6)
+## What works now (Phase 7)
 
 - **Templates:** all 27 Token Maker frames (each as one layer whose colour you can change), ten designs built from editable layers (Brass & beads, Glowing runes, Jewelled, Battle-worn steel, Night sky, Moon & stars, Frostbound, Celtic knots, Royal, Grim iron), or a blank project.
 - **Token Maker frames as editable layers:** every one of the 26 frames (Stamped, Ranger, Bard, Warlock, Barbarian, Artificer, Druid and Knotwork joined in Phase 6) can be opened as a stack of layers you can change one by one: the band, the pressed-in step, the rims, the textures and the ornaments. They look like the originals (tests measure how close each one is) and, unlike the originals, they follow the light dial. Pick one marked **Editable** in New, or select a Token Maker frame layer and press **Turn into editable layers**; the originals are all still there.
@@ -12,6 +12,10 @@ A visual editor for code-drawn token frames. Start from one of [Token Maker](htt
 - **Groups:** Ctrl+click layers and press Group (Ctrl+G). Hide, lock or fade a whole group at once. Layers can also be clipped to the band or to the layer below.
 - **Drawing:** Add layer → Path, then click points on the canvas; click the first point (or press Enter) to finish. Drag points and their round handles; double-click a point to make it curved.
 - **Moving things:** drag shapes and paths on the canvas; use the square handle to resize and the round one to turn. Mirror a shape to get a matching pair on the other side.
+- **Ornaments from game-icons.net (Phase 7):** 48 more, marked "(icon)": dragons, griffins, skulls, crowns, swords, axes, laurels, triskelions, runes, lyres, potions and more. Credits are in Help → Artwork credits and [`docs/CREDITS.md`](docs/CREDITS.md).
+- **Photo textures (Phase 7):** 20 seamless photos (gold, bronze, ice, lava, marble, granite, cobblestones, castle brick, wood, bark, leather, rope, hessian, rust, moss, snow…) in Add layer → Texture… → Photo textures. They bend round the band, and can be turned, resized, tinted and lit.
+- **Fill with a paint (Phase 7):** ornaments, shapes and paths can be filled with metal lighting, a gradient, colours round the ring or a photo instead of one colour, running across the token or each on its own.
+- **Reset buttons:** the ↺ beside a slider or colour puts it back as a new layer has it.
 - **Ornaments:** 40 shapes to repeat round the ring or place on their own (Add layer → Shape → Ornament): beads, runes, crosses, chevrons, gears… and new in Phase 6 hearts, crescent moons, flames, fleurs-de-lis, shields, suns, snowflakes, crowns, cut gems, drops, scallop shells, spirals, paw prints, feathers, Celtic knots, skulls and arrows, plus the details of Token Maker's frames (Warlock's eyes, Bard's notes, Barbarian's gashes, Artificer's cogs and teeth, Druid's leaves, Ranger's fletching). Two-part ones (an eye's white, a cog's hub, a flame's core…) have a second colour.
 - **Patterns:** alternate colours and sizes round a ring, leave gaps beside bigger beads, put leaves on alternate sides, draw only every other one (or any on/off pattern), keep the number even, shaded or in one flat colour; **random variation** makes each one wander in and out, vary in size or turn a little (shuffle for another arrangement).
 - **Wavy lines:** smooth waves, zigzags, scallops or battlements; fit the waves to the band (a bigger token gets more); raised with a small shadow.
@@ -60,7 +64,7 @@ Handy for checking by eye:
 npm run frame-sheet -- sheet.png circle    # every template on one picture (try hexagon, square…)
 npm run screenshots                        # with npm run dev running: editor screenshots into docs\screenshots
 npm run compare-conversions                # each editable Token Maker frame beside its original, with the differences
-npm run showcase -- ornaments sheet.png    # every ornament (or: textures, templates, converted)
+npm run showcase -- ornaments sheet.png    # every ornament (or: icons, textures, photos, fills, templates, converted)
 ```
 
 `npm run e2e` also runs the phone tests (a Pixel 7 with touch).
@@ -92,4 +96,5 @@ Then run `npm test` in token-maker.
 - [`docs/TOKEN-MAKER-CONTEXT.md`](docs/TOKEN-MAKER-CONTEXT.md): how Token Maker's frames work, and an inventory of all 27.
 - [`docs/BUILD-PROMPTS.md`](docs/BUILD-PROMPTS.md): the prompt for each build phase.
 - [`docs/PROGRESS.md`](docs/PROGRESS.md): the phase checklist.
+- [`docs/CREDITS.md`](docs/CREDITS.md): who made the icons and photo textures.
 - [`docs/PROJECT-STARTER.md`](docs/PROJECT-STARTER.md): the original brief.

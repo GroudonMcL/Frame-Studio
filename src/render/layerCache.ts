@@ -7,6 +7,7 @@
 import type { FrameGeometry } from '../engine/legacy/frameKit';
 import type { Layer } from '../project/types';
 import type { CanvasLike } from './canvas';
+import { pictureEpoch } from './pictures';
 
 /** Renders bigger than this are not cached (like token-maker's frame cache). */
 export const MAX_CACHED_SIZE = 2048;
@@ -29,7 +30,10 @@ export const renderStats = { drawn: 0, reused: 0 };
 /** Everything that changes how a layer looks, but not how it is composited: its settings, the band, the light and the size. */
 export function layerKey(layer: Layer, g: Pick<FrameGeometry, 'shape' | 'outer' | 'inner'>, light: number, size: number): string {
   const { id: _i, name: _n, visible: _v, locked: _l, opacity: _o, blend: _b, clip, ...look } = layer;
-  return `${size}|${g.shape}|${g.outer}|${g.inner}|${light}|${clip === 'band' ? 'band' : ''}|${JSON.stringify(look)}`;
+  const json = JSON.stringify(look);
+  // A layer with a photo texture is drawn again once its picture has loaded.
+  const pictures = json.includes('"kind":"picture"') ? `|p${pictureEpoch()}` : '';
+  return `${size}|${g.shape}|${g.outer}|${g.inner}|${light}|${clip === 'band' ? 'band' : ''}|${json}${pictures}`;
 }
 
 function drop(key: string): void {

@@ -232,6 +232,17 @@ Everything new is off by default, so a version-4 file opens and draws as before 
 - **Templates:** Moon & stars, Frostbound, Celtic knots, Royal (a crown ornament over fleurs-de-lis and gems) and Grim iron.
 - `npm run showcase -- ornaments|textures|templates|converted out.png` draws them on one sheet (docs/screenshots/22–25).
 
+### 4.10 Open-licensed artwork, paint fills and reset buttons (Phase 7, schema version 6)
+
+The owner chose the found artwork (all but the vector patterns). Everything new is off by default; version-5 files saved by Phase 6 (`fixtures/v5/`) open and draw as before.
+
+- **48 ornaments from game-icons.net** (CC BY 3.0, by Lorc, Delapouite, Carl Olsen and Caro Asercion): `project/iconGlyphs.ts` keeps each one's SVG path as published (without its black background square), its author and its page. They are element kinds (`icon-…`, named "… (icon)") for repeats and Shape → Ornament, drawn by `drawElement` from a `Path2D` stretched from their 512 box, shaded, outlined and painted like the others. Node has no `Path2D`: tests and scripts use @napi-rs/canvas's (`src/test/setup.ts`, `scripts/napi.ts`); Token Maker's tests need the same.
+- **20 photo textures** (CC0, Poly Haven and ambientCG): 512 px JPEGs as data URLs in `render/pictureData.ts`, a separate file the browser fetches only when a design first uses a photo (`render/pictures.ts`). The renderer stays synchronous: a photo not loaded yet is drawn as its average colour (`project/pictures.ts`), loading starts, and when it arrives the preview and thumbnails draw again and the layer cache's key changes (`pictureEpoch`). Exports, thumbnails and the project file's preview wait for the photos first (`loadPictures`); Token Maker should await `loadFrameDesignPictures(design)` before `drawFrameDesign`.
+- **The `picture` paint:** `{ kind: 'picture', picture, scale, angle, bend, tint, lighting }` — tiles `scale` band widths across, turned `angle`; `bend` cuts the band into thin pieces between matching points on its edges and fills each with the pattern running along it (on band fills; lines and fills lie flat); `tint` recolours it with the `color` blend (its light and dark kept); `lighting` lightens the side facing the light and darkens the other. The texture library has a **Photo textures** section that adds a band fill of one.
+- **Fills with a paint** (`fillPaint`, `paintEach` on repeats, shapes and paths): any paint — metal lighting, gradients, colours round the ring, photos — instead of the fill colour. The paint is drawn once over the whole picture (`paintCanvas`) and used as a pattern whose transform is set at the moment of filling (`paintPattern`): across the token its pixels land where they are, so each ornament shows its own part; with `paintEach` the whole paint is shrunk into each element's box. Shading is laid over the paint as light and shade; beads keep their sphere's highlight. The fill colour still gives two-part ornaments their default second colour.
+- **Reset buttons:** every slider bound to a layer's setting, the main colours, the paints' sliders and the stage's band thickness, spacing and backing colour have a ↺ button that puts the value back as a new layer (or stage) has it, as one undo step. It stays in place, disabled, when there is nothing to reset, so controls don't jump.
+- **Credits:** Help (the welcome card) → **Artwork credits** lists every icon with its author and page and the photos' sources; `docs/CREDITS.md` the same.
+
 ## 5. The renderer
 
 `renderProject(ctx, project, size, { art })` in `src/render/renderProject.ts` draws the preview, the template thumbnails, the PNG export and the test images. One renderer, so the export always matches the preview.
@@ -334,7 +345,8 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 | 3 | Procedural layers: marble, hammered metal, battle wear, wood grain, stone blocks, scatter (stars), rope, scales, cracks; the colour-around-the-ring paint; per-layer caching; texture library **(done)** |
 | 4 | Converting Token Maker frames into editable layers, with visual comparison tests: 18 frames, starting with Polished and Paladin **(done)** |
 | 5 | Polish and sharing: a personal layer library, copy/paste between projects, touch support, export options, help tips, Token Maker opening `.framestudio.json` files **(done)** |
-| 6 | The last eight conversions; more ornaments, textures and options **(done)**; open-licensed artwork, once the owner has chosen it (§9) |
+| 6 | The last eight conversions; more ornaments, textures and options **(done)** |
+| 7 | Open-licensed ornaments and photo textures, paint fills for ornaments and shapes, reset buttons **(done)** |
 
 ## 9. Owner answers and open questions
 
@@ -390,7 +402,16 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 2. **Random variation is seeded**, like textures: the same design always draws the same, and the shuffle button picks another arrangement.
 3. **A cog is flat with a domed hub**, as Token Maker draws it, whatever "Shaded by the light" says (that shades the hub).
 
-**Still open — open-licensed artwork.** Candidates were found and shown to the owner as contact sheets, not imported: 48 ornament glyphs from game-icons.net (CC BY 3.0, credit to each icon's author), 20 photographic surface textures from Poly Haven and ambientCG (CC0), and 16 Hero Patterns (CC BY 4.0, credit to Steve Schoger). Importing glyphs would make them ornaments (as SVG paths, like §4.9's); photographic textures and tiled patterns would need a new image-fill layer, and attribution needs a credits page. Waiting for the owner's choice.
+**Answered after Phase 6:** import the found artwork except the vector patterns (§4.10); fill ornaments with gradients and textures; add reset buttons.
+
+**Decided while building Phase 7** (sensible defaults; say if any should change):
+
+1. **Photos are bundled, not fetched from the sites,** made 512 px (about 1.2 MB in all) and loaded only when used, so the editor starts as fast as before and works offline.
+2. **A photo band bends round the band by default;** Bark and Medieval wood start turned 90° so their grain runs along it. Ornaments and lines lie flat on their photo.
+3. **A paint fill runs across the token by default** (one paint, each ornament showing its part); "each on its own" is a switch.
+4. **Reset goes back to a new layer's value,** not to the value a template or conversion started with.
+
+**Still open:** none.
 
 ## 10. Using designs in Token Maker (Phase 5)
 

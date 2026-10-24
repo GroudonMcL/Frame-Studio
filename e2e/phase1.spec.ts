@@ -98,7 +98,7 @@ test('save, open and export', async ({ page }, info) => {
   const path = info.outputPath('saved.json');
   await saved.saveAs(path);
   const json = JSON.parse(readFileSync(path, 'utf8'));
-  expect(json).toMatchObject({ format: 'frame-studio-project', schemaVersion: 5 });
+  expect(json).toMatchObject({ format: 'frame-studio-project', schemaVersion: 6 });
 
   await page.getByRole('button', { name: 'New' }).click();
   await page.getByRole('button', { name: /Blank project/ }).click();

@@ -5,7 +5,8 @@
 import { shade } from '../engine/legacy/color';
 import { noShadow, seededRandom, sphere } from '../engine/legacy/frameKit';
 import type { ElementKind } from '../project/types';
-import type { Ctx } from './canvas';
+import { ICON_GLYPHS, type IconGlyph } from '../project/iconGlyphs';
+import type { CanvasLike, Ctx } from './canvas';
 import { GLYPHS, STROKED, traceGlyph, type Glyph } from './glyphs';
 import { turn } from './light';
 
@@ -50,6 +51,7 @@ export const ELEMENT_NAMES: Record<ElementKind, string> = {
   knot: 'Celtic knot',
   skull: 'Skull',
   arrow: 'Arrow',
+  ...(Object.fromEntries(ICON_GLYPHS.map((g) => [g.id, `${g.name} (icon)`])) as Record<(typeof ICON_GLYPHS)[number]['id'], string>),
 };
 
 /** Elements with a second colour (`detail`), and what it is called in the editor. */
@@ -206,19 +208,91 @@ function traceNote(ctx: Ctx, w: number, h: number, paired: boolean): void {
   }
 }
 
-/** Fills the current path with `color`, brighter towards the light and darker away from it (or flat, if not `shaded`). */
-export function shadedFill(ctx: Ctx, color: string, w: number, h: number, light: { x: number; y: number }, rule: CanvasFillRule = 'nonzero', shaded = true): void {
-  if (!shaded) {
+/**
+ * Fills the current path (or `path`) with `color`, brighter towards the
+ * light and darker away from it (or flat, if not `shaded`). A paint's
+ * pattern is laid down as it is, with the same light and shade over it.
+ * The shading is centred on (`cx`, `cy`).
+ */
+export function shadedFill(
+  ctx: Ctx,
+  color: string | CanvasPattern,
+  w: number,
+  h: number,
+  light: { x: number; y: number },
+  rule: CanvasFillRule = 'nonzero',
+  shaded = true,
+  path?: Path2D,
+  cx = 0,
+  cy = 0,
+): void {
+  const fill = () => (path ? ctx.fill(path, rule) : ctx.fill(rule));
+  const { x, y } = light;
+  const across = () => ctx.createLinearGradient(cx + (x * w) / 2, cy + (y * h) / 2, cx - (x * w) / 2, cy - (y * h) / 2);
+  if (typeof color !== 'string') {
     ctx.fillStyle = color;
-    ctx.fill(rule);
+    fill();
+    if (!shaded) return;
+    const gradient = across();
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+    gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
+    gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0)');
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
+    // The paint has cast the shadow; the light and shade over it shouldn't again.
+    ctx.save();
+    noShadow(ctx);
+    ctx.fillStyle = gradient;
+    fill();
+    ctx.restore();
     return;
   }
-  const { x, y } = light;
-  const gradient = ctx.createLinearGradient((x * w) / 2, (y * h) / 2, (-x * w) / 2, (-y * h) / 2);
+  if (!shaded) {
+    ctx.fillStyle = color;
+    fill();
+    return;
+  }
+  const gradient = across();
   gradient.addColorStop(0, shade(color, 0.25));
   gradient.addColorStop(1, shade(color, -0.3));
   ctx.fillStyle = gradient;
-  ctx.fill(rule);
+  fill();
+}
+
+/** A paint for filling elements with: the whole picture's paint (paint.ts paintCanvas), across the token or shrunk into each element. */
+export interface PaintSource {
+  canvas: CanvasLike;
+  /** Each element gets the whole paint, shrunk into its box; otherwise the paint runs across the token. */
+  each: boolean;
+}
+
+type Affine = { a: number; b: number; c: number; d: number; e: number; f: number };
+
+const times = (m: Affine, n: Affine): Affine => ({
+  a: m.a * n.a + m.c * n.b,
+  b: m.b * n.a + m.d * n.b,
+  c: m.a * n.c + m.c * n.d,
+  d: m.b * n.c + m.d * n.d,
+  e: m.a * n.e + m.c * n.f + m.e,
+  f: m.b * n.e + m.d * n.f + m.f,
+});
+
+function inverse(m: Affine): Affine {
+  const det = m.a * m.d - m.b * m.c || 1e-12;
+  return { a: m.d / det, b: -m.b / det, c: -m.c / det, d: m.a / det, e: (m.c * m.f - m.d * m.e) / det, f: (m.b * m.e - m.a * m.f) / det };
+}
+
+/**
+ * The paint as a pattern for filling now: `frame` is the element's own
+ * transform (its centre, turned with it), `w` × `h` its box. Across the
+ * token, the paint's pixels land where they are on the picture; each on its
+ * own, the whole paint is shrunk into the box.
+ */
+export function paintPattern(ctx: Ctx, paint: PaintSource, frame: Affine, w: number, h: number): CanvasPattern {
+  const pattern = ctx.createPattern(paint.canvas as CanvasImageSource, 'no-repeat')!;
+  const size = (paint.canvas as { width: number }).width;
+  const toDevice: Affine = paint.each ? times(frame, { a: w / size, b: 0, c: 0, d: h / size, e: -w / 2, f: -h / 2 }) : { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+  pattern.setTransform(times(inverse(ctx.getTransform()), toDevice));
+  return pattern;
 }
 
 export interface ElementStyle {
@@ -235,6 +309,57 @@ export interface ElementStyle {
   detail?: string | null;
   /** Varies some elements (Bard's notes: single or paired), 0–1; missing = the first kind. */
   variant?: number;
+  /** Fill with this paint instead of `fill` (which still gives the second colour its default). */
+  paint?: PaintSource | null;
+  /** Set by drawElement: the paint's pattern, made for the transform at the moment of filling. */
+  ink?: () => CanvasPattern;
+}
+
+/** What an element's main part is filled or drawn with: its paint, or its colour. */
+const body = (style: ElementStyle): string | CanvasPattern => (style.ink ? style.ink() : style.fill);
+
+/** A shaded ball (beads, irises, hubs): the engine's sphere, or the paint with the sphere's light and shade over it. */
+function ball(ctx: Ctx, x: number, y: number, r: number, style: ElementStyle): void {
+  if (!style.ink) return sphere(ctx, x, y, r, style.fill, style.light);
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = style.ink();
+  ctx.fill();
+  const glint = ctx.createRadialGradient(x + style.light.x * r * 0.45, y + style.light.y * r * 0.45, r * 0.08, x, y, r);
+  glint.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+  glint.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
+  glint.addColorStop(0.5, 'rgba(0, 0, 0, 0)');
+  glint.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
+  ctx.save();
+  noShadow(ctx);
+  ctx.fillStyle = glint;
+  ctx.fill();
+  ctx.restore();
+}
+
+const iconPaths = new Map<string, Path2D>();
+const ICONS = new Map<string, IconGlyph>(ICON_GLYPHS.map((g) => [g.id, g]));
+
+/** A game-icons.net ornament: its path (in a 512 box) stretched to the element, shaded like the others. */
+function drawIcon(ctx: Ctx, icon: IconGlyph, w: number, h: number, style: ElementStyle): void {
+  let path = iconPaths.get(icon.id);
+  if (!path) {
+    path = new Path2D(icon.d);
+    iconPaths.set(icon.id, path);
+  }
+  ctx.save();
+  ctx.scale(w / 512, h / 512);
+  ctx.translate(-256, -256);
+  shadedFill(ctx, body(style), 512, 512, style.light, 'nonzero', style.shaded, path, 256, 256);
+  if (style.outline && style.outlineWidth > 0) {
+    noShadow(ctx);
+    ctx.strokeStyle = style.outline;
+    // In the 512 box, so the outline comes out `outlineWidth` of the element's height.
+    ctx.lineWidth = Math.max(0.5, h * style.outlineWidth) * (512 / h);
+    ctx.lineJoin = 'round';
+    ctx.stroke(path);
+  }
+  ctx.restore();
 }
 
 /** Token Maker's Bard note: a head and stem, single with a flag or paired with a beam. `u` is Token Maker's band width × 2.5. */
@@ -243,13 +368,13 @@ function bardNote(ctx: Ctx, h: number, stretch: number, style: ElementStyle): vo
   const paired = (style.variant ?? 1) < 0.4;
   ctx.save();
   ctx.scale(stretch, 1);
-  ctx.fillStyle = style.fill;
-  ctx.strokeStyle = style.fill;
+  ctx.fillStyle = body(style);
+  ctx.strokeStyle = body(style);
   ctx.lineWidth = u * 0.035;
   for (const x of paired ? [-u * 0.1, u * 0.1] : [0]) {
     ctx.beginPath();
     ctx.ellipse(x, u * 0.1, u * 0.07, u * 0.05, -0.4, 0, Math.PI * 2);
-    if (style.shaded) shadedFill(ctx, style.fill, u * 0.14, u * 0.1, style.light);
+    if (style.shaded) shadedFill(ctx, body(style), u * 0.14, u * 0.1, style.light);
     else ctx.fill();
     ctx.beginPath();
     ctx.moveTo(x + u * 0.06, u * 0.09);
@@ -286,9 +411,9 @@ function watchEye(ctx: Ctx, w: number, h: number, style: ElementStyle): void {
   if (style.shaded === false) {
     ctx.beginPath();
     ctx.arc(0, r * 0.3, r * 0.6, 0, Math.PI * 2);
-    ctx.fillStyle = style.fill;
+    ctx.fillStyle = body(style);
     ctx.fill();
-  } else sphere(ctx, 0, r * 0.3, r * 0.6, style.fill, style.light);
+  } else ball(ctx, 0, r * 0.3, r * 0.6, style);
   ctx.fillStyle = '#050505';
   ctx.beginPath();
   ctx.ellipse(0, r * 0.35, r * 0.15, r * 0.35, 0, 0, Math.PI * 2);
@@ -313,7 +438,7 @@ function gash(ctx: Ctx, h: number, stretch: number, style: ElementStyle): void {
   ctx.scale(1.5 * stretch, 1.5);
   ctx.lineCap = 'round';
   for (const dx of [-0.16, 0, 0.16]) {
-    ctx.strokeStyle = style.fill;
+    ctx.strokeStyle = body(style);
     ctx.lineWidth = k * 0.09;
     ctx.beginPath();
     ctx.moveTo(dx * k, -k * 0.55);
@@ -342,7 +467,7 @@ function cog(ctx: Ctx, h: number, stretch: number, style: ElementStyle): void {
   }
   ctx.closePath();
   // A flat cog (as Token Maker's) with a domed hub.
-  ctx.fillStyle = style.fill;
+  ctx.fillStyle = body(style);
   ctx.fill();
   if (style.outline && style.outlineWidth > 0) {
     ctx.strokeStyle = style.outline;
@@ -377,7 +502,7 @@ function sprig(ctx: Ctx, h: number, stretch: number, style: ElementStyle): void 
   ctx.quadraticCurveTo(-h / 2 + h * 0.472, bulge, h / 2, 0);
   ctx.quadraticCurveTo(-h / 2 + h * 0.472, -bulge, -h / 2, 0);
   ctx.closePath();
-  shadedFill(ctx, style.fill, h, bulge, turn(style.light, -tilt), 'nonzero', style.shaded);
+  shadedFill(ctx, body(style), h, bulge, turn(style.light, -tilt), 'nonzero', style.shaded);
   if (style.outline && style.outlineWidth > 0) {
     ctx.strokeStyle = style.outline;
     ctx.lineWidth = Math.max(0.5, h * style.outlineWidth);
@@ -393,7 +518,7 @@ function fletching(ctx: Ctx, w: number, h: number, style: ElementStyle): void {
   ctx.lineTo(w / 2, 0);
   ctx.lineTo(-w / 2, h / 2);
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = style.fill;
+  ctx.strokeStyle = body(style);
   ctx.lineWidth = Math.max(0.5, h * Math.max(0.02, style.outlineWidth));
   ctx.stroke();
 }
@@ -415,13 +540,13 @@ function drawGlyph(ctx: Ctx, glyph: Glyph, w: number, h: number, style: ElementS
       noShadow(ctx);
     }
     traceGlyph(ctx, glyph.lines, x, y, false);
-    ctx.strokeStyle = style.fill;
+    ctx.strokeStyle = body(style);
     ctx.lineWidth = lineWidth;
     ctx.stroke();
     return;
   }
   traceGlyph(ctx, glyph.body!, x, y, true);
-  shadedFill(ctx, style.fill, w, h, style.light, 'nonzero', style.shaded);
+  shadedFill(ctx, body(style), w, h, style.light, 'nonzero', style.shaded);
   if (glyph.detail || glyph.detailLines) {
     // Only the body casts the shadow.
     noShadow(ctx);
@@ -451,6 +576,13 @@ function drawGlyph(ctx: Ctx, glyph: Glyph, w: number, h: number, style: ElementS
 export function drawElement(ctx: Ctx, kind: ElementKind, h: number, stretch: number, style: ElementStyle): void {
   const w = h * stretch;
   if (h <= 0) return;
+  if (style.paint) {
+    const frame = ctx.getTransform();
+    const paint = style.paint;
+    style = { ...style, ink: () => paintPattern(ctx, paint, frame, w, h) };
+  }
+  const icon = ICONS.get(kind);
+  if (icon) return drawIcon(ctx, icon, w, h, style);
   const glyph = GLYPHS[kind];
   if (glyph) return drawGlyph(ctx, glyph, w, h, style);
   switch (kind) {
@@ -469,7 +601,7 @@ export function drawElement(ctx: Ctx, kind: ElementKind, h: number, stretch: num
   }
   if (kind === 'note') {
     traceNote(ctx, w, h, style.rune % 2 === 1);
-    shadedFill(ctx, style.fill, w, h, style.light, 'nonzero', style.shaded);
+    shadedFill(ctx, body(style), w, h, style.light, 'nonzero', style.shaded);
     if (style.outline && style.outlineWidth > 0) {
       ctx.strokeStyle = style.outline;
       ctx.lineWidth = Math.max(0.5, h * style.outlineWidth);
@@ -486,7 +618,7 @@ export function drawElement(ctx: Ctx, kind: ElementKind, h: number, stretch: num
     }
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = style.fill;
+    ctx.strokeStyle = body(style);
     ctx.lineWidth = Math.max(1, h * Math.max(0.08, style.outlineWidth));
     ctx.stroke();
     return;
@@ -497,9 +629,9 @@ export function drawElement(ctx: Ctx, kind: ElementKind, h: number, stretch: num
     if (style.shaded === false) {
       ctx.beginPath();
       ctx.arc(0, 0, h / 2, 0, Math.PI * 2);
-      ctx.fillStyle = style.fill;
+      ctx.fillStyle = body(style);
       ctx.fill();
-    } else sphere(ctx, 0, 0, h / 2, style.fill, style.light);
+    } else ball(ctx, 0, 0, h / 2, style);
     ctx.restore();
   } else if (kind === 'eye') {
     // White of the eye, then the iris in the element's colour, looking inwards, and the pupil.
@@ -510,7 +642,7 @@ export function drawElement(ctx: Ctx, kind: ElementKind, h: number, stretch: num
     const r = Math.min(w, h) * 0.3;
     ctx.beginPath();
     ctx.arc(0, h * 0.08, r, 0, Math.PI * 2);
-    shadedFill(ctx, style.fill, r * 2, r * 2, style.light, 'nonzero', style.shaded);
+    shadedFill(ctx, body(style), r * 2, r * 2, style.light, 'nonzero', style.shaded);
     ctx.beginPath();
     ctx.ellipse(0, h * 0.08, r * 0.38, r * 0.55, 0, 0, Math.PI * 2);
     ctx.fillStyle = '#0d0a08';
@@ -519,7 +651,7 @@ export function drawElement(ctx: Ctx, kind: ElementKind, h: number, stretch: num
   } else {
     trace(ctx, kind, w, h);
     // Lit from the stage's light (the top left unless it was moved).
-    shadedFill(ctx, style.fill, w, h, style.light, kind === 'gear' ? 'evenodd' : 'nonzero', style.shaded);
+    shadedFill(ctx, body(style), w, h, style.light, kind === 'gear' ? 'evenodd' : 'nonzero', style.shaded);
   }
   if (style.outline && style.outlineWidth > 0) {
     trace(ctx, kind, w, h);

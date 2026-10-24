@@ -3,6 +3,7 @@
 
 import { FRAME_PRESETS, framePresetById } from '../engine/legacy/catalog';
 import { frameAccent } from '../engine/legacy/frames';
+import { pictureById, type PictureId } from './pictures';
 import {
   PROJECT_FORMAT,
   SCHEMA_VERSION,
@@ -91,6 +92,8 @@ export function repeatLayer(): RepeatLayer {
     wander: 0,
     sizeVariation: 0,
     rotationVariation: 0,
+    fillPaint: null,
+    paintEach: false,
   };
 }
 
@@ -140,6 +143,13 @@ export const TEXTURES: TexturePreset[] = [
   { id: 'knurl', name: 'Knurled grip', description: 'Crossing diagonal grooves, like the grip of a tool.', layer: { kind: 'knurl', name: 'Knurled grip', color: '#8a8f99', seed: 1 }, band: '#8a8f99' },
 ];
 
+/** A band fill of a photo texture (version 6), bent round the band and lit like the rest. */
+export function photoBand(picture: PictureId): BandFillLayer {
+  // Photos whose grain runs up and down are turned to run along the band.
+  const angle = picture === 'bark' || picture === 'medieval-wood' ? 90 : 0;
+  return { ...bandFillLayer(), name: pictureById(picture)?.name ?? 'Photo texture', paint: { kind: 'picture', picture, scale: 3, angle, bend: true, tint: null, lighting: 0.5 } };
+}
+
 /** A texture layer from the library. */
 export function textureFromPreset(preset: TexturePreset): TextureLayer {
   return { ...textureLayer(preset.layer.kind), ...preset.layer };
@@ -152,7 +162,7 @@ export function textureBand(preset: TexturePreset): BandFillLayer {
 
 /** A new shape or path sits at the top of the band, upright, one band width tall. */
 export const DEFAULT_PLACEMENT: Placement = { place: 'band', along: 0, across: 0.5, x: 0, y: -0.8, size: 0.8, stretch: 1, rotation: 0, mirror: 'none' };
-const DEFAULT_STYLE: PlacedStyle = { fill: '#5fa8d3', shaded: true, outline: '#1a1008', outlineWidth: 0.06, raised: true, glow: null };
+const DEFAULT_STYLE: PlacedStyle = { fill: '#5fa8d3', shaded: true, outline: '#1a1008', outlineWidth: 0.06, raised: true, glow: null, fillPaint: null, paintEach: false };
 
 export function shapeLayer(): ShapeLayer {
   return { ...base('Shape'), type: 'shape', ...DEFAULT_PLACEMENT, ...DEFAULT_STYLE, shape: 'polygon', sides: 6, innerRatio: 0.45, corner: 0, element: 'heart', detail: null };

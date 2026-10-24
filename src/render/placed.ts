@@ -9,7 +9,8 @@ import type { Point } from '../engine/legacy/shapes';
 import type { PathPoint, PlacedLayer, ShapeLayer } from '../project/types';
 import { bandWidthPx, outlineAt, spacedAlong } from './band';
 import type { Ctx } from './canvas';
-import { drawElement, shadedFill } from './elements';
+import { drawElement, paintPattern, shadedFill } from './elements';
+import { paintCanvas } from './paint';
 import { lightVector, raisedFrom, turn } from './light';
 
 /**
@@ -141,12 +142,13 @@ export function tracePath(ctx: Ctx, points: PathPoint[], closed: boolean, ux: nu
 }
 
 /** Draws a shape or path layer, with its mirrored copies, lit from `light`. */
-export function drawPlaced(ctx: Ctx, layer: PlacedLayer, g: FrameGeometry, light: number): void {
+export function drawPlaced(ctx: Ctx, layer: PlacedLayer, g: FrameGeometry, light: number, size = g.R * 2): void {
   const all = placements(layer, g);
   if (all.length === 0) return;
   const h = all[0].uy * 2;
   const w = all[0].ux * 2;
   const canFill = layer.fill !== null && (layer.type === 'shape' || (layer.closed && layer.points.length > 2));
+  const paint = layer.fill !== null && layer.fillPaint ? { canvas: paintCanvas(layer.fillPaint, g, light, size), each: layer.paintEach } : null;
   ctx.save();
   if (layer.raised) raisedFrom(ctx, layer.place === 'band' ? bandWidthPx(g) : g.R * 0.14, light);
   if (layer.glow) {
@@ -171,6 +173,7 @@ export function drawPlaced(ctx: Ctx, layer: PlacedLayer, g: FrameGeometry, light
         light: { x: v.x * t.sx, y: v.y * t.sy },
         shaded: layer.shaded,
         detail: layer.detail,
+        paint,
       });
       ctx.restore();
       continue;
@@ -178,20 +181,16 @@ export function drawPlaced(ctx: Ctx, layer: PlacedLayer, g: FrameGeometry, light
     if (layer.type === 'shape') traceShape(ctx, layer, w, h);
     else tracePath(ctx, layer.points, layer.closed, t.ux, t.uy);
     if (canFill) {
-      if (layer.shaded) {
-        // The light as seen from inside this copy (turned and flipped with it).
-        const v = turn(lightVector(light), -t.angle);
-        const box = layer.type === 'path' ? localBounds(layer) : { minX: -1, maxX: 1, minY: -1, maxY: 1 };
-        const bw = Math.max(1, (box.maxX - box.minX) * t.ux);
-        const bh = Math.max(1, (box.maxY - box.minY) * t.uy);
-        ctx.save();
-        ctx.translate(((box.minX + box.maxX) / 2) * t.ux, ((box.minY + box.maxY) / 2) * t.uy);
-        shadedFill(ctx, layer.fill!, bw, bh, { x: v.x * t.sx, y: v.y * t.sy });
-        ctx.restore();
-      } else {
-        ctx.fillStyle = layer.fill!;
-        ctx.fill();
-      }
+      // The light as seen from inside this copy (turned and flipped with it).
+      const v = turn(lightVector(light), -t.angle);
+      const box = layer.type === 'path' ? localBounds(layer) : { minX: -1, maxX: 1, minY: -1, maxY: 1 };
+      const bw = Math.max(1, (box.maxX - box.minX) * t.ux);
+      const bh = Math.max(1, (box.maxY - box.minY) * t.uy);
+      ctx.save();
+      ctx.translate(((box.minX + box.maxX) / 2) * t.ux, ((box.minY + box.maxY) / 2) * t.uy);
+      const fill = paint ? paintPattern(ctx, paint, ctx.getTransform(), bw, bh) : layer.fill!;
+      shadedFill(ctx, fill, bw, bh, { x: v.x * t.sx, y: v.y * t.sy }, 'nonzero', layer.shaded);
+      ctx.restore();
     }
     if (layer.outline && layer.outlineWidth > 0) {
       // Only the fill casts the shadow when there is one, so outlines don't double it.

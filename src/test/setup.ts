@@ -32,3 +32,12 @@ if (typeof window !== 'undefined' && !('ResizeObserver' in window)) {
 if (typeof HTMLCanvasElement !== 'undefined') {
   HTMLCanvasElement.prototype.getContext = (() => null) as unknown as HTMLCanvasElement['getContext'];
 }
+
+// Ornaments from game-icons.net are SVG paths (Path2D); node has none, so tests use @napi-rs/canvas's, as they use its canvases.
+import { Path2D as NapiPath2D } from '@napi-rs/canvas';
+(globalThis as { Path2D?: unknown }).Path2D ??= NapiPath2D;
+
+// Photo textures are decoded with @napi-rs/canvas in tests (the browser's Image elsewhere).
+import { loadImage } from '@napi-rs/canvas';
+import { setPictureDecoder } from '../render/pictures';
+setPictureDecoder(async (url) => loadImage(Buffer.from(url.slice(url.indexOf(',') + 1), 'base64')));

@@ -91,7 +91,23 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - **Done when:** all eight open as editable layers that look like the originals ✔ (Playwright "done when" test)
   - [ ] Open-licensed artwork: candidates found and shown to the owner (DESIGN.md §9); waiting for their choice before importing anything
 
-## Known limitations after Phase 6
+- [x] **Phase 7 — Open-licensed artwork, paint fills, reset buttons** (asked for by the owner after Phase 6)
+  - [x] 48 ornaments from game-icons.net (CC BY 3.0), in repeats and as shapes, credited in Help → Artwork credits and docs/CREDITS.md
+  - [x] 20 photo textures (CC0, Poly Haven and ambientCG) as a new paint: tiled, bent round the band, turned, tinted and lit; loaded only when used; a Photo textures section in the texture library
+  - [x] Ornaments, shapes and paths can be filled with any paint (metal, gradients, colours round the ring, photos), across the token or each on its own
+  - [x] Reset buttons beside sliders and colours
+  - [x] Schema version 6 with a migration from version 5; version-5 fixture files saved by Phase 6 open and draw as before
+  - [x] `npm run showcase -- icons|photos|fills`; screenshots 28–32
+  - [x] Tests: 782 unit tests and 62 Playwright runs (new: the icons, photo loading, bending, tint and light, paint fills across and each, the v5 files, reset buttons, the fill controls, the photo library, the credits; in the browser a photo band and its reset, a photo-filled icon ring, the credits)
+
+## Known limitations after Phase 7
+
+- Until a photo has loaded (a moment, the first time a design uses one) it shows as its average colour; exports wait for it.
+- Photo textures bend round the band only on band fills; on lines and inside ornaments they lie flat. At square and hexagon corners a bent photo is squeezed a little.
+- Token Maker needs Frame Studio's new code (`npm run share:export`) to open version-6 designs, `Path2D` in its tests, and to await `loadFrameDesignPictures` before drawing a design with photos.
+- Still from Phase 6: converted frames differ in fine detail; ornaments at the bottom of the ring are upside down; no zoom.
+
+## Known limitations after Phase 6 (for the record)
 
 - Converted frames look like the originals but aren't identical in fine detail (DESIGN.md §4.7); Artificer's cogs turn with the band, and its gear teeth may be one more or fewer on very thin or thick bands.
 - Ornaments face outwards round the ring, so those at the bottom are upside down (as every repeat is); use a Shape ornament with Place freely for one that should stay upright.

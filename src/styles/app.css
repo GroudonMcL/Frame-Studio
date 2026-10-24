@@ -1091,3 +1091,45 @@ select {
     transition: none !important;
   }
 }
+
+/* ---- Reset buttons (Phase 6): beside a slider's number or a colour's hex code ---- */
+.reset-btn {
+  min-width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+}
+.reset-btn:hover:not(:disabled) {
+  color: var(--accent);
+}
+.reset-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+@media (pointer: coarse) {
+  .reset-btn {
+    min-width: var(--hit);
+    height: var(--hit);
+  }
+}
+
+/* ---- Artwork credits, in the welcome card ---- */
+.credits {
+  margin: var(--space-2) 0 var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.credits summary {
+  cursor: pointer;
+  color: var(--text);
+}
+.credits ul {
+  max-height: 160px;
+  overflow-y: auto;
+  margin: var(--space-2) 0;
+  padding-left: var(--space-5);
+  display: block;
+  columns: 2;
+}
+.credits a {
+  color: var(--accent);
+}

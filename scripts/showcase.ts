@@ -1,15 +1,22 @@
 // Sheets of the ornaments, textures, templates and last conversions added
 // in Phase 6, for checking by eye (npm run showcase -- <what> out.png):
-//   ornaments   every repeat shape, round a band
+//   ornaments   every repeat shape drawn by Frame Studio, round a band
+//   icons       the ornaments from game-icons.net
 //   textures    the texture library
+//   photos      the photo textures, bent round the band
+//   fills       ornaments and shapes filled with paints and photos
 //   templates   the designs built from layers
 //   converted   the Token Maker frames beside their editable versions (--frames=stamped,ranger…)
+import './napi';
 import { createCanvas } from '@napi-rs/canvas';
 import { writeFileSync } from 'node:fs';
 import { FRAME_PRESETS, type ShapeId } from '../src/engine/legacy/catalog';
 import { convertPreset } from '../src/project/convert';
-import { bandFillLayer, createProject, LAYERED_TEMPLATES, legacyFrameLayer, repeatLayer, textureBand, textureFromPreset, TEXTURES } from '../src/project/defaults';
-import { ELEMENT_KINDS, type Layer } from '../src/project/types';
+import { bandFillLayer, createProject, LAYERED_TEMPLATES, legacyFrameLayer, photoBand, repeatLayer, shapeLayer, textureBand, textureFromPreset, TEXTURES } from '../src/project/defaults';
+import { ICON_GLYPHS } from '../src/project/iconGlyphs';
+import { PICTURES } from '../src/project/pictures';
+import { loadPictures } from '../src/render/pictures';
+import { DRAWN_ELEMENT_KINDS, type Layer, type Paint } from '../src/project/types';
 import { setCanvasFactory, type Ctx } from '../src/render/canvas';
 import { ELEMENT_NAMES } from '../src/render/elements';
 import { renderProject } from '../src/render/renderProject';
@@ -27,9 +34,26 @@ interface Item {
 }
 const band = { ...bandFillLayer(), paint: { kind: 'lit' as const, color: '#4a5a7a', light: 0.7, dark: 0.8, pressed: false, highlight: null } };
 const shapes: ShapeId[] = ['circle', 'rounded', 'square', 'hexagon', 'flatHex'];
+const photo = (picture: (typeof PICTURES)[number]['id'], patch: Partial<Extract<Paint, { kind: 'picture' }>> = {}): Paint => ({ kind: 'picture', picture, scale: 3, angle: 0, bend: false, tint: null, lighting: 0.5, ...patch });
+const gradient: Paint = { kind: 'linear', angle: 90, followLight: false, stops: [{ at: 0, color: '#fff2a8', opacity: 1 }, { at: 0.5, color: '#e05a2a', opacity: 1 }, { at: 1, color: '#5a1040', opacity: 1 }] };
+const rainbow: Paint = { kind: 'ring', followLight: false, stops: [0, 60, 120, 180, 240, 300].map((angle, i) => ({ angle, color: ['#e04040', '#e0b040', '#60c040', '#40b0e0', '#5060e0', '#c050d0'][i] })) };
+const fills: Item[] = [
+  { name: 'Fleurs-de-lis: gold photo, each', thickness: 0.3, layers: [band, { ...repeatLayer(), element: 'icon-fleur-de-lys', count: 8, size: 0.8, fillPaint: photo('gold', { scale: 0.6 }), paintEach: true }] },
+  { name: 'Dragons: lava photo across', thickness: 0.3, layers: [band, { ...repeatLayer(), element: 'icon-dragon-head', count: 6, size: 0.85, fillPaint: photo('lava', { scale: 2 }) }] },
+  { name: 'Hearts: gradient, each', thickness: 0.3, layers: [band, { ...repeatLayer(), element: 'heart', count: 10, size: 0.6, fillPaint: gradient, paintEach: true }] },
+  { name: 'Gems: colours round the ring', thickness: 0.3, layers: [band, { ...repeatLayer(), element: 'gem', count: 12, size: 0.6, stretch: 0.8, fillPaint: rainbow }] },
+  { name: 'Shields: wood photo, each', thickness: 0.3, layers: [band, { ...repeatLayer(), element: 'shield', count: 8, size: 0.75, fillPaint: photo('medieval-wood', { scale: 0.8 }), paintEach: true, outline: '#2a1a0a', outlineWidth: 0.05 }] },
+  { name: 'Crown shape: rough gold', thickness: 0.2, layers: [photoBand('marble'), { ...shapeLayer(), shape: 'ornament', element: 'icon-crown', across: 0.2, size: 1.4, stretch: 1.3, fill: '#e2b85a', fillPaint: photo('gold', { scale: 1 }), paintEach: true, outline: null }] },
+];
 const items: Item[] =
   what === 'ornaments'
-    ? ELEMENT_KINDS.map((element) => ({ name: ELEMENT_NAMES[element], thickness: 0.3, layers: [band, { ...repeatLayer(), element, count: 8, size: 0.7, fill: '#e0b850' }] }))
+    ? DRAWN_ELEMENT_KINDS.map((element) => ({ name: ELEMENT_NAMES[element], thickness: 0.3, layers: [band, { ...repeatLayer(), element, count: 8, size: 0.7, fill: '#e0b850' }] }))
+    : what === 'icons'
+      ? ICON_GLYPHS.map((g) => ({ name: g.name, thickness: 0.3, layers: [band, { ...repeatLayer(), element: g.id, count: 8, size: 0.75, fill: '#e0b850' }] }))
+    : what === 'photos'
+      ? PICTURES.map((p) => ({ name: p.name, thickness: 0.3, layers: [photoBand(p.id)] }))
+    : what === 'fills'
+      ? fills
     : what === 'textures'
       ? TEXTURES.map((t) => ({ name: t.name, thickness: 0.32, layers: [textureBand(t), textureFromPreset(t)] }))
       : what === 'templates'
@@ -43,6 +67,7 @@ const items: Item[] =
             ];
           });
 
+await loadPictures(items);
 const cols = what === 'converted' ? 4 : 6;
 const label = 26;
 const sheet = createCanvas(cols * size, Math.ceil(items.length / cols) * (size + label));

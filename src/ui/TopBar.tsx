@@ -143,7 +143,7 @@ export function TopBar({ onNew, onHelp, onMessage }: { onNew: () => void; onHelp
                   try {
                     if (kind === 'png') await exportPng(p, px, art);
                     else if (kind === 'sheet') await exportSheet(p, px, art);
-                    else saveProjectWithPreview(p);
+                    else await saveProjectWithPreview(p);
                     closeExport();
                   } catch (err) {
                     onMessage(String((err as Error).message), true);

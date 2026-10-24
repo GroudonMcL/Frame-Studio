@@ -6,6 +6,7 @@
 import { FRAME_STYLES, SHAPES } from '../engine/legacy/catalog';
 import { isValidHex } from '../engine/legacy/color';
 import { DEFAULT_STAGE, NEW_LAYER, newId, textureLayer } from './defaults';
+import { PICTURE_IDS } from './pictures';
 import {
   BLEND_MODES,
   CLIP_MODES,
@@ -78,6 +79,15 @@ function addVersion5Fields(layer: unknown): unknown {
   return out;
 }
 
+/** Version 5 → 6: fills with a paint on repeats, shapes and paths; off, so old designs look the same. */
+function addVersion6Fields(layer: unknown): unknown {
+  if (!isObj(layer)) return layer;
+  const out: Obj = { ...layer };
+  if (Array.isArray(layer.children)) out.children = layer.children.map(addVersion6Fields);
+  if (layer.type === 'repeat' || layer.type === 'shape' || layer.type === 'path') Object.assign(out, { fillPaint: null, paintEach: false }, layer);
+  return out;
+}
+
 /** Migrations from version n to n + 1, keyed by n. */
 const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
   1: (p) => ({
@@ -90,6 +100,7 @@ const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
   2: (p) => ({ ...p, schemaVersion: 3 }),
   3: (p) => ({ ...p, schemaVersion: 4, layers: Array.isArray(p.layers) ? p.layers.map(addPhase4Fields) : p.layers }),
   4: (p) => ({ ...p, schemaVersion: 5, layers: Array.isArray(p.layers) ? p.layers.map(addVersion5Fields) : p.layers }),
+  5: (p) => ({ ...p, schemaVersion: 6, layers: Array.isArray(p.layers) ? p.layers.map(addVersion6Fields) : p.layers }),
 };
 
 export function parseProject(input: unknown): ParseResult {
@@ -190,6 +201,16 @@ function checkPaint(v: unknown, fallback: Paint): Paint {
       return { kind: 'linear', angle: num(o.angle, 45, -360, 360), stops: checkStops(o.stops, fbStops), followLight: bool(o.followLight, false) };
     case 'acrossBand':
       return { kind: 'acrossBand', stops: checkStops(o.stops, fbStops) };
+    case 'picture':
+      return {
+        kind: 'picture',
+        picture: oneOf(o.picture, PICTURE_IDS, PICTURE_IDS[0]),
+        scale: num(o.scale, 3, 0.2, 40),
+        angle: num(o.angle, 0, -360, 360),
+        bend: bool(o.bend, true),
+        tint: hexOrNull(o.tint, null),
+        lighting: num(o.lighting, 0.5, 0, 1),
+      };
     case 'ring': {
       const stops = Array.isArray(o.stops)
         ? o.stops
@@ -228,8 +249,13 @@ function checkStyle(o: Obj, d: PlacedStyle): PlacedStyle {
     outlineWidth: num(o.outlineWidth, d.outlineWidth, 0, 0.5),
     raised: bool(o.raised, d.raised),
     glow: hexOrNull(o.glow, d.glow),
+    fillPaint: checkFillPaint(o.fillPaint),
+    paintEach: bool(o.paintEach, d.paintEach),
   };
 }
+
+/** A fill paint: a paint, or null for the plain colour. */
+const checkFillPaint = (v: unknown): Paint | null => (isObj(v) ? checkPaint(v, { kind: 'solid', color: '#ffffff' }) : null);
 
 const MAX_POINTS = 500;
 
@@ -377,6 +403,8 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
         wander: num(o.wander, d.wander, 0, 2),
         sizeVariation: num(o.sizeVariation, d.sizeVariation, 0, 1.5),
         rotationVariation: num(o.rotationVariation, d.rotationVariation, 0, 360),
+        fillPaint: checkFillPaint(o.fillPaint),
+        paintEach: bool(o.paintEach, d.paintEach),
       };
     }
   }

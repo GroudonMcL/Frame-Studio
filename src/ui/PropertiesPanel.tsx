@@ -6,7 +6,7 @@ import { FRAME_PRESETS } from '../engine/legacy/catalog';
 import { mix, shade } from '../engine/legacy/color';
 import { frameAccent } from '../engine/legacy/frames';
 import { canConvert, differenceNote } from '../project/convert';
-import { LAYER_TYPE_NAMES, TEXTURES } from '../project/defaults';
+import { LAYER_TYPE_NAMES, NEW_LAYER, TEXTURES, textureLayer } from '../project/defaults';
 import { findLayer, locate } from '../project/tree';
 import {
   BLEND_MODES,
@@ -26,6 +26,7 @@ import {
   type Paint,
   type PathLayer,
   type PlacedLayer,
+  type RepeatLayer,
   type RingStop,
   type ShapeKind,
   type TextureLayer,
@@ -36,6 +37,7 @@ import { bandGeometry } from '../render/band';
 import { litFor } from '../render/paint';
 import { TEXTURE_NAMES } from '../render/textures';
 import { DETAIL_NAMES, ELEMENT_NAMES, LINE_ELEMENTS } from '../render/elements';
+import { PICTURES, pictureById } from '../project/pictures';
 import { switchPlace, toggleSmooth } from '../render/hitTest';
 import { commit, convertToLayers, finishDrawing, setPathEdit, setPathPoints, ungroup, updateLayer, useProject, useUi } from '../state/projectStore';
 import { ColorField, ColorList, Fold, OptionalColor, PatternField, PercentList, Select, Slider, Toggle } from './controls';
@@ -93,7 +95,14 @@ function setterFor<L extends Layer>(layer: L): Set<L> {
   return (patch, transient) => updateLayer(layer.id, patch as Partial<Layer>, { transient });
 }
 
-/** A slider bound to one numeric setting of a layer. */
+/** A new layer of the same kind: what the reset buttons put settings back to. */
+function defaultsFor(layer: Layer): Record<string, unknown> {
+  if (layer.type === 'texture') return textureLayer(layer.kind) as unknown as Record<string, unknown>;
+  if (layer.type === 'unsupported') return {};
+  return NEW_LAYER[layer.type]() as unknown as Record<string, unknown>;
+}
+
+/** A slider bound to one numeric setting of a layer, with a button that puts it back as a new layer has it. */
 function num<L extends Layer>(layer: L, set: Set<L>, key: keyof L & string, label: string, min: number, max: number, extra: Partial<Parameters<typeof Slider>[0]> = {}) {
   return (
     <Slider
@@ -103,6 +112,7 @@ function num<L extends Layer>(layer: L, set: Set<L>, key: keyof L & string, labe
       min={min}
       max={max}
       disabled={layer.locked}
+      defaultValue={typeof defaultsFor(layer)[key] === 'number' ? (defaultsFor(layer)[key] as number) : undefined}
       onChange={(v, transient) => set({ [key]: v } as Partial<L>, transient)}
       onCommit={commit}
       {...extra}
@@ -292,7 +302,8 @@ function LayerControls({ layer, light }: { layer: Layer; light: number }) {
       return (
         <>
           <Select label="Shape" value={layer.element} disabled={disabled} options={ELEMENT_KINDS.map((k) => ({ value: k, label: ELEMENT_NAMES[k] }))} onChange={(element) => set({ element })} />
-          <ColorField label="Colour" value={layer.fill} disabled={disabled} onChange={(fill, t) => set({ fill }, t)} />
+          <ColorField label="Colour" value={layer.fill} disabled={disabled} defaultValue={defaultsFor(layer).fill as string} onChange={(fill, t) => set({ fill }, t)} />
+          <FillPaintControls layer={layer} set={set as never} />
           {DETAIL_NAMES[layer.element] && <OptionalColor label={DETAIL_NAMES[layer.element]!} hint={DETAIL_HINT} value={layer.detail} fallback="#f2ead8" disabled={disabled} onChange={(detail, t) => set({ detail }, t)} />}
           <Select
             label="How many"
@@ -403,9 +414,11 @@ const PAINT_KINDS: { value: Paint['kind']; label: string }[] = [
   { value: 'linear', label: 'Gradient across the token' },
   { value: 'acrossBand', label: 'Gradient across the band' },
   { value: 'ring', label: 'Colours round the ring' },
+  { value: 'picture', label: 'Photo texture' },
 ];
 
 function colorOf(paint: Paint): string {
+  if (paint.kind === 'picture') return paint.tint ?? pictureById(paint.picture)?.average ?? '#808080';
   return 'color' in paint ? paint.color : paint.stops[0].color;
 }
 
@@ -430,22 +443,60 @@ function convert(paint: Paint, kind: Paint['kind']): Paint {
       return { kind, angle: 45, stops, followLight: false };
     case 'acrossBand':
       return { kind, stops };
+    case 'picture':
+      return { kind, picture: 'gold', scale: 3, angle: 0, bend: true, tint: null, lighting: 0.5 };
   }
 }
 
-export function PaintEditor({ paint, disabled, onChange }: { paint: Paint; disabled: boolean; onChange: (p: Paint, transient?: boolean) => void }) {
+/** A repeat's, shape's or path's fill: its colour, or a paint (Version 6). */
+function FillPaintControls({ layer, set }: { layer: RepeatLayer | PlacedLayer; set: (patch: { fillPaint?: Paint | null; paintEach?: boolean }, transient?: boolean) => void }) {
+  const disabled = layer.locked;
+  const color = 'element' in layer && layer.type === 'repeat' ? layer.fill : (layer.fill ?? '#808080');
+  return (
+    <>
+      <Select
+        label="Fill with"
+        value={layer.fillPaint ? 'paint' : 'colour'}
+        disabled={disabled}
+        options={[
+          { value: 'colour', label: 'A colour' },
+          { value: 'paint', label: 'A paint (gradient, metal, photo…)' },
+        ]}
+        onChange={(v) => set({ fillPaint: v === 'paint' ? { kind: 'lit', color, light: 0.85, dark: 0.8, pressed: false, highlight: null } : null })}
+      />
+      {layer.fillPaint && (
+        <>
+          <PaintEditor paint={layer.fillPaint} disabled={disabled} ornament onChange={(fillPaint, t) => set({ fillPaint }, t)} />
+          <Toggle label="Paint each one on its own" checked={layer.paintEach} disabled={disabled} onChange={(paintEach) => set({ paintEach })} />
+        </>
+      )}
+    </>
+  );
+}
+
+export function PaintEditor({ paint, disabled, onChange, ornament = false }: { paint: Paint; disabled: boolean; onChange: (p: Paint, transient?: boolean) => void; ornament?: boolean }) {
   const advanced = useUi((s) => s.mode === 'advanced');
   return (
     <>
       <Select label="Paint" value={paint.kind} disabled={disabled} options={PAINT_KINDS} onChange={(k) => onChange(convert(paint, k))} />
+      {paint.kind === 'picture' && (
+        <>
+          <Select label="Photo" value={paint.picture} disabled={disabled} options={PICTURES.map((p) => ({ value: p.id, label: p.name }))} onChange={(picture) => onChange({ ...paint, picture })} />
+          <Slider label="Tile size" value={paint.scale} min={0.5} max={15} step={0.05} scale={100} unit="%" disabled={disabled} defaultValue={3} onChange={(scale, t) => onChange({ ...paint, scale }, t)} onCommit={commit} />
+          <Slider label="Turn the photo" value={paint.angle} min={-180} max={180} step={1} unit="°" disabled={disabled} defaultValue={0} onChange={(angle, t) => onChange({ ...paint, angle }, t)} onCommit={commit} />
+          {!ornament && <Toggle label="Bend round the band" checked={paint.bend} disabled={disabled} onChange={(bend) => onChange({ ...paint, bend })} />}
+          <OptionalColor label="Tint" value={paint.tint} fallback={pictureById(paint.picture)?.average ?? '#c9a24a'} disabled={disabled} onChange={(tint, t) => onChange({ ...paint, tint }, t)} />
+          <Slider label="Light and shade" value={paint.lighting} min={0} max={1} disabled={disabled} {...pct} defaultValue={0.5} onChange={(lighting, t) => onChange({ ...paint, lighting }, t)} onCommit={commit} />
+        </>
+      )}
       {(paint.kind === 'solid' || paint.kind === 'lit') && <ColorField label="Colour" value={paint.color} disabled={disabled} onChange={(color, t) => onChange({ ...paint, color }, t)} />}
       {paint.kind === 'lit' && (
         <>
           <Toggle label="Pressed in (lit from the other side)" checked={paint.pressed} disabled={disabled} onChange={(pressed) => onChange({ ...paint, pressed })} />
           {advanced && (
             <>
-              <Slider label="Highlight" value={paint.light} min={0} max={1} disabled={disabled} {...pct} onChange={(light, t) => onChange({ ...paint, light }, t)} onCommit={commit} />
-              <Slider label="Shade" value={paint.dark} min={0} max={1} disabled={disabled} {...pct} onChange={(dark, t) => onChange({ ...paint, dark }, t)} onCommit={commit} />
+              <Slider label="Highlight" value={paint.light} min={0} max={1} disabled={disabled} {...pct} defaultValue={0.85} onChange={(light, t) => onChange({ ...paint, light }, t)} onCommit={commit} />
+              <Slider label="Shade" value={paint.dark} min={0} max={1} disabled={disabled} {...pct} defaultValue={0.8} onChange={(dark, t) => onChange({ ...paint, dark }, t)} onCommit={commit} />
               <OptionalColor
                 label="Highlight colour"
                 hint="The colour of the lit side. Off: a warm, pale version of the colour, as Token Maker draws it."
@@ -461,7 +512,7 @@ export function PaintEditor({ paint, disabled, onChange }: { paint: Paint; disab
       {paint.kind === 'ring' && <RingStops paint={paint} disabled={disabled} onChange={onChange} />}
       {paint.kind === 'linear' && (
         <>
-          <Slider label="Angle" value={paint.angle} min={-180} max={180} step={1} unit="°" disabled={disabled} onChange={(angle, t) => onChange({ ...paint, angle }, t)} onCommit={commit} />
+          <Slider label="Angle" value={paint.angle} min={-180} max={180} step={1} unit="°" disabled={disabled} defaultValue={45} onChange={(angle, t) => onChange({ ...paint, angle }, t)} onCommit={commit} />
           <Toggle
             label="Turn with the light"
             hint="On: the angle is for a light at the top left and turns when you move the light, like a lit rim. Off: it stays where it is."
@@ -604,7 +655,7 @@ function TextureControls({ layer }: { layer: TextureLayer }) {
           set({ kind, seed: preset.seed ?? layer.seed, color2: kind === 'scatter' ? (layer.color2 ?? preset.color2 ?? null) : layer.color2, ...(named ? { name: preset.name } : {}) });
         }}
       />
-      <ColorField label={colourLabel} hint={colourHint} value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+      <ColorField label={colourLabel} hint={colourHint} value={layer.color} disabled={disabled} defaultValue={defaultsFor(layer).color as string} onChange={(color, t) => set({ color }, t)} />
       {layer.kind === 'scatter' && <OptionalColor label="Haze" hint="Soft clouds of colour behind the stars." value={layer.color2} fallback="#6a5acd" disabled={disabled} onChange={(color2, t) => set({ color2 }, t)} />}
       {num(layer, set, 'amount', 'How many', 0.1, 3, { ...pct, step: 0.05, hint: '100% is as many as Token Maker draws.' })}
       {num(layer, set, 'scale', 'Size', 0.2, 3, { ...pct, step: 0.05, hint: '100% is the size Token Maker draws them.' })}
@@ -656,6 +707,7 @@ function PlacedControls({ layer }: { layer: PlacedLayer }) {
         <PathPoints layer={layer} editing={pathEdit} />
       )}
       <OptionalColor label="Fill" value={layer.fill} fallback="#5fa8d3" disabled={disabled} onChange={(fill, t) => set({ fill }, t)} />
+      {layer.fill !== null && <FillPaintControls layer={layer} set={set as never} />}
       {layer.fill !== null && <Toggle label="Shaded by the light" checked={layer.shaded} disabled={disabled} onChange={(shaded) => set({ shaded })} />}
       <OptionalColor label="Outline" value={layer.outline} fallback="#1a1008" disabled={disabled} onChange={(outline, t) => set({ outline }, t)} />
       {layer.outline !== null && num(layer, set, 'outlineWidth', 'Outline width', 0.005, 0.4, pct)}

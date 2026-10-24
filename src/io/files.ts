@@ -6,6 +6,7 @@ import type { RenderSource } from '../engine/legacy/render';
 import { parseProject, serializeProject, type ParseResult } from '../project/migrate';
 import { LIBRARY_EXTENSION, PROJECT_EXTENSION, serializeLibrary, type LayerSet } from '../project/transfer';
 import type { FrameProject } from '../project/types';
+import { loadPictures } from '../render/pictures';
 import { renderProject } from '../render/renderProject';
 
 export { LIBRARY_EXTENSION, PROJECT_EXTENSION };
@@ -47,7 +48,8 @@ export function saveProjectFile(project: FrameProject): void {
 }
 
 /** The project file with a small see-through picture of the design in it, for apps that list designs (Token Maker). */
-export function saveProjectWithPreview(project: FrameProject): void {
+export async function saveProjectWithPreview(project: FrameProject): Promise<void> {
+  await loadPictures(project);
   const preview = renderToCanvas(project, PREVIEW_SIZE, null).toDataURL('image/png');
   download(new Blob([serializeProject(project, { preview })], { type: 'application/json' }), fileNameFor(project.name, PROJECT_EXTENSION));
 }
@@ -101,9 +103,11 @@ async function downloadCanvas(canvas: HTMLCanvasElement, name: string): Promise<
 }
 
 export async function exportPng(project: FrameProject, size: number, art: RenderSource | null): Promise<void> {
+  await loadPictures(project);
   await downloadCanvas(renderToCanvas(project, clampExportSize(size), art), fileNameFor(project.name, '.png'));
 }
 
 export async function exportSheet(project: FrameProject, cell: number, art: RenderSource | null): Promise<void> {
+  await loadPictures(project);
   await downloadCanvas(renderSheet(project, Math.min(MAX_SHEET_CELL, clampExportSize(cell)), art), fileNameFor(`${project.name} every shape`, '.png'));
 }

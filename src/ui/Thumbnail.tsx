@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import type { FrameProject } from '../project/types';
+import { loadPictures } from '../render/pictures';
 import { renderProject } from '../render/renderProject';
 import { history } from '../state/projectStore';
 import { stageArt } from './stageArt';
@@ -16,20 +17,26 @@ function useThumbnail(key: string, make: () => FrameProject): string | null {
   const [url, setUrl] = useState(() => thumbs.get(key) ?? null);
   useEffect(() => {
     if (url) return;
+    let cancelled = false;
     // Spread the work out so the dialog opens at once.
-    const id = setTimeout(() => {
+    const id = setTimeout(async () => {
+      const project = make();
+      project.stage.shape = history.getState().present.stage.shape;
+      // Its photo textures first, so the picture isn't drawn with their stand-in colours.
+      await loadPictures(project);
       const c = document.createElement('canvas');
       c.width = c.height = THUMB * 2;
       const ctx = c.getContext('2d');
-      if (!ctx) return;
-      const project = make();
-      project.stage.shape = history.getState().present.stage.shape;
+      if (!ctx || cancelled) return;
       renderProject(ctx, project, THUMB * 2, { art: project.stage.showArt ? stageArt() : null });
       const data = c.toDataURL('image/png');
       thumbs.set(key, data);
       setUrl(data);
     }, 0);
-    return () => clearTimeout(id);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
   }, [key, make, url]);
   return url;
 }
