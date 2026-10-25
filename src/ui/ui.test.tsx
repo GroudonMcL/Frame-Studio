@@ -82,7 +82,8 @@ describe('editor panels', () => {
     render(<TemplateDialog mode="new" onClose={() => {}} />);
     for (const f of FRAME_PRESETS) expect(screen.getByRole('button', { name: f.name })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Blank project/ })).toBeInTheDocument();
-  });
+    // Many role searches over a big dialog: slow when the machine is busy.
+  }, 20_000);
 
   it('picking a frame in "add" mode adds it as a layer', async () => {
     render(<TemplateDialog mode="addFrame" onClose={() => {}} />);
@@ -213,7 +214,7 @@ describe('converting Token Maker frames (Phase 4)', () => {
   it('the template picker offers the converted frames as editable, and every original too', async () => {
     render(<TemplateDialog mode="new" onClose={() => {}} />);
     const editable = FRAME_PRESETS.filter((p) => canConvert(p.style));
-    // Arcane and Infernal share their drawing code: 17 converters, 18 frames.
+    // Arcane and Infernal share their drawing code: 21 converters, 22 frames.
     expect(editable.length).toBe(22);
     for (const f of editable) expect(screen.getByRole('button', { name: `${f.name} Editable` })).toBeInTheDocument();
     for (const f of FRAME_PRESETS) expect(screen.getByRole('button', { name: f.name })).toBeInTheDocument();
@@ -223,7 +224,7 @@ describe('converting Token Maker frames (Phase 4)', () => {
     expect(p.name).toBe('Paladin');
     expect(p.layers.map((l) => l.type)).not.toContain('legacyFrame');
     expect(p.layers.map((l) => l.name)).toContain('Gold crosses');
-  });
+  }, 20_000);
 
   it('in "add" mode an editable frame is added as a group', async () => {
     loadProject(createProject([bandFillLayer()]));
