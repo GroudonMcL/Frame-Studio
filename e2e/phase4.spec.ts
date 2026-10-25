@@ -111,11 +111,13 @@ test('the template picker marks converted frames as editable and keeps every ori
   await page.getByRole('button', { name: 'New' }).click();
   const dialog = page.getByRole('dialog', { name: 'New project' });
   const editable = dialog.getByRole('region', { name: 'Token Maker frames as editable layers' });
-  await expect(editable.locator('.tile')).toHaveCount(22);
+  // Every frame but "No frame" (version 10 converted the last four).
+  await expect(editable.locator('.tile')).toHaveCount(26);
   // Pictures are drawn as tiles come into view.
   for (const tile of await editable.locator('.tile').all()) await tile.scrollIntoViewIfNeeded();
-  await expect(editable.locator('.tile img')).toHaveCount(22, { timeout: 20_000 });
+  await expect(editable.locator('.tile img')).toHaveCount(26, { timeout: 20_000 });
   await expect(editable.getByText('Editable').first()).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Stamped', exact: true })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Stamped Editable' })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Stamped Editable' })).toHaveCount(1);
+  await expect(dialog.getByRole('button', { name: 'No frame Editable' })).toHaveCount(0);
 });

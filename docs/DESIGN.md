@@ -48,7 +48,7 @@ Same as Token Maker, so code and habits carry over: TypeScript, React 19 + Vite,
 
 ## 4. The project format
 
-### 4.1 FrameProject (schema version 9)
+### 4.1 FrameProject (schema version 10)
 
 Defined in `src/project/types.ts`; defaults in `src/project/defaults.ts`; reading and checking in `src/project/migrate.ts`; finding layers anywhere in the tree in `src/project/tree.ts`.
 
@@ -72,7 +72,8 @@ type Layer =
   | { type: 'legacyFrame'; presetId; style; color; accent | null }     // a Token Maker frame, one composite layer
   | { type: 'bandFill'; from; to; paint }                              // colours part of the band
   | { type: 'line'; at; width; paint; dash; glow | null;               // a line round the band…
-      waveAmplitude; waves; wavePhase; waveFit }                       // …optionally wavy, waves fitted to the band (Phase 8)
+      waveAmplitude; waves; wavePhase; waveFit;                        // …optionally wavy, waves fitted to the band (Phase 8)
+      waveShape; raised }                                              // zigzag, scallops, battlements; a small shadow (version 10)
   | { type: 'repeat'; element; mode; count; spacing; snapToCorners;    // one shape repeated round the band
       at; size; stretch; rotation; offset; fill; outline | null; outlineWidth;
       raised; glow | null; accentEvery; accentScale; accentColor | null; seed;
@@ -80,11 +81,13 @@ type Layer =
       shaded; show;                                                    // flat colour, on/off pattern (Phase 4)
       follow; orient; scaleEnd; jitterSize; jitterAngle; skipChance;  // along a path, variation (Phase 7)
       gemCut; gemTable; gemCrown; gemFacets; gemSparkle;              // gem cuts (Phase 7)
-      setting; settingColor; settingEffects }                          // a metal setting with its own effects (Phase 7)
+      setting; settingColor; settingEffects;                           // a metal setting with its own effects (Phase 7)
+      detail | null; multipleOf; wander; fillPaint | null; paintEach } // second colour, even counts, wandering, paint fills (version 10)
   | { type: 'texture'; kind; from; to; color; color2 | null;           // a procedural surface (§4.6, Phase 3)
       amount; scale; strength; where; seed }
   | { type: 'shape'; ...Placement; ...PlacedStyle;                     // one circle / rectangle / polygon / star
-      shape; sides; innerRatio; corner }
+      shape; sides; innerRatio; corner;                               // shape 'ornament' (version 10):
+      element; detail | null }                                         // …any repeat element, with its second colour
   | { type: 'path'; ...Placement; ...PlacedStyle; points; closed;     // a drawn shape (§4.5)
       stroke; taperStart; taperEnd }                                   // drawn as a tapered filled stroke (Phase 9)
   | { type: 'text'; text; font; size; spacing; at; along; align;      // words or runes on the band or a path (§4.10, Phase 7)
@@ -108,7 +111,8 @@ type Placement = { place: 'band' | 'free'; along; across; x; y;       // §4.4
                    size; stretch; rotation; mirror: 'none' | 'leftRight' | 'topBottom' | 'four';
                    radialCount; radialRadius; radialStart; radialMirror };  // a radial array (Phase 7)
 type PlacedStyle = { fill | null; shaded; outline | null; outlineWidth; raised; glow | null;
-                     faceted; facetTable; facetDepth };                // cut into lit faces (§5.5, version 5)
+                     faceted; facetTable; facetDepth;                  // cut into lit faces (§5.5, version 5)
+                     fillPaint | null; paintEach };                    // filled with a paint (§4.11, version 10)
 type Effect =                                                         // every one has `on`; sizes in band widths
   | { kind: 'bevel'; direction: 'raised' | 'sunken'; profile; size; depth; soften; highlight; highlightOpacity;
       shadow; shadowOpacity; gloss; lightHeight; surface; surfaceDepth; surfaceScale; seed }
@@ -127,6 +131,7 @@ type Paint =
   | { kind: 'linear'; angle; stops; followLight }   // across the token; optionally turning with the light (Phase 4)
   | { kind: 'acrossBand'; stops }                   // outer edge → inner edge
   | { kind: 'ring'; stops: { angle; color }[]; followLight }  // colours round the ring (Phase 3)
+  | { kind: 'picture'; picture; scale; angle; bend; tint | null; lighting }  // a photo texture (§4.11, version 10)
 // Gradient stops (linear, acrossBand): { at; color; opacity }  — opacity added in Phase 4
 ```
 
@@ -189,6 +194,7 @@ These are the conventions of token-maker's `frameKit.ts` (`alongBand(g, count, a
 - **Version 6 → 7** (`MIGRATIONS[6]`): lines get `waveFit: 0` and wear effects (on layers and on settings) `scratches: 0`, so nothing changes. Version-6 files saved by Phase 7 (the Royal inscription on a square lit from 135° and on a flat hexagon with the sample picture; they have text, so the test loads Frame Studio's fonts) are in `src/project/fixtures/v6/`.
 - **Version 7 → 8** (`MIGRATIONS[7]`): only a version number. Masks, shared height, combining, strokes and separate handles are all off when a file leaves them out (`mask: null`, `heightMode: 'none'`, `combine: 'normal'`, `stroke: 0`, no `handleIn`), which is how earlier files have them. Version-7 files saved by Phase 8 (the Overgrown ruin on a hexagon lit from 300° and on a circle with the sample picture) are in `src/project/fixtures/v7/`. An unsupported layer keeps its own mask and height settings in its kept data.
 - **Version 8 → 9** (`MIGRATIONS[8]`): only a version number; the lighting rig is off when a file leaves it out (no extra lights, no ambient colour, no bloom or bleed). Version-8 files saved by Phase 9 (the Rune-carved plates on a square lit from 140° and on a circle with the sample picture) are in `src/project/fixtures/v8/`. Library files can carry your own styles since version 9 (`styles: [{ name, effects }]`, §6.8); older readers ignore them.
+- **Version 9 → 10** (`MIGRATIONS[9]`): lines get `waveShape: 'sine', raised: false`; repeats `detail: null, multipleOf: 1, wander: 0, fillPaint: null, paintEach: false`; shapes `element: 'heart', detail: null`; shapes and paths `fillPaint: null, paintEach: false`; in groups too, so nothing changes. The new textures, ornaments and the photo paint are new kinds. Version-9 files saved by Phase 10 (the Overgrown ruin on a hexagon lit from 45°, the Royal inscription on a square with the sample picture) are in `src/project/fixtures/v9/`.
 - Fixture files must draw as their version drew them (their `.png` beside them). Since Phase 3 every layer is drawn on its own canvas and composited (§5.3), which changes the rounding of a few nearly transparent edge pixels by a few 255ths; the test allows at most 8/255 in any premultiplied channel and a mean under 0.5/255, which is invisible. A single layer on its own (for example a Token Maker frame against `drawFrame`) is still pixel for pixel.
 - Nothing in a file is ever run as code.
 
@@ -260,11 +266,15 @@ Token Maker's see-through colours (`rgba(…, 0.55)`) become a solid colour and 
 | Artificer (Phase 8) | 1.24 | 1.8 % | 1.5 / 2.2 | Gear teeth and a gears layer; the gears turn with the band, their shadows a shadow effect |
 | Barbarian (Phase 8) | 1.32 | 2.7 % | 1.6 / 3.2 | The gash element; every gash leans the same way (the original tilts each a little) |
 | Knotwork (Phase 8) | 2.96 | 4.7 % | 3.4 / 5.5 | A knotwork layer with real over/under crossings (the original lays one strand over the other all the way round) |
+| Stamped (version 10) | 0.15 | 0.05 % | 0.2 / 0.05 | Nothing (its own ring colours and the veined marble texture: the same picture to within rounding) |
+| Bard (version 10) | 0.33 | 0.26 % | 0.6 / 0.35 | Nothing visible: Token Maker's own notes, wandering and single or paired in its random order |
+| Warlock (version 10) | 1.93 | 2.4 % | 2.2 / 3 | The eyes are lit from the stage's light and their shadows are softer |
+| Ranger (version 10) | 2.42 | 7.1 % | 2.8 / 8 | The thin fletching chevrons sit a hair further along the band |
 | Cleric | 4.2 | 9.3 % | 5.5 / 12 | The rays are counted along their own line rather than the band's middle, so there can be one or two more or fewer and they drift out of step; long and short rays share one position across |
 
   (Worst over every shape, size and thickness tested. A mean of 1/255 is invisible; the differences above are in fine detail, which is why the default is "looks the same", §9.)
 - **Converted in Phase 8** with the generators: Druid, Knotwork, Artificer, Barbarian (22 frames, 21 drawing styles, in all).
-- **Not converted yet** (they stay one Token Maker layer, and say so): **Stamped** (its veins and dark-side marbling need a texture judged by its ring colours), **Ranger** (its fletching is thin stroked chevrons; the chevron element is a filled arrowhead), **Bard** (notes with Token Maker's own random placement and shapes), **Warlock** (the detailed eyes), and, until Phase 8, Barbarian, Artificer, Druid and Knotwork. Each needs a new element or option; until then the original is the better choice.
+- **Every frame converts since version 10** (only "No frame" has nothing to convert): the last four needed the pieces in §4.11. **Stamped** is its outer and step colours as two ring paints (`project/stamped.ts`, Token Maker's own tables moved to the frame's colour) and the *Veined marble* texture (`veins`, Token Maker's `stampedTexture`, kept to where Stamped's colours are dark); **Ranger** the *Fletching* element (an open, stroked chevron) in two layers with opposite on/off patterns; **Bard** Token Maker's own note (`bardNote`) with *Wander in and out*, its single or paired choice drawn from the same seeded numbers in Token Maker's order; **Warlock** the detailed eye (`watchEye`), each one's random size from Token Maker's seed written into the repeat's alternating sizes (`tokenMakerSizes` in `convert.ts`).
 
 ### 4.8 Layers on the move: copied, saved and in library files (Phase 5)
 
@@ -298,6 +308,23 @@ Token Maker's see-through colours (`rgba(…, 0.55)`) become a solid colour and 
 - Effects work on text as on any layer: the Engraved style cuts it into the band, a glow makes glowing runes.
 
 A **contours** layer is several lines at once: `count` lines from `from` across, `spacing` apart, the first `width` wide and the last `1 − taper` times that, each with the layer's paint (every other one in `altColor` if set). It is drawn as that many line layers (`contourLines`), so it looks exactly like lines would.
+
+### 4.11 More ornaments, textures and paint fills (version 10)
+
+Built on a separate branch alongside Phases 6–7 and brought onto the Phase 10 code afterwards. Where both had built the same thing, the Phase 7–8 version stayed: fitted waves are `waveFit`, random size and angle are `jitterSize` and `jitterAngle`, and the faceted `gem`, `tooth` and `gash` elements are unchanged (the branch's drawn two-tone gem is `jewel`; `gash` gained a second colour). Everything new is off by default, so a version-9 file opens and draws as before.
+
+- **Ornaments** (repeat elements): Token Maker's details (`fletching`, `bardNote`, `watchEye`, `cog`, `sprig`) and new ones drawn for Frame Studio: heart, crescent moon, flame, fleur-de-lis, shield, sun, snowflake, crown, jewel, drop, scallop shell, spiral, paw print, feather, Celtic knot, skull, arrow. They are written like SVG paths in a −1…1 box (`render/glyphs.ts`); filled parts wind the same way, so overlapping parts join instead of cutting holes. Some have a **second colour** (`detail`: an eye's white, a cog's hub, a flame's core, a gash's lit edge…; null works one out from the main colour; `DETAIL_NAMES` in `elements.ts`).
+- **48 ornaments from game-icons.net** (CC BY 3.0, by Lorc, Delapouite, Carl Olsen and Caro Asercion): `project/iconGlyphs.ts` keeps each one's SVG path as published, its author and its page. They are element kinds (`icon-…`, named "… (icon)"), drawn from a `Path2D` stretched from their 512 box, shaded, outlined and painted like the others. Node has no `Path2D`: tests and scripts use @napi-rs/canvas's (`src/test/setup.ts`, `scripts/napi.ts`). Credits: Help → **Artwork credits** and `docs/CREDITS.md`.
+- **Shapes** get a fifth kind, **Ornament**: any repeat element placed on its own, with mirroring, radial arrays, raised and glow (`element`, `detail`). It draws its own outline, so it isn't faceted or turned into a path.
+- **Repeats:** `detail`; `multipleOf` (round the number to a multiple, so alternating patterns meet up); `wander` (in and out, band widths). Wandering, and Bard's single or paired notes, take numbers from `seededRandom(seed)` in Token Maker's order, separately from the Phase 7 variation's numbers, so converted frames match their originals and changing one setting doesn't reshuffle the other.
+- **Lines:** `waveShape` (smooth, zigzag, scallops, battlements; `WAVE` in `track.ts`) and `raised` (the small shadow away from the light).
+- **Textures:** Stamped's *veined marble* and nine new kinds — brushed metal, basket weave, chainmail, rust, frost, bark, sparkles, crackle glaze, knurled grip — seeded, scaled to the band and lit by the stage's light where they have a lit side. The texture library has 22 drawn presets.
+- **20 photo textures** (CC0, Poly Haven and ambientCG): 512 px JPEGs as data URLs in `render/pictureData.ts`, a separate file the browser fetches only when a design first uses a photo (`render/pictures.ts`). The renderer stays synchronous: a photo not loaded yet is drawn as its average colour (`project/pictures.ts`), loading starts, and when it arrives the preview and thumbnails draw again and the layer cache's key changes (`pictureEpoch`). Exports, token packs, thumbnails and the project file's preview wait for the photos first (`loadPictures`); Token Maker awaits `loadFrameDesignPictures(design)` before drawing a design (§10).
+- **The `picture` paint:** `{ kind: 'picture', picture, scale, angle, bend, tint, lighting }` tiles `scale` band widths across, turned `angle`; `bend` follows the band round the token (on band fills; lines and fills lie flat); `tint` recolours it keeping its light and dark; `lighting` lightens the side facing the light and darkens the other. The texture library has a **Photo textures** section that adds a band fill of one.
+- **Fills with a paint** (`fillPaint`, `paintEach` on repeats, shapes and paths): metal lighting, gradients, colours round the ring or photos instead of the fill colour. The paint is drawn once over the whole picture (`paintCanvas`) and used as a pattern set at the moment of filling (`paintPattern`): across the token each ornament shows its own part; with `paintEach` the whole paint is shrunk into each one. Shading is laid over it as light and shade. A faceted shape keeps its fill colour.
+- **Reset buttons:** the ↺ beside a slider or colour puts it back as a new layer, effect or stage has it, as one undo step; it stays in place, disabled, when there is nothing to reset.
+- **Templates:** Moon & stars, Frostbound, Celtic knots, Royal (a crown ornament over fleurs-de-lis and jewels) and Grim iron.
+- `npm run showcase -- ornaments|icons|textures|photos|fills|templates|converted out.png` draws them on one sheet (docs/screenshots/27–30, 33–35).
 
 ## 5. The renderer
 
@@ -533,6 +560,7 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 | 8 | Generators: organic growth, cracks and lightning as geometry, plates and cells, knotwork, gears and chains, distortion **(done)** |
 | 9 | Precise control: masks, height compositing, boolean geometry, editing (in/out handles, groups on the canvas, zoom) **(done)** |
 | 10 | Workflow: randomise, your own styles, a theme colour, a lighting rig, batch export **(done)**; more shapes with Token Maker (waiting, §9) |
+| (10) | Brought over from the Phase 6–7 branch (§4.11): the last four conversions, more ornaments and textures, game-icons ornaments, photo textures, paint fills, reset buttons **(done, schema version 10)** |
 
 ## 9. Owner answers and open questions
 
@@ -624,6 +652,14 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 
 **Still open:** the Phase 10 question above (new token shapes and updating Token Maker).
 
+**Decided while bringing over the Phase 6–7 branch (version 10)** (sensible defaults; say if any should change):
+
+1. **Where both versions built the same thing, the one already in use stayed** (fitted waves, random size and angle, the faceted gem, gear tooth and claw gashes), so no design changes; the branch's extras (wandering, a second colour, wave shapes…) were added to it.
+2. **Photos are bundled, not fetched from the sites,** 512 px (about 1.2 MB in all) and loaded only when used, so the editor starts as fast as before and works offline.
+3. **A paint fill runs across the token by default** (one paint, each ornament showing its part); "each on its own" is a switch.
+4. **Reset goes back to a new layer's value,** not to the value a template or conversion started with.
+5. **Files saved by the unmerged branch's own formats 5 and 6 aren't read as such:** they would be taken for this line's formats 5 and 6 and lose the branch's new settings. The branch was never merged into main.
+
 ## 10. Using designs in Token Maker (Phase 5)
 
 The owner's answer: Token Maker opens `.framestudio.json` project files, as a third frame kind beside drawn frames and picture frames.
@@ -635,7 +671,8 @@ The owner's answer: Token Maker opens `.framestudio.json` project files, as a th
 - `readFrameDesign(textOrObject)`: reads any version of the file (its text, or the object a Token Maker document keeps) with every check of §4.3 (nothing in it is run).
 - `drawFrameDesign(ctx, project, g)`: draws the design as a frame on Token Maker's band — the same `FrameGeometry` its `drawFrame` takes (origin at the token's centre, `R`, `outer`, `inner` in pixels) — on the token's shape, lit from the design's light, without clearing what is under it. `src/share/frameDesign.test.ts` checks that this is **the very same picture** Frame Studio draws for that band, on every shape, on a thin and a thick band, for three designs; the Phase 5 end-to-end test exports a project file from the editor, reads it and draws it this way, and compares it with the editor's own PNG export (mean difference 0.22/255; the browser and the test draw with different engines).
 - `previewOf(text)`: the preview picture saved in the file (§4.8), for Token Maker's tile.
-- Effects (Phase 6) are part of the shared renderer (`render/effects.ts`, `render/facets.ts`, `project/styles.ts`, `project/effectDefaults.ts` are in the bundle), so Token Maker draws them exactly as Frame Studio does. Token Maker's copy was exported again at 0.10.0 (Phases 6–10 and the themed borders), so it reads files up to format 9; token-maker's `src/render/designFrames.test.ts` draws every themed border in both apps and checks they match. A file newer than the copy is refused with a plain message, so export again after a format change.
+- `loadFrameDesignPictures(design)`: loads the photo textures a design uses (§4.11); Token Maker awaits it before drawing a design, so its picture never has a photo's stand-in colour.
+- Effects (Phase 6) are part of the shared renderer (`render/effects.ts`, `render/facets.ts`, `project/styles.ts`, `project/effectDefaults.ts` are in the bundle), so Token Maker draws them exactly as Frame Studio does. Token Maker's copy was exported again at 0.10.0 (Phases 6–10 and the themed borders) and again for format 10 (§4.11), so it reads every format this version writes; token-maker's `src/render/designFrames.test.ts` draws every themed border in both apps and checks they match. A file newer than the copy is refused with a plain message, so export again after a format change.
 
 **The Token Maker side** (built; token-maker's `docs/DESIGN.md` §6.12):
 

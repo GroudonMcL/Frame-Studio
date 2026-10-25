@@ -4,7 +4,7 @@
 // sentence, given as `hint` or looked up by its label in help.ts.
 
 import { useId, useState, type ReactNode } from 'react';
-import { ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { ChevronRight, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { isValidHex } from '../engine/legacy/color';
 import { commit } from '../state/projectStore';
 import { helpFor, hintId } from './help';
@@ -56,11 +56,25 @@ interface SliderProps {
   unit?: string;
   hint?: string;
   disabled?: boolean;
+  /** Where the reset button puts it back to; no button without one. */
+  defaultValue?: number;
   onChange: (value: number, transient: boolean) => void;
   onCommit: () => void;
 }
 
-export function Slider({ label, value, min, max, step = 0.01, scale = 1, unit = '', hint, disabled, onChange, onCommit }: SliderProps) {
+/**
+ * Puts a setting back to where it started. It keeps its place when there
+ * is nothing to reset (disabled), so the controls don't jump about.
+ */
+export function ResetButton({ label, atDefault, disabled, onReset }: { label: string; atDefault: boolean; disabled?: boolean; onReset: () => void }) {
+  return (
+    <button type="button" className="icon-btn reset-btn" aria-label={`Reset ${label}`} title={atDefault ? `${label}: as it started` : `Put ${label.toLowerCase()} back as it started`} disabled={disabled || atDefault} onClick={onReset}>
+      <RotateCcw size={14} aria-hidden="true" />
+    </button>
+  );
+}
+
+export function Slider({ label, value, min, max, step = 0.01, scale = 1, unit = '', hint, disabled, defaultValue, onChange, onCommit }: SliderProps) {
   const id = useId();
   const shown = Math.round(value * scale * 100) / 100;
   const [typed, setTyped] = useState<string | null>(null);
@@ -98,12 +112,30 @@ export function Slider({ label, value, min, max, step = 0.01, scale = 1, unit = 
         />
         {unit}
       </span>
+      {defaultValue !== undefined && (
+        <ResetButton label={label} atDefault={Math.abs(value - defaultValue) < 1e-9} disabled={disabled} onReset={() => onChange(defaultValue, false)} />
+      )}
     </Field>
   );
 }
 
 /** Dragging in the browser's colour picker is shown live and becomes one undo step when the picker closes. */
-export function ColorField({ label, value, onChange, disabled, hint }: { label: string; value: string; onChange: (v: string, transient?: boolean) => void; disabled?: boolean; hint?: string }) {
+export function ColorField({
+  label,
+  value,
+  onChange,
+  disabled,
+  hint,
+  defaultValue,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string, transient?: boolean) => void;
+  disabled?: boolean;
+  hint?: string;
+  /** Where the reset button puts it back to; no button without one. */
+  defaultValue?: string;
+}) {
   const id = useId();
   const [typed, setTyped] = useState<string | null>(null);
   return (
@@ -121,6 +153,17 @@ export function ColorField({ label, value, onChange, disabled, hint }: { label: 
         }}
         onBlur={() => setTyped(null)}
       />
+      {defaultValue !== undefined && (
+        <ResetButton
+          label={label}
+          atDefault={value.toLowerCase() === defaultValue.toLowerCase()}
+          disabled={disabled}
+          onReset={() => {
+            setTyped(null);
+            onChange(defaultValue);
+          }}
+        />
+      )}
     </Field>
   );
 }

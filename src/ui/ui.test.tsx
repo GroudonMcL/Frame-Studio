@@ -214,11 +214,11 @@ describe('converting Token Maker frames (Phase 4)', () => {
   it('the template picker offers the converted frames as editable, and every original too', async () => {
     render(<TemplateDialog mode="new" onClose={() => {}} />);
     const editable = FRAME_PRESETS.filter((p) => canConvert(p.style));
-    // Arcane and Infernal share their drawing code: 21 converters, 22 frames.
-    expect(editable.length).toBe(22);
+    // Every frame but "No frame" (Arcane and Infernal share their drawing code: 25 converters, 26 frames).
+    expect(editable.length).toBe(26);
     for (const f of editable) expect(screen.getByRole('button', { name: `${f.name} Editable` })).toBeInTheDocument();
     for (const f of FRAME_PRESETS) expect(screen.getByRole('button', { name: f.name })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Stamped Editable' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'No frame Editable' })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Paladin Editable' }));
     const p = history.getState().present;
     expect(p.name).toBe('Paladin');
@@ -247,8 +247,8 @@ describe('converting Token Maker frames (Phase 4)', () => {
     expect(history.getState().present.layers[1]).toMatchObject({ type: 'legacyFrame', presetId: 'paladin' });
   });
 
-  it('frames without a converter say their parts can’t be edited yet, and offer no button', () => {
-    loadProject(createProject([legacyFrameLayer('stamped')]));
+  it('a frame without a converter ("No frame") says its parts can’t be edited, and offers no button', () => {
+    loadProject(createProject([legacyFrameLayer('none')]));
     render(<PropertiesPanel />);
     expect(screen.getByText(/can't be edited one by one yet/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Turn into editable layers' })).toBeNull();

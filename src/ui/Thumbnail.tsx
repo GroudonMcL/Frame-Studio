@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { FrameProject } from '../project/types';
+import { loadPictures } from '../render/pictures';
 import { renderProject } from '../render/renderProject';
 import { history } from '../state/projectStore';
 import { stageArt } from './stageArt';
@@ -40,16 +41,20 @@ function useThumbnail(key: string, make: () => FrameProject, visible: boolean): 
       run: () => {
         const cached = thumbs.get(key);
         if (cached) return setUrl(cached);
-        const c = document.createElement('canvas');
-        c.width = c.height = THUMB * 2;
-        const ctx = c.getContext('2d');
-        if (!ctx) return;
         const project = make();
         project.stage.shape = history.getState().present.stage.shape;
-        renderProject(ctx, project, THUMB * 2, { art: project.stage.showArt ? stageArt() : null });
-        const data = c.toDataURL('image/png');
-        thumbs.set(key, data);
-        setUrl(data);
+        const draw = () => {
+          const c = document.createElement('canvas');
+          c.width = c.height = THUMB * 2;
+          const ctx = c.getContext('2d');
+          if (!ctx || job.cancelled) return;
+          renderProject(ctx, project, THUMB * 2, { art: project.stage.showArt ? stageArt() : null });
+          const data = c.toDataURL('image/png');
+          thumbs.set(key, data);
+          setUrl(data);
+        };
+        // Its photo textures first, so the picture isn't drawn with their stand-in colours.
+        void loadPictures(project).then(draw);
       },
     };
     queue.push(job);

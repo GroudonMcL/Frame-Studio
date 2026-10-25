@@ -1,6 +1,7 @@
 // Draws every template on one sheet for checking by eye, with the same
 // renderer as the editor (like token-maker's npm run frame-sheet).
 //   npm run frame-sheet -- out.png [circle|rounded|square|hexagon|flatHex] [size]
+import './napi';
 import { createCanvas } from '@napi-rs/canvas';
 import { writeFileSync } from 'node:fs';
 import type { ShapeId } from '../src/engine/legacy/catalog';

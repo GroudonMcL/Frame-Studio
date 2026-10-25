@@ -4,6 +4,7 @@
 
 import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+import { Credits } from './Credits';
 import { rememberWelcomed } from './welcome';
 
 export function WelcomeCard({ onClose, onTemplates }: { onClose: () => void; onTemplates: () => void }) {
@@ -50,6 +51,7 @@ export function WelcomeCard({ onClose, onTemplates }: { onClose: () => void; onT
           as a frame.
         </li>
       </ul>
+      <Credits />
       <div className="row">
         <button
           type="button"

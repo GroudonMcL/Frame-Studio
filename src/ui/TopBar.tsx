@@ -174,7 +174,7 @@ export function TopBar({ onNew, onHelp, onMessage, onVary, onTheme }: { onNew: (
                     if (kind === 'png') await exportPng(p, px, art);
                     else if (kind === 'sheet') await exportSheet(p, px, art);
                     else if (kind === 'pack') await exportPack(p, { sizes: packSizes.length ? packSizes : [512], plain: true, withArt: packArt }, stageArt());
-                    else saveProjectWithPreview(p);
+                    else await saveProjectWithPreview(p);
                     closeExport();
                   } catch (err) {
                     onMessage(String((err as Error).message), true);

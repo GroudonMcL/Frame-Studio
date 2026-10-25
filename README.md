@@ -10,6 +10,20 @@ New → **Themed borders** offers 21 ready-made borders in the styles people buy
 
 ![The themed borders](docs/screenshots/26-themed-borders.png)
 
+## New: more ornaments, textures and photo fills
+
+- **Every Token Maker frame converts into editable layers:** Stamped, Ranger, Bard and Warlock joined the other 22, so all 26 open as layers you can change one by one.
+- **More ornaments:** hearts, crescent moons, flames, fleurs-de-lis, shields, suns, snowflakes, crowns, jewels, drops, scallop shells, spirals, paw prints, feathers, Celtic knots, skulls and arrows, plus Token Maker's own details (Warlock's eyes, Bard's notes, Artificer's cogs, Druid's leaves, Ranger's fletching), and **48 icons from game-icons.net** marked "(icon)": dragons, griffins, crowns, swords, axes, laurels, runes and more. Two-part ones have a second colour. Any of them can also be placed on its own: Add layer → Shape → **Ornament**.
+- **Photo textures:** 20 seamless photos (gold, bronze, ice, lava, marble, granite, cobblestones, castle brick, wood, bark, leather, rope, rust, moss, snow…) in Add layer → Texture… → **Photo textures**. They bend round the band and can be turned, resized, tinted and lit.
+- **Fill with a paint:** ornaments, shapes and paths can be filled with metal lighting, a gradient, colours round the ring or a photo instead of one colour, across the token or each on its own.
+- **Ten more textures:** veined marble, brushed metal, basket weave, chainmail, rust, frost, bark, sparkles, crackle glaze and knurled grip.
+- **Patterns:** repeated shapes can **wander in and out** at random and keep their number **a multiple of** two (or more); wavy lines can be **zigzags, scallops or battlements**, and raised with a small shadow.
+- **Reset buttons:** the ↺ beside a slider or colour puts it back as it started.
+- **New templates:** Moon & stars, Frostbound, Celtic knots, Royal and Grim iron.
+- Credits for the icons and photos are in Help → **Artwork credits** and [`docs/CREDITS.md`](docs/CREDITS.md).
+
+![The new ornaments](docs/screenshots/27-ornaments.png)
+
 ## What works now (Phase 10)
 
 - **Variations:** the **Variations** button shows six versions of your design (other patterns, colours turned round the colour wheel together, sizes nudged), as different as you like; pick one to use it. Locked layers stay as they are. **Vary the style** in Effects does the same to one layer's effects.
@@ -31,7 +45,7 @@ New → **Themed borders** offers 21 ready-made borders in the styles people buy
 
 - **Generators:** Add layer → **Growth** (vines, roots, thorny stems, curling tendrils, antlers, with leaves, thorns or berries), **Plates and cells** (flagstones, honeycomb, bricks, tiles, scales, with missing pieces), **Cracks and lightning**, **Knotwork** (strands that really weave over and under), **Gears** and **Chain**. Each is made from a few settings and a variation number, runs round the band or along a path, and takes styles and effects like any layer (a bevel on plates bevels each plate).
 - **Distortion** effect (wobbly edges, irregular stone) and **scratches** on Wear and grime; wavy lines can **fit their waves to the band**.
-- **Four more Token Maker frames convert into editable layers:** Druid, Knotwork, Artificer and Barbarian (22 in all).
+- **Four more Token Maker frames convert into editable layers:** Druid, Knotwork, Artificer and Barbarian.
 - **New template:** Overgrown ruin, made only from generators and styles.
 
 ## Also there from Phase 7
@@ -57,8 +71,8 @@ New → **Themed borders** offers 21 ready-made borders in the styles people buy
 
 ## Also there from Phases 1–5
 
-- **Templates:** all 27 Token Maker frames (each as one layer whose colour you can change), five designs built from editable layers (two with textures), or a blank project.
-- **Token Maker frames as editable layers:** 22 of the frames (Polished, Paladin, Gilded, Engraved, Arcane, Infernal, Wizard, Double line, Oak, Cobblestone, Magma, Harlequin, Starfield, Cleric, Fighter, Monk, Rogue, Sorcerer, and since Phase 8 Druid, Knotwork, Artificer, Barbarian) can be opened as a stack of layers you can change one by one: the band, the pressed-in step, the rims, the textures and the ornaments. They look like the originals (tests measure how close each one is) and, unlike the originals, they follow the light dial. Pick one marked **Editable** in New, or select a Token Maker frame layer and press **Turn into editable layers**; the originals are all still there.
+- **Templates:** all 27 Token Maker frames (each as one layer whose colour you can change), designs built from editable layers, or a blank project.
+- **Token Maker frames as editable layers:** every one of the 26 frames (since Phase 8 with Druid, Knotwork, Artificer and Barbarian, and now Stamped, Ranger, Bard and Warlock) can be opened as a stack of layers you can change one by one: the band, the pressed-in step, the rims, the textures and the ornaments. They look like the originals (tests measure how close each one is) and, unlike the originals, they follow the light dial. Pick one marked **Editable** in New, or select a Token Maker frame layer and press **Turn into editable layers**; the originals are all still there.
 - **Layers:** Band fill, Line (plain or wavy), Repeated shapes, Shape (circle, rectangle, polygon, star) and Path (draw your own), plus Token Maker frames as layers. Show/hide, lock, rename, reorder, duplicate, delete.
 - **Groups:** Ctrl+click layers and press Group (Ctrl+G). Hide, lock or fade a whole group at once. Layers can also be clipped to the band or to the layer below.
 - **Drawing:** Add layer → Path, then click points on the canvas; click the first point (or press Enter) to finish. Drag points and their round handles; double-click a point to make it curved.
@@ -122,6 +136,7 @@ Handy for checking by eye:
 ```powershell
 npm run frame-sheet -- sheet.png circle    # every template on one picture (try hexagon, square…)
 npm run effects-sheet -- fx.png 240 circle # every style and effects template on one picture
+npm run showcase -- ornaments sheet.png    # every ornament (or: icons, textures, photos, fills, templates, converted)
 npm run screenshots                        # with npm run dev running: editor screenshots into docs\screenshots
 npm run compare-conversions                # each editable Token Maker frame beside its original, with the differences
 npm run look -- look.png royal-inscription # templates on every shape (any template ids)
@@ -158,4 +173,5 @@ Then run `npm test` in token-maker.
 - [`docs/BUILD-PROMPTS.md`](docs/BUILD-PROMPTS.md): the prompt for each build phase.
 - [`docs/PROGRESS.md`](docs/PROGRESS.md): the phase checklist.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md): the plan from the owner's "Expanding Frame Studio" brief (Phases 6–10).
+- [`docs/CREDITS.md`](docs/CREDITS.md): who made the icons and photo textures.
 - [`docs/PROJECT-STARTER.md`](docs/PROJECT-STARTER.md): the original brief.

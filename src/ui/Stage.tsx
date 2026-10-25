@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { SHAPES } from '../engine/legacy/catalog';
 import type { FrameGeometry } from '../engine/legacy/frameKit';
 import type { Point } from '../engine/legacy/shapes';
+import { DEFAULT_STAGE } from '../project/defaults';
 import { findLayer, flatten, isLocked, isShown, locate } from '../project/tree';
 import type { FrameProject, Layer, PathLayer, PlacedLayer } from '../project/types';
 import { bandGeometry, outlineAt } from '../render/band';
@@ -36,6 +37,7 @@ import { generatorReach } from '../render/generators';
 import { loadFonts } from './fonts';
 import { placements, localBounds, toCanvas } from '../render/placed';
 import { renderStats } from '../render/layerCache';
+import { onPictureLoaded } from '../render/pictures';
 import { renderProject } from '../render/renderProject';
 import { commit, finishDrawing, movableIn, select, setPathEdit, setPathPoints, updateLayer, updateLayers, updateStage, useProject, useUi, type PathEdit } from '../state/projectStore';
 import { ColorField, Segmented, Select, Slider, Toggle } from './controls';
@@ -249,6 +251,10 @@ export function Stage() {
   const dpr = Math.min(2, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1);
   const px = Math.min(MAX_PX, Math.round(side * dpr * zoom));
 
+  // A photo texture arriving draws the preview again.
+  const [pictures, setPictures] = useState(0);
+  useEffect(() => onPictureLoaded(() => setPictures((n) => n + 1)), []);
+
   useEffect(() => {
     const el = canvas.current;
     const ctx = el?.getContext('2d');
@@ -276,7 +282,7 @@ export function Stage() {
     ctx.restore();
     const id = setTimeout(full, 300);
     return () => clearTimeout(id);
-  }, [project, px, side, fonts, view]);
+  }, [project, px, side, fonts, view, pictures]);
 
   useEffect(() => {
     const ctx = overlay.current?.getContext('2d');
@@ -497,6 +503,7 @@ export function Stage() {
             step={0.005}
             scale={100}
             unit="%"
+            defaultValue={DEFAULT_STAGE.thickness}
             onChange={(thickness, t) => updateStage({ thickness }, { transient: t })}
             onCommit={commit}
           />
@@ -509,6 +516,7 @@ export function Stage() {
               step={0.005}
               scale={100}
               unit="%"
+              defaultValue={DEFAULT_STAGE.outerSpacing}
               onChange={(outerSpacing, t) => updateStage({ outerSpacing }, { transient: t })}
               onCommit={commit}
             />
@@ -516,7 +524,7 @@ export function Stage() {
           <LightDial value={project.stage.light} />
 
           <Toggle label="Show sample picture" checked={project.stage.showArt} onChange={(showArt) => updateStage({ showArt })} />
-          {advanced && project.stage.showArt && <ColorField label="Backing colour" value={project.stage.backingColor} onChange={(backingColor, t) => updateStage({ backingColor }, { transient: t })} />}
+          {advanced && project.stage.showArt && <ColorField label="Backing colour" value={project.stage.backingColor} defaultValue={DEFAULT_STAGE.backingColor} onChange={(backingColor, t) => updateStage({ backingColor }, { transient: t })} />}
         </div>
       </div>
     </section>

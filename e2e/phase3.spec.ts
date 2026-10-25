@@ -43,10 +43,14 @@ test('the texture library shows every texture with a picture and adds one', asyn
   await page.getByRole('button', { name: 'Add layer' }).click();
   await page.getByRole('menuitem', { name: /^Texture…/ }).click();
   const dialog = page.getByRole('dialog', { name: 'Add a texture' });
-  const tiles = dialog.locator('.tile');
-  await expect(tiles).toHaveCount(11);
-  // Every tile gets its picture.
-  await expect(dialog.locator('.tile img')).toHaveCount(11);
+  const drawn = dialog.getByRole('region', { name: 'Drawn textures' });
+  await expect(drawn.locator('.tile')).toHaveCount(22);
+  // Every tile gets its picture, the photo textures' too.
+  await expect(drawn.locator('.tile img')).toHaveCount(22);
+  // Pictures are drawn as tiles come into view.
+  const photos = dialog.getByRole('region', { name: 'Photo textures' });
+  for (const tile of await photos.locator('.tile').all()) await tile.scrollIntoViewIfNeeded();
+  await expect(photos.locator('.tile img')).toHaveCount(20, { timeout: 20_000 });
   // A blank project gets a band under the texture by default.
   await expect(dialog.getByRole('switch', { name: /matching band colour/ })).toBeChecked();
   await dialog.getByRole('button', { name: 'Wood grain', exact: true }).click();

@@ -156,6 +156,51 @@ await page.getByLabel('Export as').selectOption('sheet');
 await page.screenshot({ path: `${out}/19-export.png` });
 await page.keyboard.press('Escape');
 
+// 27–30 are drawn by npm run showcase (ornaments, textures, templates, the last four conversions).
+
+// 31. Warlock as editable layers: its eyes, with their second colour.
+await page.getByRole('button', { name: 'New' }).click();
+await page.getByRole('button', { name: 'Warlock Editable' }).click();
+await page.getByRole('treeitem', { name: /Eyes/ }).click();
+// Show their second colour, once the library's message has gone.
+await page.getByText('White of the eye').scrollIntoViewIfNeeded();
+await page.getByRole('status').filter({ hasText: /./ }).waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${out}/31-warlock-eyes.png` });
+
+// 32. Royal: an ornament as a shape of its own (the crown), over fleurs-de-lis and gems.
+await page.getByRole('button', { name: 'New' }).click();
+await page.getByRole('button', { name: 'Royal', exact: true }).click();
+await page.getByRole('treeitem', { name: /Crown/ }).click();
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${out}/32-royal-crown.png` });
+
+// 33–35 are drawn by npm run showcase (icons, photos, fills).
+
+// 36. A ring of dragon heads (an icon) filled with the lava photo, each on its own; the reset buttons beside the sliders.
+await page.getByRole('button', { name: 'New' }).click();
+await page.getByRole('button', { name: 'Night sky' }).click();
+await page.getByRole('button', { name: 'Add layer' }).click();
+await page.getByRole('menuitem', { name: /^Repeated shapes/ }).click();
+await page.getByRole('combobox', { name: 'Shape', exact: true }).selectOption('icon-dragon-head');
+await page.getByLabel('Size value', { exact: true }).fill('70');
+await page.getByLabel('Size value', { exact: true }).press('Enter');
+await page.getByRole('combobox', { name: 'Fill with' }).selectOption('paint');
+await page.getByRole('combobox', { name: 'Paint' }).selectOption('picture');
+await page.getByRole('combobox', { name: 'Photo' }).selectOption('lava');
+await page.getByText('Paint each one on its own').click();
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${out}/36-photo-filled-icons.png` });
+
+// 37. A band fill of a photo texture, bent round the band, with its settings.
+await page.getByRole('button', { name: 'New' }).click();
+await page.getByRole('button', { name: /Blank project/ }).click();
+await page.getByRole('button', { name: 'Add layer' }).click();
+await page.getByRole('menuitem', { name: /^Texture…/ }).click();
+await page.getByRole('region', { name: 'Photo textures' }).getByRole('button', { name: 'Castle brick' }).click();
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${out}/37-photo-band.png` });
+
 // 20–21. On a phone: the canvas over a sheet of layers, then of properties.
 const phone = await browser.newPage({ ...devices['Pixel 7'], storageState: welcomed });
 await phone.goto(base);

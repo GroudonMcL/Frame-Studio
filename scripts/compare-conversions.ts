@@ -4,6 +4,7 @@
 // docs/screenshots/conversions/<frame>.png: the original row on top, the
 // converted row below it, then the difference (brighter = further apart).
 
+import './napi';
 import { createCanvas } from '@napi-rs/canvas';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

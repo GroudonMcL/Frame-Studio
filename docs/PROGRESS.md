@@ -141,7 +141,28 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
 
 - [x] **Themed borders** (after Phase 10): 21 editable borders in popular token styles, in their own section of New, each tested on every shape; template pictures drawn lazily so the picker stays responsive
 
-## Known limitations after Phase 10
+- [x] **Brought over from the Phase 6–7 branch** (schema version 10; DESIGN.md §4.11). That branch was built alongside Phases 6–7 and never merged; its features are now on top of Phase 10:
+  - [x] Stamped, Ranger, Bard and Warlock convert into editable layers, so every Token Maker frame does (26 frames; each with a limit in `convert.test.ts` and a row in DESIGN.md §4.7)
+  - [x] 22 new ornaments (Token Maker's fletching, Bard's note, Warlock's eye, cog with a hub, leaf on a stem; hearts, moons, flames, fleurs-de-lis, shields, suns, snowflakes, crowns, jewels, drops, shells, spirals, paws, feathers, knots, skulls, arrows), a second colour for two-part ones (claw gashes too), and ornaments as shapes of their own
+  - [x] 48 ornaments from game-icons.net (CC BY 3.0), credited in Help → Artwork credits and docs/CREDITS.md
+  - [x] Repeats: wander in and out (seeded, in Token Maker's order) and "a multiple of" for even counts; lines: zigzag, scallop and battlement waves and a raised shadow
+  - [x] 10 new textures (veined marble, brushed metal, basket weave, chainmail, rust, frost, bark, sparkles, crackle glaze, knurled grip) and 11 new library presets
+  - [x] 20 photo textures (CC0, Poly Haven and ambientCG), loaded only when used; exports, packs and previews wait for them
+  - [x] Ornaments, shapes and paths filled with any paint (metal, gradients, colours round the ring, photos), across the token or each on its own
+  - [x] Reset buttons beside sliders and colours, the effects', generators' and lighting's included
+  - [x] 5 new templates: Moon & stars, Frostbound, Celtic knots, Royal, Grim iron
+  - [x] Schema version 10 with a migration from version 9; version-9 fixture files saved by Phase 10 open and draw as before (versions 1–8 too)
+  - [x] `npm run showcase`; screenshots 27–37
+  - [x] Tests: the branch's unit tests for the ornaments, textures, photos, fills, reset buttons and credits (adapted), the four conversions' limits, the v9 fixtures and the version-10 defaults on every older file; Playwright: the four conversions on the real preview, the new repeat, shape and line options, a photo band and its reset, a photo-filled icon ring, the credits
+
+## Known limitations after version 10
+
+- Until a photo has loaded (a moment, the first time a design uses one) it shows as its average colour; exports wait for it.
+- Photo textures bend round the band only on band fills; on lines and inside ornaments they lie flat.
+- Ornaments face outwards round the ring, so those at the bottom are upside down (as every repeat is); use a Shape → Ornament placed freely for one that should stay upright.
+- Still from Phase 10: extra lights and the ambient colour light bevels only; boolean geometry is by pixels; large designs with many effects take a while at big sizes; text is limited to Frame Studio's fonts; more token shapes wait on Token Maker (DESIGN.md §9).
+
+## Known limitations after Phase 10 (for the record)
 
 - **Token Maker can't open designs saved since Phase 6** (now version 9) until its copy of Frame Studio's code is updated (`npm run share:export -- ..\token-maker`, then its tests); that change is in the token-maker repository, as are **more token shapes** (octagon, triangle, shield). Both wait on the owner (DESIGN.md §9).
 - Extra lights and the ambient colour light bevels only; paints, facets and element shading follow the main light.
