@@ -8,7 +8,9 @@ import type { RenderSource } from '../engine/legacy/render';
 import type { FrameProject, Layer } from '../project/types';
 import { bandGeometry } from './band';
 import { context2d, newCanvas, type CanvasLike, type Ctx } from './canvas';
-import { cachedLayer, layerKey, MAX_CACHED_SIZE, renderStats } from './layerCache';
+import { bandWidthPx } from './band';
+import { activeEffects, applyEffects } from './effects';
+import { cachedLayer, effectsKey, layerKey, MAX_CACHED_SIZE, renderStats } from './layerCache';
 import { drawLayer, type RenderEnv } from './layers';
 
 export interface RenderOptions {
@@ -81,21 +83,44 @@ function put(ctx: Ctx, canvas: CanvasLike, size: number): void {
   ctx.drawImage(canvas as CanvasImageSource, -size / 2, -size / 2);
 }
 
+/** A layer has effects that are switched on. */
+const hasEffects = (layer: Layer) => activeEffects(layer.effects).length > 0;
+
 /**
- * The picture of one layer on its own canvas, with its band clip. A layer
- * that isn't a group comes from the cache when it can (layerCache.ts); a
- * group is drawn afresh from its layers' pictures.
+ * The picture of one layer on its own canvas, with its band clip and (unless
+ * `raw`) its effects. A layer that isn't a group comes from the cache when it
+ * can (layerCache.ts); so does a group with effects (its key holds its
+ * layers' settings); other groups are drawn afresh from their layers'
+ * pictures. A layer clipped to this one uses its raw picture as the mask, so
+ * its shadow or glow doesn't let the clipped layer spill out.
  */
-function picture(layer: Layer, env: StackEnv): CanvasLike {
+function picture(layer: Layer, env: StackEnv, raw = false): CanvasLike {
+  const effects = !raw && hasEffects(layer);
   const draw = () => {
     const own = scratch(env.size);
+    if (effects) {
+      // Effects work on the layer's own picture; the band clip is applied again after them.
+      put(own.ctx, picture(layer, env, true), env.size);
+      own.ctx.save();
+      own.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      applyEffects(own.ctx, env.size, layer.effects, { bw: bandWidthPx(env.g), light: env.light });
+      own.ctx.restore();
+      if (layer.clip === 'band') {
+        const cut = scratch(env.size);
+        clipToBand(cut.ctx, env.g);
+        put(cut.ctx, own.canvas, env.size);
+        return cut.canvas;
+      }
+      return own.canvas;
+    }
     if (layer.clip === 'band') clipToBand(own.ctx, env.g);
     if (layer.type === 'group') drawStack(own.ctx, layer.children, env);
     else drawLayer(own.ctx, layer, env);
     return own.canvas;
   };
-  if (!env.cache || layer.type === 'group') return draw();
-  return cachedLayer(`${env.size}|${layer.id}`, layerKey(layer, env.g, env.light, env.size), env.size, draw);
+  if (!env.cache || (layer.type === 'group' && !effects)) return draw();
+  const key = layerKey(layer, env.g, env.light, env.size);
+  return effects ? cachedLayer(`${env.size}|${layer.id}|fx`, effectsKey(layer, key), env.size, draw) : cachedLayer(`${env.size}|${layer.id}`, key, env.size, draw);
 }
 
 /**
@@ -116,7 +141,7 @@ function drawStack(ctx: Ctx, layers: Layer[], env: StackEnv): void {
     ctx.save();
     ctx.globalAlpha = layer.opacity;
     ctx.globalCompositeOperation = layer.blend;
-    if (!mask && layer.type === 'group' && layer.opacity >= 1 && layer.blend === 'source-over') {
+    if (!mask && layer.type === 'group' && layer.opacity >= 1 && layer.blend === 'source-over' && !hasEffects(layer)) {
       if (layer.clip === 'band') clipToBand(ctx, env.g);
       drawStack(ctx, layer.children, env);
     } else if (mask) {
@@ -124,7 +149,7 @@ function drawStack(ctx: Ctx, layers: Layer[], env: StackEnv): void {
       const own = scratch(env.size);
       put(own.ctx, picture(layer, env), env.size);
       own.ctx.globalCompositeOperation = 'destination-in';
-      put(own.ctx, picture(mask, env), env.size);
+      put(own.ctx, picture(mask, env, true), env.size);
       put(ctx, own.canvas, env.size);
     } else put(ctx, picture(layer, env), env.size);
     ctx.restore();

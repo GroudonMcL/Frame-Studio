@@ -5,8 +5,8 @@
 import 'fake-indexeddb/auto';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { bandFillLayer, createProject, groupLayer, legacyFrameLayer, lineLayer, pathLayer, repeatLayer, shapeLayer, textureLayer, GEM_POINTS } from '../project/defaults';
-import { TEXTURE_KINDS, type Layer, type Paint } from '../project/types';
+import { bandFillLayer, createProject, NEW_EFFECT, groupLayer, legacyFrameLayer, lineLayer, pathLayer, repeatLayer, shapeLayer, textureLayer, GEM_POINTS } from '../project/defaults';
+import { EFFECT_KINDS, TEXTURE_KINDS, type Effect, type Layer, type Paint } from '../project/types';
 import { loadProject, select, setMode } from '../state/projectStore';
 import { PropertiesPanel } from './PropertiesPanel';
 import { Stage } from './Stage';
@@ -30,6 +30,9 @@ const LAYERS: [string, Layer][] = [
   ...(['circle', 'rectangle', 'polygon', 'star'] as const).map((shape): [string, Layer] => [`shape (${shape})`, { ...shapeLayer(), shape, glow: '#ffffff' }]),
   ['free path', { ...pathLayer(GEM_POINTS), place: 'free' }],
   ['group', groupLayer([lineLayer()])],
+  ['layer with every effect', { ...bandFillLayer(), effects: [...EFFECT_KINDS.map((k) => NEW_EFFECT[k]()), { ...NEW_EFFECT.bevel(), surface: 'hammered' } as Effect, { ...NEW_EFFECT.glow(), inner: true } as Effect] }],
+  ['group with effects', { ...groupLayer([lineLayer()]), effects: [NEW_EFFECT.shadow()] }],
+  ['faceted shape that cuts a hole', { ...shapeLayer(), faceted: true, blend: 'destination-out' }],
 ];
 
 /** Every control in `root` with no help tip, by its label. */

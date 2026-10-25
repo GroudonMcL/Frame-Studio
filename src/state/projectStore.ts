@@ -8,7 +8,7 @@ import { createStore } from 'zustand/vanilla';
 import { convertLegacyLayer } from '../project/convert';
 import { createProject, groupLayer, newId, NEW_LAYER } from '../project/defaults';
 import { cloneWithNewIds, findLayer, flatten, insertLayer, isLocked, locate, mapLayer, removeLayer } from '../project/tree';
-import type { EditableLayerType, FrameProject, Layer, PathPoint, StageSettings } from '../project/types';
+import type { EditableLayerType, Effect, FrameProject, Layer, PathPoint, StageSettings } from '../project/types';
 import { bandGeometry } from '../render/band';
 import { recentrePath } from '../render/hitTest';
 import { createHistoryStore } from './history';
@@ -31,9 +31,11 @@ interface UiState {
   /** Basic hides the Advanced sections; Advanced shows them and the project data view. */
   mode: 'basic' | 'advanced';
   pathEdit: PathEdit | null;
+  /** Effects copied with Copy effects, for Paste effects. */
+  copiedEffects: Effect[] | null;
 }
 
-export const ui = createStore<UiState>(() => ({ selectedId: null, selectedIds: [], mode: 'basic', pathEdit: null }));
+export const ui = createStore<UiState>(() => ({ selectedId: null, selectedIds: [], mode: 'basic', pathEdit: null, copiedEffects: null }));
 
 export const useProject = () => useStore(history, (s) => s.present);
 export const useCanUndo = () => useStore(history, (s) => s.past.length > 0 || s.pendingBase !== null);
@@ -277,4 +279,36 @@ export function finishDrawing(close: boolean): void {
   const patch = { ...recentrePath(layer, g), ...(close && layer.points.length > 2 ? { closed: true } : {}) };
   if (Object.keys(patch).length) updateLayer(layer.id, patch as Partial<Layer>);
   setPathEdit({ drawing: false, point: null });
+}
+
+/** Changes a layer's effects (one undo step unless transient). */
+export function setEffects(id: string, effects: Effect[], opts?: EditOptions): void {
+  updateLayer(id, { effects }, opts);
+}
+
+/**
+ * Gives every picked layer (that isn't locked) these effects, replacing its
+ * own or added after them, as one undo step. A style (project/styles.ts) is
+ * applied this way. Each layer gets its own copy.
+ */
+export function applyEffectsToSelected(effects: Effect[], mode: 'replace' | 'add' = 'replace'): void {
+  const ids = ui.getState().selectedIds.length ? ui.getState().selectedIds : ui.getState().selectedId ? [ui.getState().selectedId!] : [];
+  let layers = get().layers;
+  for (const id of ids) {
+    if (!findLayer(layers, id) || isLocked(layers, id)) continue;
+    layers = mapLayer(layers, id, (l) => (l.type === 'unsupported' ? l : ({ ...l, effects: [...(mode === 'add' ? l.effects : []), ...structuredClone(effects)] } as Layer)));
+  }
+  if (layers !== get().layers) update(withLayers(() => layers));
+}
+
+/** Keeps the selected layer's effects for Paste effects. */
+export function copyEffects(): void {
+  const layer = selectedLayer();
+  if (layer) ui.setState({ copiedEffects: structuredClone(layer.effects) });
+}
+
+/** Gives every picked layer the copied effects, in place of their own. */
+export function pasteEffects(): void {
+  const copied = ui.getState().copiedEffects;
+  if (copied) applyEffectsToSelected(copied, 'replace');
 }

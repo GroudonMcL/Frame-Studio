@@ -2,9 +2,21 @@
 
 A visual editor for code-drawn token frames. Start from one of [Token Maker](https://github.com/GroudonMcL/token-maker)'s 27 frames or from scratch, build a design from layers (bands of colour, lines, rings of beads, runes, gems, shapes and paths you draw yourself…), and save it or export it as a picture. No coding needed; technical settings live in **Advanced**.
 
-![Token Maker's Paladin frame as editable layers in Frame Studio](docs/screenshots/13-paladin-editable.png)
+![The Dwarven bronze template: hammered bronze, faceted plates, engraved runes and glowing cracks, all made with effects](docs/screenshots/24-dwarven-bronze.png)
 
-## What works now (Phase 5)
+## What works now (Phase 6)
+
+- **Effects on any layer or group** (Properties → Effects): give it depth with **Bevel and surface** (raised or sunk in, rounded, chiselled or stepped edges, and a surface of hammered dents, rough grain, brushed streaks, cracked plates or scales), a **Shadow** or **Glow** (outside or inside its edge), a **Material colour** that turns its shading into gold, silver, bronze, bone, obsidian, jade…, **Colour adjust**, and **Wear and grime** (chipped and rubbed edges, patches of dirt or verdigris). Everything is lit by the light dial, switches off and on, can be reordered, and fits every token shape and thickness.
+- **Styles…:** 26 ready-made looks (polished gold, hammered bronze, blackened iron, carved stone, obsidian, amethyst crystal, engraved, arcane glow, hellfire, holy radiance, aged and worn…), each shown as a picture of *your* design in that style. One click applies it to every picked layer; then change any part of it. **Copy effects / Paste effects** moves a look from one layer to others.
+- **Facets:** cut a shape or drawn path into flat faces lit by the light (gems, star badges, plates, crystals); repeated shapes can be cut gems, hexagonal plates or crystal shards.
+- **More blend modes** (hard light, dodge, burn, darken, lighten, difference, exclusion, hue, saturation, luminosity) and **Cut a hole in the layers below** (in Advanced).
+- **New templates made with effects:** Dwarven bronze, Eldritch crystal, Radiant gold and Hellforged iron.
+- **What comes next** is planned in [`docs/ROADMAP.md`](docs/ROADMAP.md): ornaments along any path and round any point, gem settings, generators (vines, roots, cracks, plates, knotwork, gears), masks and combined height, and workflow tools.
+- *Token Maker:* designs saved now (format 5) open in Token Maker once its copy of Frame Studio's code is updated with `npm run share:export` (below).
+
+![The style library: the selected layer shown in every style](docs/screenshots/22-style-library.png)
+
+## Also there from Phases 1–5
 
 - **Templates:** all 27 Token Maker frames (each as one layer whose colour you can change), five designs built from editable layers (two with textures), or a blank project.
 - **Token Maker frames as editable layers:** 18 of the frames (Polished, Paladin, Gilded, Engraved, Arcane, Infernal, Wizard, Double line, Oak, Cobblestone, Magma, Harlequin, Starfield, Cleric, Fighter, Monk, Rogue, Sorcerer) can be opened as a stack of layers you can change one by one: the band, the pressed-in step, the rims, the textures and the ornaments. They look like the originals (tests measure how close each one is) and, unlike the originals, they follow the light dial. Pick one marked **Editable** in New, or select a Token Maker frame layer and press **Turn into editable layers**; the originals are all still there.
@@ -56,6 +68,7 @@ Handy for checking by eye:
 
 ```powershell
 npm run frame-sheet -- sheet.png circle    # every template on one picture (try hexagon, square…)
+npm run effects-sheet -- fx.png 240 circle # every style and effects template on one picture
 npm run screenshots                        # with npm run dev running: editor screenshots into docs\screenshots
 npm run compare-conversions                # each editable Token Maker frame beside its original, with the differences
 ```
@@ -89,4 +102,5 @@ Then run `npm test` in token-maker.
 - [`docs/TOKEN-MAKER-CONTEXT.md`](docs/TOKEN-MAKER-CONTEXT.md): how Token Maker's frames work, and an inventory of all 27.
 - [`docs/BUILD-PROMPTS.md`](docs/BUILD-PROMPTS.md): the prompt for each build phase.
 - [`docs/PROGRESS.md`](docs/PROGRESS.md): the phase checklist.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md): the plan from the owner's "Expanding Frame Studio" brief (Phases 6–10).
 - [`docs/PROJECT-STARTER.md`](docs/PROJECT-STARTER.md): the original brief.

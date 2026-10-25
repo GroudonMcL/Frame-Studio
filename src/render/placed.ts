@@ -10,6 +10,7 @@ import type { PathPoint, PlacedLayer, ShapeLayer } from '../project/types';
 import { bandWidthPx, outlineAt, spacedAlong } from './band';
 import type { Ctx } from './canvas';
 import { shadedFill } from './elements';
+import { drawFacets, flattenPath } from './facets';
 import { lightVector, raisedFrom, turn } from './light';
 
 /**
@@ -117,6 +118,36 @@ function traceShape(ctx: Ctx, layer: ShapeLayer, w: number, h: number): void {
   ctx.closePath();
 }
 
+/** A shape's outline as points, for faceting (curves sampled). */
+function shapePoints(layer: ShapeLayer, w: number, h: number): Point[] {
+  const x = w / 2;
+  const y = h / 2;
+  switch (layer.shape) {
+    case 'circle':
+      return Array.from({ length: 16 }, (_v, i) => {
+        const a = -Math.PI / 2 + (i * Math.PI * 2) / 16;
+        return { x: Math.cos(a) * x, y: Math.sin(a) * y };
+      });
+    case 'rectangle': {
+      const r = layer.corner * Math.min(x, y);
+      if (r < 0.5) return [{ x: -x, y: -y }, { x, y: -y }, { x, y }, { x: -x, y }];
+      const out: Point[] = [];
+      const corners = [[x - r, -y + r, -Math.PI / 2], [x - r, y - r, 0], [-x + r, y - r, Math.PI / 2], [-x + r, -y + r, Math.PI]];
+      for (const [cx, cy, a0] of corners) for (let k = 0; k <= 3; k++) out.push({ x: cx + Math.cos(a0 + (k * Math.PI) / 6) * r, y: cy + Math.sin(a0 + (k * Math.PI) / 6) * r });
+      return out;
+    }
+    case 'polygon':
+    case 'star': {
+      const n = layer.shape === 'star' ? layer.sides * 2 : layer.sides;
+      return Array.from({ length: n }, (_v, i) => {
+        const a = -Math.PI / 2 + (i * Math.PI * 2) / n;
+        const k = layer.shape === 'star' && i % 2 ? layer.innerRatio : 1;
+        return { x: Math.cos(a) * x * k, y: Math.sin(a) * y * k };
+      });
+    }
+  }
+}
+
 /** The path's points in pixels for a transform's scale (before turning and moving). */
 function scaled(points: PathPoint[], ux: number, uy: number) {
   return points.map((p) => ({ x: p.x * ux, y: p.y * uy, hx: (p.handle?.x ?? 0) * ux, hy: (p.handle?.y ?? 0) * uy, curved: !!p.handle }));
@@ -161,7 +192,20 @@ export function drawPlaced(ctx: Ctx, layer: PlacedLayer, g: FrameGeometry, light
     if (layer.type === 'shape') traceShape(ctx, layer, w, h);
     else tracePath(ctx, layer.points, layer.closed, t.ux, t.uy);
     if (canFill) {
-      if (layer.shaded) {
+      if (layer.faceted) {
+        // The whole outline first (it casts the shadow and glow), then the faces over it.
+        ctx.fillStyle = layer.fill!;
+        ctx.fill();
+        ctx.save();
+        noShadow(ctx);
+        const v = turn(lightVector(light), -t.angle);
+        const pts = layer.type === 'shape' ? shapePoints(layer, w, h) : flattenPath(layer.points, true, t.ux, t.uy);
+        drawFacets(ctx, pts, layer.fill!, { x: v.x * t.sx, y: v.y * t.sy }, layer.facetTable, layer.facetDepth);
+        ctx.restore();
+        // Back to the outline, for the stroke.
+        if (layer.type === 'shape') traceShape(ctx, layer, w, h);
+        else tracePath(ctx, layer.points, layer.closed, t.ux, t.uy);
+      } else if (layer.shaded) {
         // The light as seen from inside this copy (turned and flipped with it).
         const v = turn(lightVector(light), -t.angle);
         const box = layer.type === 'path' ? localBounds(layer) : { minX: -1, maxX: 1, minY: -1, maxY: 1 };

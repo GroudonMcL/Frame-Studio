@@ -5,9 +5,12 @@
 
 import { FRAME_STYLES, SHAPES } from '../engine/legacy/catalog';
 import { isValidHex } from '../engine/legacy/color';
-import { DEFAULT_STAGE, NEW_LAYER, newId, textureLayer } from './defaults';
+import { DEFAULT_STAGE, NEW_EFFECT, NEW_LAYER, newId, textureLayer } from './defaults';
 import {
+  BEVEL_PROFILES,
   BLEND_MODES,
+  EFFECT_KINDS,
+  SURFACES,
   CLIP_MODES,
   DEFAULT_LIGHT,
   ELEMENT_KINDS,
@@ -17,6 +20,7 @@ import {
   SHAPE_KINDS,
   TEXTURE_KINDS,
   TEXTURE_PLACES,
+  type Effect,
   type FrameProject,
   type GradientStop,
   type Layer,
@@ -62,6 +66,21 @@ function addPhase4Fields(layer: unknown): unknown {
   return out;
 }
 
+const KNOWN_TYPES = new Set(['legacyFrame', 'bandFill', 'line', 'repeat', 'texture', 'shape', 'path', 'group']);
+
+/**
+ * Version 4 → 5 (Phase 6): effects on every layer and faceted shapes and
+ * paths, all off so old designs look the same. A layer of a kind this
+ * version doesn't know is left exactly as it was.
+ */
+function addPhase6Fields(layer: unknown): unknown {
+  if (!isObj(layer) || !KNOWN_TYPES.has(layer.type as string)) return layer;
+  const out: Obj = { effects: [], ...layer };
+  if (Array.isArray(layer.children)) out.children = layer.children.map(addPhase6Fields);
+  if (layer.type === 'shape' || layer.type === 'path') Object.assign(out, { faceted: false, facetTable: 0.5, facetDepth: 1 }, out);
+  return out;
+}
+
 /** Migrations from version n to n + 1, keyed by n. */
 const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
   1: (p) => ({
@@ -73,6 +92,7 @@ const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
   // Version 2 → 3 (Phase 3) only adds things (texture layers, the ring paint), so nothing changes.
   2: (p) => ({ ...p, schemaVersion: 3 }),
   3: (p) => ({ ...p, schemaVersion: 4, layers: Array.isArray(p.layers) ? p.layers.map(addPhase4Fields) : p.layers }),
+  4: (p) => ({ ...p, schemaVersion: 5, layers: Array.isArray(p.layers) ? p.layers.map(addPhase6Fields) : p.layers }),
 };
 
 export function parseProject(input: unknown): ParseResult {
@@ -203,8 +223,80 @@ function checkPlacement(o: Obj, d: Placement): Placement {
   };
 }
 
+/** Effects: up to 12; an effect of an unknown kind is left out with a warning. */
+function checkEffects(v: unknown, name: string, warnings: string[]): Effect[] {
+  if (!Array.isArray(v)) return [];
+  const out: Effect[] = [];
+  for (const e of v.slice(0, 12)) {
+    if (!isObj(e) || !EFFECT_KINDS.includes(e.kind as Effect['kind'])) {
+      warnings.push(`Layer "${name}" had an effect this version doesn't know; it was left out.`);
+      continue;
+    }
+    const d = NEW_EFFECT[e.kind as Effect['kind']]();
+    const on = bool(e.on, true);
+    switch (d.kind) {
+      case 'bevel':
+        out.push({
+          kind: 'bevel',
+          on,
+          direction: oneOf(e.direction, ['raised', 'sunken'] as const, d.direction),
+          profile: oneOf(e.profile, BEVEL_PROFILES, d.profile),
+          size: num(e.size, d.size, 0.005, 2),
+          depth: num(e.depth, d.depth, 0, 4),
+          soften: num(e.soften, d.soften, 0, 0.5),
+          highlight: hex(e.highlight, d.highlight),
+          highlightOpacity: num(e.highlightOpacity, d.highlightOpacity, 0, 1),
+          shadow: hex(e.shadow, d.shadow),
+          shadowOpacity: num(e.shadowOpacity, d.shadowOpacity, 0, 1),
+          gloss: num(e.gloss, d.gloss, 0, 1),
+          lightHeight: num(e.lightHeight, d.lightHeight, 10, 90),
+          surface: oneOf(e.surface, SURFACES, d.surface),
+          surfaceDepth: num(e.surfaceDepth, d.surfaceDepth, 0, 2),
+          surfaceScale: num(e.surfaceScale, d.surfaceScale, 0.02, 2),
+          seed: Math.round(num(e.seed, d.seed, 0, 99999)),
+        });
+        break;
+      case 'shadow':
+        out.push({ kind: 'shadow', on, inner: bool(e.inner, d.inner), color: hex(e.color, d.color), opacity: num(e.opacity, d.opacity, 0, 1), distance: num(e.distance, d.distance, 0, 1), blur: num(e.blur, d.blur, 0, 1) });
+        break;
+      case 'glow':
+        out.push({ kind: 'glow', on, inner: bool(e.inner, d.inner), color: hex(e.color, d.color), opacity: num(e.opacity, d.opacity, 0, 1), size: num(e.size, d.size, 0.005, 2) });
+        break;
+      case 'recolour':
+        out.push({ kind: 'recolour', on, stops: checkStops(e.stops, d.stops), amount: num(e.amount, d.amount, 0, 1) });
+        break;
+      case 'adjust':
+        out.push({
+          kind: 'adjust',
+          on,
+          hue: num(e.hue, 0, -180, 180),
+          saturation: num(e.saturation, 0, -1, 1),
+          brightness: num(e.brightness, 0, -1, 1),
+          contrast: num(e.contrast, 0, -1, 1),
+        });
+        break;
+      case 'wear':
+        out.push({
+          kind: 'wear',
+          on,
+          chips: num(e.chips, d.chips, 0, 1),
+          polish: num(e.polish, d.polish, 0, 1),
+          grime: num(e.grime, d.grime, 0, 1),
+          grimeColor: hex(e.grimeColor, d.grimeColor),
+          scale: num(e.scale, d.scale, 0.02, 2),
+          seed: Math.round(num(e.seed, d.seed, 0, 99999)),
+        });
+        break;
+    }
+  }
+  return out;
+}
+
 function checkStyle(o: Obj, d: PlacedStyle): PlacedStyle {
   return {
+    faceted: bool(o.faceted, d.faceted),
+    facetTable: num(o.facetTable, d.facetTable, 0, 0.95),
+    facetDepth: num(o.facetDepth, d.facetDepth, 0.2, 3),
     fill: hexOrNull(o.fill, d.fill),
     shaded: bool(o.shaded, d.shaded),
     outline: hexOrNull(o.outline, d.outline),
@@ -239,12 +331,14 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
     opacity: num(o.opacity, 1, 0, 1),
     blend: oneOf(o.blend, BLEND_MODES, 'source-over'),
     clip: oneOf(o.clip, CLIP_MODES, 'none'),
+    effects: [] as Effect[],
   };
   if (!(type in NEW_LAYER) || (type === 'group' && depth >= MAX_DEPTH)) {
     warnings.push(`Layer "${common.name}" is a kind this version can't draw (${type}); it is kept but hidden from the picture.`);
     const { id: _id, name: _n, visible: _v, locked: _l, opacity: _o, blend: _b, ...data } = o;
     return { ...common, type: 'unsupported', originalType: type, data, reason: `Unknown layer kind "${type}".` };
   }
+  common.effects = checkEffects(o.effects, common.name, warnings);
   switch (type) {
     case 'legacyFrame': {
       const d = NEW_LAYER.legacyFrame();
@@ -364,8 +458,8 @@ export function serializeProject(project: FrameProject, extra: { preview?: strin
   const write = (l: Layer): unknown => {
     if (l.type === 'group') return { ...l, children: l.children.map(write) };
     if (l.type !== 'unsupported') return l;
-    // Its clip setting stays in `data` exactly as the file had it.
-    const { originalType, data, reason: _r, type: _t, clip: _c, ...common } = l;
+    // Its clip setting (and any effects) stay in `data` exactly as the file had them.
+    const { originalType, data, reason: _r, type: _t, clip: _c, effects: _e, ...common } = l;
     return { ...data, ...common, type: originalType };
   };
   return JSON.stringify({ ...project, layers: project.layers.map(write), ...extra }, null, 2) + '\n';

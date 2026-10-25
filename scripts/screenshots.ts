@@ -168,5 +168,31 @@ await phone.getByRole('treeitem', { name: /Gold crosses/ }).click();
 await phone.getByRole('tab', { name: 'Properties' }).click();
 await phone.screenshot({ path: `${out}/21-phone-properties.png` });
 
+// 22–25. Phase 6: effects and styles.
+await page.bringToFront();
+await page.getByRole('button', { name: 'New' }).click();
+await page.getByRole('button', { name: 'Brass & beads' }).click();
+await page.getByRole('treeitem', { name: /Brass band/ }).click();
+await page.getByRole('button', { name: /Styles/ }).click();
+await page.getByRole('dialog', { name: 'Styles' }).locator('.tile img').nth(5).waitFor();
+await page.waitForTimeout(1500);
+await page.screenshot({ path: `${out}/22-style-library.png` });
+await page.getByRole('button', { name: 'Hammered bronze' }).click();
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${out}/23-effects-panel.png` });
+await page.getByRole('button', { name: 'New' }).click();
+await page.getByRole('button', { name: 'Dwarven bronze' }).click();
+await page.getByRole('treeitem', { name: /Plates/ }).click();
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${out}/24-dwarven-bronze.png` });
+await page.getByRole('button', { name: 'New' }).click();
+await page.getByRole('button', { name: 'Eldritch crystal' }).click();
+await page.getByRole('radio', { name: 'Hexagon' }).click();
+await page.getByRole('slider', { name: 'Light direction' }).focus();
+for (let i = 0; i < 6; i++) await page.keyboard.press('Shift+ArrowRight');
+await page.getByRole('treeitem', { name: /Crystals/ }).click();
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${out}/25-eldritch-hexagon-light.png` });
+
 await browser.close();
 console.log(`Screenshots in ${out}/`);

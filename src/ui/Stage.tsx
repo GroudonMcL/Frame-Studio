@@ -189,13 +189,33 @@ export function Stage() {
   const px = Math.round(side * dpr);
 
   useEffect(() => {
-    const ctx = canvas.current?.getContext('2d');
-    if (!ctx) return;
-    renderProject(ctx, project, px, { art: project.stage.showArt ? stageArt() : null });
-    // How many layers this render had to draw (the rest came from the cache): read by the end-to-end tests.
-    canvas.current!.dataset.drawn = String(renderStats.drawn);
-    canvas.current!.dataset.reused = String(renderStats.reused);
-  }, [project, px]);
+    const el = canvas.current;
+    const ctx = el?.getContext('2d');
+    if (!el || !ctx) return;
+    const art = project.stage.showArt ? stageArt() : null;
+    const full = () => {
+      renderProject(ctx, project, px, { art });
+      // How many layers this render had to draw (the rest came from the cache): read by the end-to-end tests.
+      el.dataset.drawn = String(renderStats.drawn);
+      el.dataset.reused = String(renderStats.reused);
+    };
+    // Effects work on every pixel, so on a sharp (high-density) screen a design with
+    // effects is drawn at the screen's own size first, then sharpened once editing pauses.
+    if (px <= side || !flatten(project.layers).some((l) => l.visible && l.effects?.some((e) => e.on))) return full();
+    const quick = document.createElement('canvas');
+    quick.width = quick.height = side;
+    const qctx = quick.getContext('2d');
+    if (!qctx) return full();
+    renderProject(qctx, project, side, { art });
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, px, px);
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(quick, 0, 0, px, px);
+    ctx.restore();
+    const id = setTimeout(full, 300);
+    return () => clearTimeout(id);
+  }, [project, px, side]);
 
   useEffect(() => {
     const ctx = overlay.current?.getContext('2d');
