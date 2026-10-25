@@ -34,18 +34,18 @@ Each phase keeps the project's rules (DESIGN.md §7): one renderer, sizes measur
 | 3 2.5D | Height → normals → lighting, profiles, normal strength and smoothing | **6 (done)** |
 | | Preview the height and normal maps | 9 |
 | | Procedural faceted shapes with calculated face orientations | **6 (done)**: facets for shapes and paths; gem, plate and shard elements |
-| | Gemstone generator: cuts (brilliant, rose, emerald, cabochon, rough), settings, claws and bezels | 6 has brilliant, plate, shard and the glossy-gem style; cuts and settings in 7 |
+| | Gemstone generator: cuts (brilliant, rose, emerald, cabochon, rough), settings, claws and bezels | **7 (done)** |
 | | A global lighting rig with a handle | Phase 2's light dial drives everything; elevation per bevel in 6; several coloured lights and rim light in 10 |
 | | Extrusion and sidewalls | 9 (needs height compositing) |
-| 4 Geometry | Parametric ring builder (nested bands, contours, each its own material) | Already possible (band fills and lines); a "contours" layer in 7 |
+| 4 Geometry | Parametric ring builder (nested bands, contours, each its own material) | **7 (done)**: the contours layer |
 | | Polygon border generator | The five token shapes come from Token Maker; more shapes need Token Maker too, so later (10) |
 | | Bézier paths | Phase 2; separate in/out handles in 9 |
-| | Path-following objects | 7 |
+| | Path-following objects | **7 (done)** |
 | | Boolean geometry, offset, stroke to shape | 9 |
 | | Organic generators (branches, roots, tendrils, thorns, antlers, coral, veins) | 8 |
-| | Text on a path, variable-width strokes, symmetry tools | 7 |
-| 5 Procedural | Radial array, mandala | 7 |
-| | Linear array | 7 (along a path) |
+| | Text on a path, variable-width strokes, symmetry tools | **7 (done)** |
+| 5 Procedural | Radial array, mandala | **7 (done)** |
+| | Linear array | **7 (done)** (along a path) |
 | | Spiral generator | 8 |
 | | Voronoi, cellular patterns, crack generator | 6 as surfaces (cracked plates, scales); as geometry in 8 |
 | | Fractal branching, L-systems | 8 |
@@ -62,7 +62,9 @@ The two examples in the brief are templates now:
 - *An ancient dwarven border of layered hammered bronze, individually bevelled hexagonal plates, recessed runes, tiny rivets, directional highlights and a warm glow from cracks in the metal* → **Dwarven bronze**: a band with the Hammered bronze style, a cracks texture with a glow, faceted hexagonal plates recoloured as bronze with a little wear, runes with the Engraved style, rivets, bevelled rims.
 - *An eldritch border of translucent purple crystals with irregular facets, internal light, overlapping tendrils and subtle distortion* → **Eldritch crystal**: an obsidian band, two bevelled wavy tendrils that cast shadows on each other, a glowing line, and faceted crystal shards with an inner and an outer glow. (Distortion comes in Phase 8.)
 
-## Phase 7 — Ornaments anywhere
+## Phase 7 — Ornaments anywhere (done)
+
+Built: repeats that follow any path or line (facing along it or upright, growing along the way, with seeded random variation), radial arrays on shapes and paths, five gem cuts with sparkle and bezel or claw settings that take their own metal style, text on the band or a path (runes, Grenze, Atkinson) and contour layers, plus the Royal inscription template. Details in DESIGN.md §4.9, §4.10, §5.6 and §6.5. The plan as it was:
 
 The ring of repeated shapes is Frame Studio's most used layer; this phase frees it from the band.
 

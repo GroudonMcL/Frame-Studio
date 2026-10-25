@@ -4,14 +4,23 @@ A visual editor for code-drawn token frames. Start from one of [Token Maker](htt
 
 ![The Dwarven bronze template: hammered bronze, faceted plates, engraved runes and glowing cracks, all made with effects](docs/screenshots/24-dwarven-bronze.png)
 
-## What works now (Phase 6)
+## What works now (Phase 7)
+
+- **Ornaments along any path:** Repeated shapes can **follow** a path you drew or a line (wavy or not) instead of the band: facing along it or upright, growing or shrinking along the way, with random variation of size, angle and gaps. The path can be hidden and still be followed.
+- **Radial arrays:** repeat a shape or drawn path round a point (how many, how far out, start angle, every other one mirrored), for rosettes, sigils, compass roses and clusters of gems.
+- **Gem cuts and settings:** cut gems can be brilliant, rose, emerald, cabochon or rough crystal (facets, table, crown height, sparkle), all lit by the light dial; any repeated shape can sit in a **bezel or four or six claws** in a metal style of its own.
+- **Text:** Add layer → Text runs words round the band or along a path, in runes (Elder Futhark, drawn from strokes), Grenze or Atkinson; read the other way for the bottom of a token; give it the Engraved style to cut it in, or a glow.
+- **Contours:** several lines round the band at once, tapering, in one or two colours.
+- **New template:** Royal inscription.
+
+## Also there from Phase 6
 
 - **Effects on any layer or group** (Properties → Effects): give it depth with **Bevel and surface** (raised or sunk in, rounded, chiselled or stepped edges, and a surface of hammered dents, rough grain, brushed streaks, cracked plates or scales), a **Shadow** or **Glow** (outside or inside its edge), a **Material colour** that turns its shading into gold, silver, bronze, bone, obsidian, jade…, **Colour adjust**, and **Wear and grime** (chipped and rubbed edges, patches of dirt or verdigris). Everything is lit by the light dial, switches off and on, can be reordered, and fits every token shape and thickness.
 - **Styles…:** 26 ready-made looks (polished gold, hammered bronze, blackened iron, carved stone, obsidian, amethyst crystal, engraved, arcane glow, hellfire, holy radiance, aged and worn…), each shown as a picture of *your* design in that style. One click applies it to every picked layer; then change any part of it. **Copy effects / Paste effects** moves a look from one layer to others.
 - **Facets:** cut a shape or drawn path into flat faces lit by the light (gems, star badges, plates, crystals); repeated shapes can be cut gems, hexagonal plates or crystal shards.
 - **More blend modes** (hard light, dodge, burn, darken, lighten, difference, exclusion, hue, saturation, luminosity) and **Cut a hole in the layers below** (in Advanced).
 - **New templates made with effects:** Dwarven bronze, Eldritch crystal, Radiant gold and Hellforged iron.
-- **What comes next** is planned in [`docs/ROADMAP.md`](docs/ROADMAP.md): ornaments along any path and round any point, gem settings, generators (vines, roots, cracks, plates, knotwork, gears), masks and combined height, and workflow tools.
+- **What comes next** (Phases 8–10) is planned in [`docs/ROADMAP.md`](docs/ROADMAP.md): ornaments along any path and round any point, gem settings, generators (vines, roots, cracks, plates, knotwork, gears), masks and combined height, and workflow tools.
 - *Token Maker:* designs saved now (format 5) open in Token Maker once its copy of Frame Studio's code is updated with `npm run share:export` (below).
 
 ![The style library: the selected layer shown in every style](docs/screenshots/22-style-library.png)

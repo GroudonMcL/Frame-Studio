@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { SCHEMA_VERSION } from '../src/project/types';
 
 // A fingerprint of the preview canvas, to tell whether the picture changed.
 const previewHash = (page: Page) =>
@@ -98,7 +99,7 @@ test('save, open and export', async ({ page }, info) => {
   const path = info.outputPath('saved.json');
   await saved.saveAs(path);
   const json = JSON.parse(readFileSync(path, 'utf8'));
-  expect(json).toMatchObject({ format: 'frame-studio-project', schemaVersion: 5 });
+  expect(json).toMatchObject({ format: 'frame-studio-project', schemaVersion: SCHEMA_VERSION });
 
   await page.getByRole('button', { name: 'New' }).click();
   await page.getByRole('button', { name: /Blank project/ }).click();

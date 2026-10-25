@@ -237,7 +237,9 @@ textarea {
   border-color: var(--accent);
 }
 .layer-row.hidden-layer .layer-name {
-  opacity: 0.5;
+  /* Muted and slanted rather than see-through, so it stays readable (WCAG contrast). */
+  color: var(--text-muted);
+  font-style: italic;
 }
 .layer-row.dragging {
   opacity: 0.4;

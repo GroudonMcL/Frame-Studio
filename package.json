@@ -19,7 +19,9 @@
     "screenshots": "tsx scripts/screenshots.ts",
     "compare-conversions": "tsx scripts/compare-conversions.ts",
     "share:check": "tsx scripts/share-export.ts check",
-    "share:export": "tsx scripts/share-export.ts export"
+    "share:export": "tsx scripts/share-export.ts export",
+    "make-fixtures": "tsx scripts/make-fixtures.ts",
+    "look": "tsx scripts/look.ts"
   },
   "dependencies": {
     "@fontsource/atkinson-hyperlegible": "^5.3.0",

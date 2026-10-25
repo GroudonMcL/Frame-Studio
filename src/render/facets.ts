@@ -55,7 +55,7 @@ export function drawFacets(ctx: Ctx, pts: Point[], color: string, light: Point, 
 }
 
 /** A path's outline as straight segments (curves sampled), in pixels for a transform's scale. */
-export function flattenPath(points: PathPoint[], closed: boolean, ux: number, uy: number): Point[] {
+export function flattenPath(points: PathPoint[], closed: boolean, ux: number, uy: number, samples = 8): Point[] {
   const out: Point[] = [];
   const n = points.length;
   if (n === 0) return out;
@@ -69,8 +69,8 @@ export function flattenPath(points: PathPoint[], closed: boolean, ux: number, uy
       const bx = b.x * ux, by = b.y * uy;
       const c1x = ax + (a.handle?.x ?? 0) * ux, c1y = ay + (a.handle?.y ?? 0) * uy;
       const c2x = bx - (b.handle?.x ?? 0) * ux, c2y = by - (b.handle?.y ?? 0) * uy;
-      for (let k = 1; k <= 8; k++) {
-        const t = k / 8;
+      for (let k = 1; k <= samples; k++) {
+        const t = k / samples;
         const m = 1 - t;
         out.push({
           x: m * m * m * ax + 3 * m * m * t * c1x + 3 * m * t * t * c2x + t * t * t * bx,

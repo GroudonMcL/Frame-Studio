@@ -96,7 +96,18 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] `npm run effects-sheet` draws every style and effects template
   - [x] Tests: 565 unit tests (87 new: every effect and its lighting, size independence, shadows, glows, materials, adjust, wear, groups, clipping, caching, shapes, a time budget, the helpers, facets and elements, every blend mode and the knockout, the migration and v4 fixtures, the Effects panel, the style library, copy and paste, facets and knockout controls, help tips on every new control) and 58 Playwright runs (31 flows: 27 × 2 desktop sizes and 4 on a phone; 4 new: the "done when" flow, the templates and pasting effects, adding effects and facets, axe on the Effects section and the style library)
   - **Done when:** a band given a style from the library becomes hammered bronze, follows the light dial, can be adjusted and undone, and its exported picture is the picture the renderer draws from the saved file ✔ (Playwright "done when" test)
-- [ ] **Phase 7 — Ornaments anywhere** (repeat along a path, radial arrays, gem cuts and settings, text on a path, contours)
+- [x] **Phase 7 — Ornaments anywhere**
+  - [x] Repeats follow a path or line layer (open or closed, mirrored copies included, hidden or not) instead of the band: count or spacing along it, facing along it or upright, alternate sides, size along the way, seeded random variation of size, angle and gaps (`render/track.ts`)
+  - [x] Radial arrays on shapes and paths: copies round the anchor, distance, start angle, every other one mirrored; works on the band and placed freely, with mirroring
+  - [x] Gem cuts: brilliant, rose, emerald (step cut), cabochon, rough crystal; facets, table, crown height, sparkle, all lit by the light; bezel and four- or six-claw settings round any element, with their own metal style (effects drawn on the setting alone)
+  - [x] Text layers on the band or along a path: runes (an Elder Futhark alphabet drawn from strokes), Grenze, Atkinson; size, spacing, centred or starting, read the other way, outline; effects (engraved, glowing)
+  - [x] Contours layer: several lines at once, spacing, taper, alternate colour, dashes
+  - [x] References between layers survive copy, paste, duplicate and the library (`cloneAllWithNewIds`); a followed layer's changes redraw only what follows it
+  - [x] Template: Royal inscription
+  - [x] Schema version 6 with a migration from version 5; version-5 fixture files saved by Phase 6 open and draw as before (versions 1–4 too); `npm run make-fixtures` writes a version's fixtures
+  - [x] A hidden layer's row is readable (axe colour contrast)
+  - [x] Tests: Phase 7 unit tests (tracks, spacing on open and closed paths, wavy lines, mirrored paths, facing, size along the way, variation, cache dependencies, copying references, picking, radial arrays, every gem cut and setting, text placement, fonts and runes, contours, the template on every shape, the migration and v5 fixtures, help tips) and Playwright runs for the "done when" flow (draw a path, gems in claws along it, an engraved inscription, every shape, export matches the renderer) and radial arrays, contours and the template with axe
+  - **Done when:** a ring of gems in claw settings follows a drawn wavy path, and an engraved inscription runs round the band, both with effects, on every token shape ✔ (Playwright "done when" test)
 - [ ] **Phase 8 — Generators** (organic growth, cracks and lightning as geometry, plates and cells, knotwork, gears and chains, distortion)
 - [ ] **Phase 9 — Precise control** (masks, height compositing, boolean geometry, in/out handles, groups on the canvas, zoom)
 - [ ] **Phase 10 — Workflow** (randomise, your own styles, a theme colour, a lighting rig, batch export, more shapes with Token Maker)

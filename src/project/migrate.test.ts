@@ -1,7 +1,7 @@
 import { FRAME_PRESETS } from '../engine/legacy/catalog';
 import { bandFillLayer, createProject, EFFECT_NAMES, NEW_EFFECT, GEM_POINTS, TEXTURES, textureFromPreset, textureLayer, groupLayer, LAYERED_TEMPLATES, NEW_LAYER, pathLayer, projectFromFrame, repeatLayer, shapeLayer } from './defaults';
 import { parseProject, serializeProject } from './migrate';
-import { EFFECT_KINDS, SCHEMA_VERSION, type FrameProject } from './types';
+import { EFFECT_KINDS, SCHEMA_VERSION, type FrameProject, type Layer } from './types';
 
 const roundTrip = (p: FrameProject) => {
   const r = parseProject(serializeProject(p));
@@ -228,7 +228,7 @@ describe('project files', () => {
     expect(r.project.layers[0].type === 'bandFill' && r.project.layers[0].paint.kind).toBe('lit');
   });
 
-  it('a version-4 file opens as version 5 with no effects and smooth shapes, in groups too', () => {
+  it('a version-4 file opens as the current version with no effects and smooth shapes, in groups too', () => {
     const v4 = {
       format: 'frame-studio-project',
       schemaVersion: 4,
@@ -242,7 +242,7 @@ describe('project files', () => {
     const r = parseProject(JSON.stringify(v4));
     if (!r.ok) throw new Error(r.error);
     expect(r.warnings).toEqual([]);
-    expect(r.project.schemaVersion).toBe(5);
+    expect(r.project.schemaVersion).toBe(SCHEMA_VERSION);
     const [band, group] = r.project.layers;
     expect(band.effects).toEqual([]);
     if (group.type !== 'group') throw new Error('not a group');
@@ -281,5 +281,40 @@ describe('project files', () => {
     const r = parseProject(JSON.stringify({ format: 'frame-studio-project', schemaVersion: 5, name: 'New', stage: {}, layers: [future] }));
     if (!r.ok) throw new Error(r.error);
     expect(JSON.parse(serializeProject(r.project)).layers[0]).toEqual(future);
+  });
+
+  it('a version-5 file opens with repeats on the band, the Phase 6 gem, no setting and no radial arrays, in groups too', () => {
+    const v5 = {
+      format: 'frame-studio-project',
+      schemaVersion: 5,
+      name: 'Old',
+      stage: {},
+      layers: [{ id: 'g', type: 'group', effects: [], children: [{ id: 'r', type: 'repeat', element: 'gem', effects: [] }, { id: 's', type: 'shape', effects: [] }] }],
+    };
+    const r = parseProject(JSON.stringify(v5));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.warnings).toEqual([]);
+    const [group] = r.project.layers;
+    if (group.type !== 'group') throw new Error('not a group');
+    expect(group.children[0]).toMatchObject({ follow: null, orient: 'along', scaleEnd: 1, jitterSize: 0, skipChance: 0, gemCut: 'brilliant', gemTable: 0.52, gemCrown: 0.9, gemFacets: 8, setting: 'none', settingEffects: [] });
+    expect(group.children[1]).toMatchObject({ radialCount: 1 });
+  });
+
+  it('version 6: following, variation, gems, settings, radial arrays, text and contours survive a round trip', () => {
+    const path = { ...pathLayer(GEM_POINTS), radialCount: 5, radialRadius: 1.2, radialStart: 30, radialMirror: true };
+    const p = createProject([
+      path,
+      { ...repeatLayer(), element: 'gem', follow: path.id, orient: 'upright', scaleEnd: 1.5, jitterSize: 0.2, jitterAngle: 15, skipChance: 0.1, gemCut: 'emerald', gemTable: 0.4, gemCrown: 1.4, gemFacets: 6, gemSparkle: 0.5, setting: 'claws6', settingColor: '#aabbcc', settingEffects: [NEW_EFFECT.bevel()] },
+      { ...NEW_LAYER.text(), text: 'Ever onward', font: 'runes', reverse: true, align: 'start', follow: path.id, outline: '#000000' } as Layer,
+      { ...NEW_LAYER.contours(), count: 5, taper: -0.3, altColor: '#ff0000', dash: 'dotted' } as Layer,
+    ]);
+    expect(roundTrip(p).project).toEqual(p);
+  });
+
+  it('bad version-6 values fall back or are clamped', () => {
+    const r = parseProject(JSON.stringify({ ...createProject(), layers: [{ type: 'repeat', gemCut: 'pear', setting: 'prongs', gemFacets: 99, follow: 7 }, { type: 'text', font: 'comic', text: 5, size: -1 }] }));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.project.layers[0]).toMatchObject({ gemCut: 'brilliant', setting: 'none', gemFacets: 16, follow: null });
+    expect(r.project.layers[1]).toMatchObject({ font: 'grenze', size: 0.05 });
   });
 });

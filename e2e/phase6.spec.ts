@@ -6,6 +6,7 @@ import { parseProject } from '../src/project/migrate';
 import { setCanvasFactory, type Ctx } from '../src/render/canvas';
 import { compareFrames } from '../src/render/compare';
 import { renderProject } from '../src/render/renderProject';
+import { SCHEMA_VERSION } from '../src/project/types';
 
 // Phase 6: effects and the style library in the real editor, the templates
 // made with effects, and an exported picture drawn by the browser matching
@@ -80,7 +81,7 @@ test('done when: a band styled as hammered bronze follows the light, and its exp
   const read = parseProject(readFileSync(await (await saving).path(), 'utf8'));
   expect(read.ok).toBe(true);
   if (!read.ok) return;
-  expect(read.project.schemaVersion).toBe(5);
+  expect(read.project.schemaVersion).toBe(SCHEMA_VERSION);
 
   await page.getByRole('button', { name: 'Export' }).click();
   await page.getByLabel('Export as').selectOption('png');

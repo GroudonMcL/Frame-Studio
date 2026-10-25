@@ -57,6 +57,8 @@ const ADDABLE: { type: EditableLayerType; hint: string }[] = [
   { type: 'repeat', hint: 'One shape repeated round the band: beads, studs, gems, runes, leaves.' },
   { type: 'shape', hint: 'One circle, rectangle, polygon or star, placed on the band.' },
   { type: 'path', hint: 'Draw your own shape by clicking points on the canvas.' },
+  { type: 'text', hint: 'Words or runes running round the band or along a path: inscriptions, names, spells.' },
+  { type: 'contours', hint: 'Several lines round the band at once, one inside the other: a quick ring.' },
   { type: 'group', hint: 'An empty group to keep layers together.' },
 ];
 

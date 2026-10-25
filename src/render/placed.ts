@@ -47,7 +47,9 @@ export function placement(layer: PlacedLayer, g: FrameGeometry): Placed | null {
 /**
  * The layer and its mirrored copies. Every token shape is symmetric about
  * both axes, so a mirrored copy lands at the matching place on the band.
- * Mirroring the plane flips the shape and turns it the other way.
+ * Mirroring the plane flips the shape and turns it the other way. A radial
+ * array (version 6) then puts `radialCount` copies of each round its anchor,
+ * each pointing outwards, the first at `radialStart` degrees from "up".
  */
 export function placements(layer: PlacedLayer, g: FrameGeometry): Placed[] {
   const t = placement(layer, g);
@@ -55,16 +57,26 @@ export function placements(layer: PlacedLayer, g: FrameGeometry): Placed[] {
   const leftRight: Placed = { ...t, x: -t.x, angle: -t.angle, sx: -1 };
   const topBottom: Placed = { ...t, y: -t.y, angle: -t.angle, sy: -1 };
   const both: Placed = { ...t, x: -t.x, y: -t.y, angle: t.angle + Math.PI };
-  switch (layer.mirror) {
-    case 'leftRight':
-      return [t, leftRight];
-    case 'topBottom':
-      return [t, topBottom];
-    case 'four':
-      return [t, leftRight, topBottom, both];
-    default:
-      return [t];
-  }
+  const mirrored = layer.mirror === 'leftRight' ? [t, leftRight] : layer.mirror === 'topBottom' ? [t, topBottom] : layer.mirror === 'four' ? [t, leftRight, topBottom, both] : [t];
+  if (!(layer.radialCount > 1)) return mirrored;
+  const r = layer.radialRadius * (layer.place === 'band' ? bandWidthPx(g) : g.R);
+  return mirrored.flatMap((m) => radialCopies(m, layer.radialCount, r, layer.radialStart, layer.radialMirror));
+}
+
+/** `n` copies of a transform round its own origin, `r` pixels out, pointing outwards. */
+export function radialCopies(m: Placed, n: number, r: number, startDeg: number, mirrorEvery: boolean): Placed[] {
+  return Array.from({ length: n }, (_v, k) => {
+    const a = ((startDeg + (k * 360) / n) * Math.PI) / 180;
+    // Out from the anchor along the copy's "up" (local −y), in the flipped and turned frame of `m`.
+    const v = turn({ x: Math.sin(a) * r * m.sx, y: -Math.cos(a) * r * m.sy }, m.angle);
+    const flip = mirrorEvery && k % 2 === 1 ? -1 : 1;
+    return { ...m, x: m.x + v.x, y: m.y + v.y, angle: m.angle + m.sx * m.sy * a, sx: (m.sx * flip) as 1 | -1 };
+  });
+}
+
+/** The copy shown with handles and points: the layer itself, or the first of its radial array. */
+export function primaryPlacement(layer: PlacedLayer, g: FrameGeometry): Placed | null {
+  return placements(layer, g)[0] ?? null;
 }
 
 /** A local point in canvas pixels. */

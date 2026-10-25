@@ -11,7 +11,7 @@ import { framePresetById, type FrameStyle } from '../engine/legacy/catalog';
 import { mix, shade } from '../engine/legacy/color';
 import { frameAccent } from '../engine/legacy/frames';
 import { bandFillLayer, createProject, groupLayer, lineLayer, newId, repeatLayer, textureLayer } from './defaults';
-import { cloneWithNewIds } from './tree';
+import { cloneAllWithNewIds } from './tree';
 import type { BandFillLayer, FrameProject, GroupLayer, Layer, LegacyFrameLayer, LineLayer, RepeatLayer, TextureKind, TextureLayer } from './types';
 
 /** The colours a frame is drawn in: its colour and, for frames with own-coloured details, the highlights colour. */
@@ -310,7 +310,7 @@ export const CONVERTIBLE_STYLES = Object.keys(CONVERTERS) as FrameStyle[];
 /** A frame's parts as editable layers, bottom first, or null if it has no converter yet. Every call gives fresh ids. */
 export function convertFrame(style: FrameStyle, colours: FrameColours): Layer[] | null {
   const convert = CONVERTERS[style];
-  return convert ? convert(colours).map((l) => cloneWithNewIds(l, newId)) : null;
+  return convert ? cloneAllWithNewIds(convert(colours), newId) : null;
 }
 
 /**

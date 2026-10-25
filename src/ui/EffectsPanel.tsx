@@ -40,12 +40,6 @@ export function EffectsSection({ layer }: { layer: Layer }) {
   const disabled = layer.locked;
   const effects = layer.effects;
   const set = (next: Effect[], transient?: boolean) => setEffects(layer.id, next, { transient });
-  const patch = (i: number) => (p: Partial<Effect>, transient?: boolean) => set(effects.map((e, k) => (k === i ? ({ ...e, ...p } as Effect) : e)), transient);
-  const move = (i: number, by: number) => {
-    const next = [...effects];
-    [next[i], next[i + by]] = [next[i + by], next[i]];
-    set(next);
-  };
 
   return (
     <section className="effects" aria-label="Effects">
@@ -66,19 +60,36 @@ export function EffectsSection({ layer }: { layer: Layer }) {
           <ClipboardPaste size={16} /> Paste effects
         </button>
       </div>
-      <AddEffect disabled={disabled} onAdd={(kind) => set([...effects, NEW_EFFECT[kind]()])} />
+      <EffectStack effects={effects} disabled={disabled} advanced={advanced} onChange={set} />
+      {styles && <StyleDialog layer={layer} onClose={() => setStyles(false)} />}
+    </section>
+  );
+}
+
+/** A stack of effects, first first: add, switch off, reorder, remove and change each one. */
+export function EffectStack({ effects, disabled, advanced, onChange, label = '' }: { effects: Effect[]; disabled: boolean; advanced: boolean; onChange: (next: Effect[], transient?: boolean) => void; label?: string }) {
+  const patch = (i: number) => (p: Partial<Effect>, transient?: boolean) => onChange(effects.map((e, k) => (k === i ? ({ ...e, ...p } as Effect) : e)), transient);
+  const move = (i: number, by: number) => {
+    const next = [...effects];
+    [next[i], next[i + by]] = [next[i + by], next[i]];
+    onChange(next);
+  };
+  const of = label ? ` ${label}` : '';
+  return (
+    <>
+      <AddEffect disabled={disabled} label={label ? `Add an effect to the${of}` : 'Add an effect'} onAdd={(kind) => onChange([...effects, NEW_EFFECT[kind]()])} />
       {effects.map((e, i) => (
         <div className={`effect${e.on ? '' : ' off'}`} key={i}>
           <div className="effect-head">
-            <Toggle label={EFFECT_NAMES[e.kind]} hint={EFFECT_HINTS[e.kind]} checked={e.on} disabled={disabled} onChange={(on) => patch(i)({ on })} />
+            <Toggle label={`${EFFECT_NAMES[e.kind]}${label ? ` (${label})` : ''}`} hint={EFFECT_HINTS[e.kind]} checked={e.on} disabled={disabled} onChange={(on) => patch(i)({ on })} />
             <span className="effect-buttons">
-              <button type="button" className="icon-btn" aria-label={`Move ${EFFECT_NAMES[e.kind].toLowerCase()} earlier`} title="Apply it earlier" disabled={disabled || i === 0} onClick={() => move(i, -1)}>
+              <button type="button" className="icon-btn" aria-label={`Move ${EFFECT_NAMES[e.kind].toLowerCase()}${of} earlier`} title="Apply it earlier" disabled={disabled || i === 0} onClick={() => move(i, -1)}>
                 <ArrowUp size={16} />
               </button>
-              <button type="button" className="icon-btn" aria-label={`Move ${EFFECT_NAMES[e.kind].toLowerCase()} later`} title="Apply it later" disabled={disabled || i === effects.length - 1} onClick={() => move(i, 1)}>
+              <button type="button" className="icon-btn" aria-label={`Move ${EFFECT_NAMES[e.kind].toLowerCase()}${of} later`} title="Apply it later" disabled={disabled || i === effects.length - 1} onClick={() => move(i, 1)}>
                 <ArrowDown size={16} />
               </button>
-              <button type="button" className="icon-btn danger" aria-label={`Remove ${EFFECT_NAMES[e.kind].toLowerCase()}`} title="Remove this effect" disabled={disabled} onClick={() => set(effects.filter((_x, k) => k !== i))}>
+              <button type="button" className="icon-btn danger" aria-label={`Remove ${EFFECT_NAMES[e.kind].toLowerCase()}${of}`} title="Remove this effect" disabled={disabled} onClick={() => onChange(effects.filter((_x, k) => k !== i))}>
                 <Trash2 size={16} />
               </button>
             </span>
@@ -86,8 +97,7 @@ export function EffectsSection({ layer }: { layer: Layer }) {
           {e.on && <EffectControls effect={e} disabled={disabled} advanced={advanced} onChange={patch(i)} />}
         </div>
       ))}
-      {styles && <StyleDialog layer={layer} onClose={() => setStyles(false)} />}
-    </section>
+    </>
   );
 }
 
@@ -100,11 +110,11 @@ const EFFECT_HINTS: Record<EffectKind, string> = {
   wear: 'Makes it look old: chipped edges, edges rubbed bright and patches of grime.',
 };
 
-function AddEffect({ disabled, onAdd }: { disabled: boolean; onAdd: (k: EffectKind) => void }) {
+function AddEffect({ disabled, onAdd, label }: { disabled: boolean; onAdd: (k: EffectKind) => void; label: string }) {
   const id = useId();
   const tip = 'Adds one effect after the others, set up to look good straight away.';
   return (
-    <Field label="Add an effect" htmlFor={id} hint={tip}>
+    <Field label={label} htmlFor={id} hint={tip}>
       <select
         id={id}
         value=""

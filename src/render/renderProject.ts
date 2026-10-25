@@ -10,7 +10,8 @@ import { bandGeometry } from './band';
 import { context2d, newCanvas, type CanvasLike, type Ctx } from './canvas';
 import { bandWidthPx } from './band';
 import { activeEffects, applyEffects } from './effects';
-import { cachedLayer, effectsKey, layerKey, MAX_CACHED_SIZE, renderStats } from './layerCache';
+import { cachedLayer, effectsKey, layerKey, lookOf, MAX_CACHED_SIZE, renderStats } from './layerCache';
+import { flatten, referencesOf } from '../project/tree';
 import { drawLayer, type RenderEnv } from './layers';
 
 export interface RenderOptions {
@@ -66,7 +67,8 @@ export function renderProject(ctx: Ctx, project: FrameProject, size: number, opt
   renderStats.drawn = 0;
   renderStats.reused = 0;
   const cache = options.cache !== false && size <= MAX_CACHED_SIZE;
-  drawStack(ctx, project.layers, { g, light: project.stage.light, size, cache });
+  const byId = new Map(flatten(project.layers).map((l) => [l.id, l]));
+  drawStack(ctx, project.layers, { g, light: project.stage.light, size, cache, find: (id) => byId.get(id) });
   ctx.restore();
 }
 
@@ -119,8 +121,18 @@ function picture(layer: Layer, env: StackEnv, raw = false): CanvasLike {
     return own.canvas;
   };
   if (!env.cache || (layer.type === 'group' && !effects)) return draw();
-  const key = layerKey(layer, env.g, env.light, env.size);
+  const key = layerKey(layer, env.g, env.light, env.size, depsKey(layer, env));
   return effects ? cachedLayer(`${env.size}|${layer.id}|fx`, effectsKey(layer, key), env.size, draw) : cachedLayer(`${env.size}|${layer.id}`, key, env.size, draw);
+}
+
+/** The settings of the layers this one (or anything in it) follows, so its picture is drawn again when they change. */
+function depsKey(layer: Layer, env: StackEnv): string {
+  const refs = (layer.type === 'group' ? flatten(layer.children) : [layer]).flatMap(referencesOf);
+  if (refs.length === 0) return '';
+  return refs.map((id) => {
+    const t = env.find?.(id);
+    return t ? JSON.stringify(lookOf(t)) : '-';
+  }).join('|');
 }
 
 /**

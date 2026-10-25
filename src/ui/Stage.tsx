@@ -15,6 +15,7 @@ import type { FrameProject, Layer, PathLayer, PlacedLayer } from '../project/typ
 import { bandGeometry, outlineAt } from '../render/band';
 import {
   dragLayer,
+  finder,
   movePathPart,
   nudgeLayer,
   pathHandles,
@@ -28,7 +29,10 @@ import {
   transformHandles,
   type PathPart,
 } from '../render/hitTest';
-import { lineOutline, repeatPlacements } from '../render/layers';
+import { contourLines, lineOutline, repeatPlacements } from '../render/layers';
+import { textGlyphs } from '../render/text';
+import type { FindLayer } from '../render/track';
+import { loadFonts } from './fonts';
 import { placements, localBounds, toCanvas } from '../render/placed';
 import { renderStats } from '../render/layerCache';
 import { renderProject } from '../render/renderProject';
@@ -48,10 +52,10 @@ function strokeOutline(ctx: CanvasRenderingContext2D, poly: Point[]): void {
 }
 
 /** The dashed outline showing where a layer is. */
-function outlineLayer(ctx: CanvasRenderingContext2D, layer: Layer, g: FrameGeometry): void {
+function outlineLayer(ctx: CanvasRenderingContext2D, layer: Layer, g: FrameGeometry, find: FindLayer): void {
   switch (layer.type) {
     case 'repeat':
-      for (const { p, h } of repeatPlacements(layer, g)) {
+      for (const { p, h } of repeatPlacements(layer, g, find)) {
         ctx.beginPath();
         ctx.arc(p.x, p.y, (h * Math.max(1, layer.stretch)) / 2 + 3, 0, Math.PI * 2);
         ctx.stroke();
@@ -62,6 +66,21 @@ function outlineLayer(ctx: CanvasRenderingContext2D, layer: Layer, g: FrameGeome
       else {
         strokeOutline(ctx, outlineAt(g, layer.at - layer.width / 2));
         strokeOutline(ctx, outlineAt(g, layer.at + layer.width / 2));
+      }
+      break;
+    case 'text': {
+      const { glyphs, height } = textGlyphs(layer, g, find);
+      for (const { p, width } of glyphs) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(height, width) * 0.6, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'contours':
+      for (const l of contourLines(layer)) {
+        strokeOutline(ctx, outlineAt(g, l.at - l.width / 2));
+        strokeOutline(ctx, outlineAt(g, l.at + l.width / 2));
       }
       break;
     case 'bandFill':
@@ -90,7 +109,7 @@ function outlineLayer(ctx: CanvasRenderingContext2D, layer: Layer, g: FrameGeome
       break;
     }
     case 'group':
-      for (const child of flatten(layer.children)) if (child.visible) outlineLayer(ctx, child, g);
+      for (const child of flatten(layer.children)) if (child.visible) outlineLayer(ctx, child, g, find);
       break;
   }
 }
@@ -106,6 +125,7 @@ function dot(ctx: CanvasRenderingContext2D, p: Point, r: number, fill: string, s
 
 function drawOverlay(ctx: CanvasRenderingContext2D, project: FrameProject, ids: string[], primary: Layer | undefined, edit: PathEdit | null, size: number, zoom: number): void {
   const g = bandGeometry(project.stage, size);
+  const find = finder(project);
   ctx.save();
   ctx.translate(size / 2, size / 2);
   ctx.lineWidth = 1.5 * zoom;
@@ -113,7 +133,7 @@ function drawOverlay(ctx: CanvasRenderingContext2D, project: FrameProject, ids: 
   ctx.strokeStyle = GOLD;
   for (const id of ids) {
     const layer = findLayer(project.layers, id);
-    if (layer && isShown(project.layers, id)) outlineLayer(ctx, layer, g);
+    if (layer && isShown(project.layers, id)) outlineLayer(ctx, layer, g, find);
   }
   ctx.setLineDash([]);
   ctx.strokeStyle = '#1a1208';
@@ -174,6 +194,11 @@ export function Stage() {
   const [side, setSide] = useState(480);
   const drag = useRef<Drag | null>(null);
   const selected = findLayer(project.layers, selectedId);
+  // Text layers draw with web fonts: once they are loaded, the preview is drawn again.
+  const [fonts, setFonts] = useState(0);
+  useEffect(() => {
+    void loadFonts().then(() => setFonts((n) => n + 1));
+  }, []);
 
   useEffect(() => {
     const el = wrap.current;
@@ -215,7 +240,7 @@ export function Stage() {
     ctx.restore();
     const id = setTimeout(full, 300);
     return () => clearTimeout(id);
-  }, [project, px, side]);
+  }, [project, px, side, fonts]);
 
   useEffect(() => {
     const ctx = overlay.current?.getContext('2d');

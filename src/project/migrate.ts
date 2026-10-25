@@ -5,7 +5,7 @@
 
 import { FRAME_STYLES, SHAPES } from '../engine/legacy/catalog';
 import { isValidHex } from '../engine/legacy/color';
-import { DEFAULT_STAGE, NEW_EFFECT, NEW_LAYER, newId, textureLayer } from './defaults';
+import { DEFAULT_STAGE, NEW_EFFECT, NEW_LAYER, NO_RADIAL, REPEAT_PHASE7, newId, textureLayer } from './defaults';
 import {
   BEVEL_PROFILES,
   BLEND_MODES,
@@ -14,7 +14,11 @@ import {
   CLIP_MODES,
   DEFAULT_LIGHT,
   ELEMENT_KINDS,
+  GEM_CUTS,
+  GEM_SETTINGS,
   MIRROR_MODES,
+  REPEAT_ORIENTS,
+  TEXT_FONTS,
   PROJECT_FORMAT,
   SCHEMA_VERSION,
   SHAPE_KINDS,
@@ -67,6 +71,7 @@ function addPhase4Fields(layer: unknown): unknown {
 }
 
 const KNOWN_TYPES = new Set(['legacyFrame', 'bandFill', 'line', 'repeat', 'texture', 'shape', 'path', 'group']);
+// Kinds added later need no migrations for earlier versions (they didn't exist).
 
 /**
  * Version 4 → 5 (Phase 6): effects on every layer and faceted shapes and
@@ -78,6 +83,21 @@ function addPhase6Fields(layer: unknown): unknown {
   const out: Obj = { effects: [], ...layer };
   if (Array.isArray(layer.children)) out.children = layer.children.map(addPhase6Fields);
   if (layer.type === 'shape' || layer.type === 'path') Object.assign(out, { faceted: false, facetTable: 0.5, facetDepth: 1 }, out);
+  return out;
+}
+
+/**
+ * Version 5 → 6 (Phase 7): repeats can follow a path and vary, gems have
+ * cuts and settings, shapes and paths radial arrays; all off (Phase 6's
+ * brilliant cut) so old designs look the same. Text and contour layers are
+ * new kinds, so nothing else changes.
+ */
+function addPhase7Fields(layer: unknown): unknown {
+  if (!isObj(layer) || !KNOWN_TYPES.has(layer.type as string)) return layer;
+  const out: Obj = { ...layer };
+  if (Array.isArray(layer.children)) out.children = layer.children.map(addPhase7Fields);
+  if (layer.type === 'repeat') Object.assign(out, structuredClone(REPEAT_PHASE7), layer);
+  if (layer.type === 'shape' || layer.type === 'path') Object.assign(out, NO_RADIAL, layer);
   return out;
 }
 
@@ -93,6 +113,7 @@ const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
   2: (p) => ({ ...p, schemaVersion: 3 }),
   3: (p) => ({ ...p, schemaVersion: 4, layers: Array.isArray(p.layers) ? p.layers.map(addPhase4Fields) : p.layers }),
   4: (p) => ({ ...p, schemaVersion: 5, layers: Array.isArray(p.layers) ? p.layers.map(addPhase6Fields) : p.layers }),
+  5: (p) => ({ ...p, schemaVersion: 6, layers: Array.isArray(p.layers) ? p.layers.map(addPhase7Fields) : p.layers }),
 };
 
 export function parseProject(input: unknown): ParseResult {
@@ -220,8 +241,15 @@ function checkPlacement(o: Obj, d: Placement): Placement {
     stretch: num(o.stretch, d.stretch, 0.1, 5),
     rotation: num(o.rotation, d.rotation, -360, 360),
     mirror: oneOf(o.mirror, MIRROR_MODES, d.mirror),
+    radialCount: Math.round(num(o.radialCount, d.radialCount, 1, 64)),
+    radialRadius: num(o.radialRadius, d.radialRadius, 0, 5),
+    radialStart: num(o.radialStart, d.radialStart, -360, 360),
+    radialMirror: bool(o.radialMirror, d.radialMirror),
   };
 }
+
+const idOrNull = (v: unknown) => (typeof v === 'string' && v ? v : null);
+const DASHES = ['solid', 'dashed', 'dotted'] as const;
 
 /** Effects: up to 12; an effect of an unknown kind is left out with a warning. */
 function checkEffects(v: unknown, name: string, warnings: string[]): Effect[] {
@@ -367,7 +395,7 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
         at: num(o.at, d.at, -0.5, 1.5),
         width: num(o.width, d.width, 0.001, 2),
         paint: checkPaint(o.paint, d.paint),
-        dash: oneOf(o.dash, ['solid', 'dashed', 'dotted'] as const, 'solid'),
+        dash: oneOf(o.dash, DASHES, 'solid'),
         glow: hexOrNull(o.glow, null),
         waveAmplitude: num(o.waveAmplitude, d.waveAmplitude, 0, 2),
         waves: Math.round(num(o.waves, d.waves, 1, 200)),
@@ -392,6 +420,42 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
       const d = NEW_LAYER.path();
       if (d.type !== 'path') throw new Error('unreachable');
       return { ...common, type, ...checkPlacement(o, d), ...checkStyle(o, d), points: checkPoints(o.points), closed: bool(o.closed, d.closed) };
+    }
+    case 'text': {
+      const d = NEW_LAYER.text();
+      if (d.type !== 'text') throw new Error('unreachable');
+      return {
+        ...common,
+        type,
+        text: typeof o.text === 'string' ? o.text.slice(0, 200) : d.text,
+        font: oneOf(o.font, TEXT_FONTS, d.font),
+        size: num(o.size, d.size, 0.05, 3),
+        spacing: num(o.spacing, d.spacing, -0.5, 3),
+        at: num(o.at, d.at, -0.5, 1.5),
+        along: (((num(o.along, d.along, -10, 10) % 1) + 1) % 1),
+        align: oneOf(o.align, ['centre', 'start'] as const, d.align),
+        reverse: bool(o.reverse, d.reverse),
+        follow: idOrNull(o.follow),
+        fill: hex(o.fill, d.fill),
+        outline: hexOrNull(o.outline, d.outline),
+        outlineWidth: num(o.outlineWidth, d.outlineWidth, 0, 0.5),
+      };
+    }
+    case 'contours': {
+      const d = NEW_LAYER.contours();
+      if (d.type !== 'contours') throw new Error('unreachable');
+      return {
+        ...common,
+        type,
+        count: Math.round(num(o.count, d.count, 1, 24)),
+        from: num(o.from, d.from, -0.5, 1.5),
+        spacing: num(o.spacing, d.spacing, 0, 1),
+        width: num(o.width, d.width, 0.002, 1),
+        taper: num(o.taper, d.taper, -1, 0.95),
+        paint: checkPaint(o.paint, d.paint),
+        altColor: hexOrNull(o.altColor, null),
+        dash: oneOf(o.dash, DASHES, 'solid'),
+      };
     }
     case 'group':
       return { ...common, type, children: checkLayers(o.children, warnings, ids, depth + 1), collapsed: bool(o.collapsed, false) };
@@ -444,6 +508,20 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
         alternateSides: num(o.alternateSides, d.alternateSides, 0, 2),
         shaded: bool(o.shaded, d.shaded),
         show: Array.isArray(o.show) && o.show.some((v) => v === true) ? o.show.slice(0, 8).map((v) => v === true) : [],
+        follow: idOrNull(o.follow),
+        orient: oneOf(o.orient, REPEAT_ORIENTS, d.orient),
+        scaleEnd: num(o.scaleEnd, d.scaleEnd, 0.05, 5),
+        jitterSize: num(o.jitterSize, d.jitterSize, 0, 1),
+        jitterAngle: num(o.jitterAngle, d.jitterAngle, 0, 180),
+        skipChance: num(o.skipChance, d.skipChance, 0, 0.95),
+        gemCut: oneOf(o.gemCut, GEM_CUTS, d.gemCut),
+        gemTable: num(o.gemTable, d.gemTable, 0, 0.95),
+        gemCrown: num(o.gemCrown, d.gemCrown, 0.2, 3),
+        gemFacets: Math.round(num(o.gemFacets, d.gemFacets, 3, 16)),
+        gemSparkle: num(o.gemSparkle, d.gemSparkle, 0, 1),
+        setting: oneOf(o.setting, GEM_SETTINGS, d.setting),
+        settingColor: hex(o.settingColor, d.settingColor),
+        settingEffects: checkEffects(o.settingEffects, common.name, warnings),
       };
     }
   }

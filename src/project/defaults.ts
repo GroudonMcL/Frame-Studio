@@ -11,6 +11,8 @@ import {
   SCHEMA_VERSION,
   DEFAULT_LIGHT,
   type BandFillLayer,
+  type ContoursLayer,
+  type TextLayer,
   type Effect,
   type EditableLayerType,
   type FrameProject,
@@ -90,8 +92,30 @@ export function repeatLayer(): RepeatLayer {
     alternateSides: 0,
     shaded: true,
     show: [],
+    ...REPEAT_PHASE7,
   };
 }
+
+/** What a repeat gets from version 6 on, all off: on the band, no variation, Phase 6's brilliant cut, no setting. */
+export const REPEAT_PHASE7 = {
+  follow: null,
+  orient: 'along',
+  scaleEnd: 1,
+  jitterSize: 0,
+  jitterAngle: 0,
+  skipChance: 0,
+  gemCut: 'brilliant',
+  gemTable: 0.52,
+  gemCrown: 0.9,
+  gemFacets: 8,
+  gemSparkle: 0,
+  setting: 'none',
+  settingColor: '#d4a838',
+  settingEffects: [] as Effect[],
+} satisfies Partial<RepeatLayer>;
+
+/** A radial array that is off (one copy). */
+export const NO_RADIAL = { radialCount: 1, radialRadius: 0.6, radialStart: 0, radialMirror: false } satisfies Partial<Placement>;
 
 /** A texture over the whole band, as Token Maker draws it. */
 export function textureLayer(kind: TextureKind = 'marble'): TextureLayer {
@@ -139,7 +163,7 @@ export function textureBand(preset: TexturePreset): BandFillLayer {
 }
 
 /** A new shape or path sits at the top of the band, upright, one band width tall. */
-export const DEFAULT_PLACEMENT: Placement = { place: 'band', along: 0, across: 0.5, x: 0, y: -0.8, size: 0.8, stretch: 1, rotation: 0, mirror: 'none' };
+export const DEFAULT_PLACEMENT: Placement = { place: 'band', along: 0, across: 0.5, x: 0, y: -0.8, size: 0.8, stretch: 1, rotation: 0, mirror: 'none', ...NO_RADIAL };
 const DEFAULT_STYLE: PlacedStyle = { fill: '#5fa8d3', shaded: true, outline: '#1a1008', outlineWidth: 0.06, raised: true, glow: null, faceted: false, facetTable: 0.5, facetDepth: 1 };
 
 export function shapeLayer(): ShapeLayer {
@@ -149,6 +173,31 @@ export function shapeLayer(): ShapeLayer {
 /** A new path has no points: it is drawn by clicking on the canvas. */
 export function pathLayer(points: PathPoint[] = []): PathLayer {
   return { ...base('Path'), type: 'path', ...DEFAULT_PLACEMENT, ...DEFAULT_STYLE, size: 1, points, closed: points.length > 2 };
+}
+
+/** An inscription round the top of the band. */
+export function textLayer(): TextLayer {
+  return {
+    ...base('Text'),
+    type: 'text',
+    text: 'FORTUNE FAVOURS THE BOLD',
+    font: 'grenze',
+    size: 0.42,
+    spacing: 0.08,
+    at: 0.5,
+    along: 0,
+    align: 'centre',
+    reverse: false,
+    follow: null,
+    fill: '#2a1a0a',
+    outline: null,
+    outlineWidth: 0.06,
+  };
+}
+
+/** Three lines round the band, thinner towards the inside. */
+export function contoursLayer(): ContoursLayer {
+  return { ...base('Contours'), type: 'contours', count: 3, from: 0.12, spacing: 0.12, width: 0.05, taper: 0.4, paint: { kind: 'solid', color: '#2a1a0a' }, altColor: null, dash: 'solid' };
 }
 
 export function groupLayer(children: Layer[] = []): GroupLayer {
@@ -172,6 +221,8 @@ export const NEW_LAYER: Record<EditableLayerType, () => Layer> = {
   texture: () => textureLayer(),
   shape: shapeLayer,
   path: () => pathLayer(),
+  text: textLayer,
+  contours: contoursLayer,
   group: () => groupLayer(),
 };
 
@@ -184,6 +235,8 @@ export const LAYER_TYPE_NAMES: Record<Layer['type'], string> = {
   texture: 'Texture',
   shape: 'Shape',
   path: 'Path',
+  text: 'Text',
+  contours: 'Contours',
   group: 'Group',
   unsupported: 'Unsupported layer',
 };
@@ -381,5 +434,34 @@ export const LAYERED_TEMPLATES: LayeredTemplate[] = [
       { ...textureLayer('cracks'), name: 'Burning cracks', color: '#ff6a1a', amount: 0.6, clip: 'band', seed: 0x4e11, effects: [glow({ inner: true, color: '#ffe08a', opacity: 0.6, size: 0.03 }), glow({ color: '#ff3a0a', opacity: 0.8, size: 0.12 })] },
       { ...lineLayer(), name: 'Inner rim', at: 0.96, width: 0.07, paint: { kind: 'solid', color: '#7a7a7a' }, effects: [bevel({ size: 0.5, gloss: 0.4 }), material('iron')] },
     ],
+  },
+  // Phase 7: ornaments anywhere.
+  {
+    id: 'royal-inscription',
+    name: 'Royal inscription',
+    description: 'Gold with an engraved inscription, fine contour lines and rubies in claw settings riding a wave.',
+    make: () => {
+      const wave = { ...lineLayer(), name: 'Gem path', visible: false, at: 0.68, waveAmplitude: 0.13, waves: 8 };
+      return [
+        { ...bandFillLayer(), name: 'Gold band', paint: { kind: 'solid', color: '#909090' }, effects: styleEffects('gold') },
+        { ...contoursLayer(), name: 'Contour lines', count: 2, from: 0.06, spacing: 0.88, width: 0.035, taper: 0, paint: { kind: 'solid', color: '#5a3a10' }, effects: styleEffects('engraved') },
+        { ...textLayer(), name: 'Inscription', text: 'BY CROWN AND OATH · EVER LOYAL ·', size: 0.24, at: 0.24, spacing: 0.12, fill: '#6a4a18', effects: styleEffects('engraved') },
+        wave,
+        {
+          ...repeatLayer(),
+          name: 'Rubies',
+          element: 'gem',
+          follow: wave.id,
+          count: 24,
+          size: 0.3,
+          fill: '#b0182a',
+          raised: false,
+          gemSparkle: 0.6,
+          setting: 'claws4',
+          settingEffects: styleEffects('gold'),
+          effects: [shadow({ distance: 0.03, blur: 0.04, opacity: 0.6 })],
+        },
+      ];
+    },
   },
 ];

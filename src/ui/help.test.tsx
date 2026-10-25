@@ -5,7 +5,7 @@
 import 'fake-indexeddb/auto';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { bandFillLayer, createProject, NEW_EFFECT, groupLayer, legacyFrameLayer, lineLayer, pathLayer, repeatLayer, shapeLayer, textureLayer, GEM_POINTS } from '../project/defaults';
+import { bandFillLayer, contoursLayer, textLayer, createProject, NEW_EFFECT, groupLayer, legacyFrameLayer, lineLayer, pathLayer, repeatLayer, shapeLayer, textureLayer, GEM_POINTS } from '../project/defaults';
 import { EFFECT_KINDS, TEXTURE_KINDS, type Effect, type Layer, type Paint } from '../project/types';
 import { loadProject, select, setMode } from '../state/projectStore';
 import { PropertiesPanel } from './PropertiesPanel';
@@ -33,6 +33,10 @@ const LAYERS: [string, Layer][] = [
   ['layer with every effect', { ...bandFillLayer(), effects: [...EFFECT_KINDS.map((k) => NEW_EFFECT[k]()), { ...NEW_EFFECT.bevel(), surface: 'hammered' } as Effect, { ...NEW_EFFECT.glow(), inner: true } as Effect] }],
   ['group with effects', { ...groupLayer([lineLayer()]), effects: [NEW_EFFECT.shadow()] }],
   ['faceted shape that cuts a hole', { ...shapeLayer(), faceted: true, blend: 'destination-out' }],
+  ['shape in a radial array', { ...shapeLayer(), radialCount: 6 }],
+  ['set gems with random variation', { ...repeatLayer(), element: 'gem', setting: 'claws4', settingEffects: [NEW_EFFECT.bevel()], jitterSize: 0.2 }],
+  ['text', { ...textLayer(), outline: '#000000' }],
+  ['contours', { ...contoursLayer(), altColor: '#ff0000' }],
 ];
 
 /** Every control in `root` with no help tip, by its label. */
@@ -76,4 +80,15 @@ describe('help tips', () => {
     // One plain sentence each.
     for (const tip of container.querySelectorAll('.help-text')) expect(tip.textContent).toMatch(/^[A-Z0-9].*[.]$/);
   });
+});
+
+it('every control of a repeat following a path has one', () => {
+  setMode('advanced');
+  const path = pathLayer(GEM_POINTS);
+  const r = { ...repeatLayer(), follow: path.id };
+  loadProject(createProject([path, r]));
+  select(r.id);
+  const { container } = render(<PropertiesPanel />);
+  expect(withoutHelp(container)).toEqual([]);
+  setMode('basic');
 });

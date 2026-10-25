@@ -5,8 +5,11 @@ import type { FrameGeometry } from '../engine/legacy/frameKit';
 import type { Point } from '../engine/legacy/shapes';
 import type { FrameProject, Layer, PathPoint, Placement, PlacedLayer } from '../project/types';
 import { acrossOfPoint, alongOfPoint, bandGeometry, bandWidthPx, insetAt, maxAcross, outlineAt } from './band';
-import { lineOutline, repeatPlacements } from './layers';
-import { localBounds, placement, placements, toCanvas, toLocal, unitPx } from './placed';
+import { flatten } from '../project/tree';
+import { contourLines, lineOutline, repeatPlacements } from './layers';
+import { localBounds, placement, placements, primaryPlacement, toCanvas, toLocal, unitPx } from './placed';
+import { textGlyphs } from './text';
+import type { FindLayer } from './track';
 
 const round3 = (v: number) => Math.round(v * 1000) / 1000;
 
@@ -36,12 +39,12 @@ export function hitsPlaced(layer: PlacedLayer, g: FrameGeometry, pt: Point, slac
   });
 }
 
-function hits(layer: Layer, g: FrameGeometry, pt: Point): boolean {
+function hits(layer: Layer, g: FrameGeometry, pt: Point, find: FindLayer): boolean {
   const across = acrossOfPoint(g, pt);
   const slack = 4 / Math.max(1, bandWidthPx(g));
   switch (layer.type) {
     case 'repeat':
-      return repeatPlacements(layer, g).some(({ p, h }) => Math.hypot(pt.x - p.x, pt.y - p.y) <= (h * Math.max(1, layer.stretch)) / 2 + 3);
+      return repeatPlacements(layer, g, find).some(({ p, h }) => Math.hypot(pt.x - p.x, pt.y - p.y) <= (h * Math.max(1, layer.stretch)) / 2 + 3);
     case 'line':
       if (layer.waveAmplitude > 0) return distanceToOutline(lineOutline(layer, g), pt) <= (layer.width * bandWidthPx(g)) / 2 + 4;
       return Math.abs(across - layer.at) <= layer.width / 2 + slack;
@@ -53,14 +56,27 @@ function hits(layer: Layer, g: FrameGeometry, pt: Point): boolean {
     case 'shape':
     case 'path':
       return hitsPlaced(layer, g, pt);
+    case 'text': {
+      const { glyphs, height } = textGlyphs(layer, g, find);
+      return glyphs.some(({ p, width }) => Math.hypot(pt.x - p.x, pt.y - p.y) <= Math.max(height, width) * 0.6 + 3);
+    }
+    case 'contours':
+      return contourLines(layer).some((l) => Math.abs(across - l.at) <= l.width / 2 + slack);
     default:
       return false;
   }
 }
 
+/** Finds layers of a project by id (the layers others follow). */
+export function finder(project: FrameProject): FindLayer {
+  const byId = new Map(flatten(project.layers).map((l) => [l.id, l]));
+  return (id) => byId.get(id);
+}
+
 /** The top-most visible, unlocked layer under a point (inside groups too), or null. */
 export function pickLayer(project: FrameProject, size: number, pt: Point): Layer | null {
   const g = bandGeometry(project.stage, size);
+  const find = finder(project);
   const search = (layers: Layer[]): Layer | null => {
     for (let i = layers.length - 1; i >= 0; i--) {
       const layer = layers[i];
@@ -68,7 +84,7 @@ export function pickLayer(project: FrameProject, size: number, pt: Point): Layer
       if (layer.type === 'group') {
         const inside = search(layer.children);
         if (inside) return inside;
-      } else if (hits(layer, g, pt)) return layer;
+      } else if (hits(layer, g, pt, find)) return layer;
     }
     return null;
   };
@@ -94,7 +110,7 @@ export function dragLayer(layer: Layer, project: FrameProject, size: number, sta
   const clamp = (v: number) => round3(Math.min(1.5, Math.max(-0.5, v)));
   switch (layer.type) {
     case 'repeat': {
-      const n = Math.max(1, repeatPlacements(layer, g).length);
+      const n = Math.max(1, repeatPlacements(layer, g, finder(project)).length);
       const turn = (Math.atan2(now.y, now.x) - Math.atan2(start.y, start.x)) / (Math.PI * 2);
       const wrapped = ((turn % 1) + 1.5) % 1 - 0.5;
       // One gap is 1/n of the way round; offset is measured in gaps.
@@ -102,7 +118,10 @@ export function dragLayer(layer: Layer, project: FrameProject, size: number, sta
       return { at: clamp(layer.at + dAcross), offset: round3(offset) };
     }
     case 'line':
+    case 'text':
       return { at: clamp(layer.at + dAcross) };
+    case 'contours':
+      return { from: clamp(layer.from + dAcross) };
     case 'bandFill':
     case 'texture':
       return { from: clamp(layer.from + dAcross), to: clamp(layer.to + dAcross) };
@@ -131,7 +150,7 @@ export function nudgeLayer(layer: Layer, project: FrameProject, size: number, dx
     if (!t) return null;
     start = { x: t.x, y: t.y };
   } else {
-    const across = layer.type === 'line' || layer.type === 'repeat' ? layer.at : layer.type === 'bandFill' || layer.type === 'texture' ? (layer.from + layer.to) / 2 : 0.5;
+    const across = layer.type === 'line' || layer.type === 'repeat' || layer.type === 'text' ? layer.at : layer.type === 'contours' ? layer.from : layer.type === 'bandFill' || layer.type === 'texture' ? (layer.from + layer.to) / 2 : 0.5;
     start = { x: 0, y: -(g.R - insetAt(g, across)) };
   }
   return dragLayer(layer, project, size, start, { x: start.x + dx, y: start.y + dy });
@@ -152,8 +171,10 @@ export interface Handles {
 const ROTATE_GAP = 22;
 
 export function transformHandles(layer: PlacedLayer, g: FrameGeometry, zoom = 1): Handles | null {
-  const t = placement(layer, g);
-  if (!t) return null;
+  const centre = placement(layer, g);
+  // The box is round the layer itself, or the first copy of its radial array; the anchor stays the centre.
+  const t = primaryPlacement(layer, g);
+  if (!t || !centre) return null;
   const b = localBounds(layer);
   const box = [
     { x: b.minX, y: b.minY },
@@ -169,9 +190,9 @@ export function transformHandles(layer: PlacedLayer, g: FrameGeometry, zoom = 1)
   const margin = 10 * zoom;
   if (Math.abs(rotate.x) > g.R - margin || Math.abs(rotate.y) > g.R - margin) {
     const bottom = toCanvas(t, { x: (b.minX + b.maxX) / 2, y: b.maxY });
-    return { anchor: { x: t.x, y: t.y }, box, scale: box[2], rotate: { x: bottom.x - up.x * ROTATE_GAP * zoom, y: bottom.y - up.y * ROTATE_GAP * zoom }, stem: bottom };
+    return { anchor: { x: centre.x, y: centre.y }, box, scale: box[2], rotate: { x: bottom.x - up.x * ROTATE_GAP * zoom, y: bottom.y - up.y * ROTATE_GAP * zoom }, stem: bottom };
   }
-  return { anchor: { x: t.x, y: t.y }, box, scale: box[2], rotate, stem: top };
+  return { anchor: { x: centre.x, y: centre.y }, box, scale: box[2], rotate, stem: top };
 }
 
 /** New size from dragging the scale handle: grows with the pointer's distance from the anchor. */
@@ -196,7 +217,7 @@ export type PathPart = { point: number; part: 'point' | 'in' | 'out' };
 
 /** The path's points and curve handles in canvas pixels (for the layer itself, not its mirrored copies). */
 export function pathHandles(layer: PlacedLayer & { points: PathPoint[] }, g: FrameGeometry) {
-  const t = placement(layer, g);
+  const t = primaryPlacement(layer, g);
   if (!t) return [];
   return layer.points.map((p) => ({
     at: toCanvas(t, p),
@@ -220,7 +241,7 @@ export function pickPathPart(layer: PlacedLayer & { points: PathPoint[] }, g: Fr
 
 /** A canvas point in the path's own units (where a new point goes), or null if the path can't be placed. */
 export function pathLocal(layer: PlacedLayer, g: FrameGeometry, pt: Point): Point | null {
-  const t = placement(layer, g);
+  const t = primaryPlacement(layer, g);
   if (!t) return null;
   const l = toLocal(t, pt);
   return { x: round3(l.x), y: round3(l.y) };

@@ -14,7 +14,7 @@
 import type { FrameStyle, ShapeId } from '../engine/legacy/catalog';
 
 export const PROJECT_FORMAT = 'frame-studio-project';
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export interface FrameProject {
   format: typeof PROJECT_FORMAT;
@@ -351,7 +351,40 @@ export interface RepeatLayer extends LayerBase {
   shaded: boolean;
   /** Which elements are drawn, as a repeating on/off pattern: [true, false] = every other one. Empty = all. Version 4. */
   show: boolean[];
+  // Version 6 (Phase 7):
+  /** The id of a path or line layer to follow instead of the band; null (or a layer that is gone) = the band. */
+  follow: string | null;
+  /** Along the path (turning with it) or upright on the screen. */
+  orient: RepeatOrient;
+  /** Size at the end of the path (or the way round), as a multiple of the start (1 = all the same). */
+  scaleEnd: number;
+  /** Random variation, picked by `seed`: size (0–1, a share), angle (degrees either way), and a chance of leaving one out (0–1). */
+  jitterSize: number;
+  jitterAngle: number;
+  skipChance: number;
+  /** How a cut gem (element 'gem') is cut. */
+  gemCut: GemCut;
+  /** The flat top as a share of the gem (brilliant, emerald). */
+  gemTable: number;
+  /** How high the crown rises, so how strongly the facets catch the light (0.2–3). */
+  gemCrown: number;
+  /** How many sides the gem has (brilliant, rose, rough). */
+  gemFacets: number;
+  /** A glint of light on the side facing the light (0 = none). */
+  gemSparkle: number;
+  /** A metal setting round each element. */
+  setting: GemSetting;
+  settingColor: string;
+  /** The setting's own effects (a metal style), applied to the setting alone. */
+  settingEffects: Effect[];
 }
+
+export const REPEAT_ORIENTS = ['along', 'upright'] as const;
+export type RepeatOrient = (typeof REPEAT_ORIENTS)[number];
+export const GEM_CUTS = ['brilliant', 'rose', 'emerald', 'cabochon', 'rough'] as const;
+export type GemCut = (typeof GEM_CUTS)[number];
+export const GEM_SETTINGS = ['none', 'bezel', 'claws4', 'claws6'] as const;
+export type GemSetting = (typeof GEM_SETTINGS)[number];
 
 /**
  * Where a shape or path sits. 'band' (the default) anchors it at a point
@@ -374,6 +407,14 @@ export interface Placement {
   rotation: number;
   /** Extra mirrored copies: a left/right pair, a top/bottom pair, or all four. */
   mirror: MirrorMode;
+  /** A radial array (version 6): this many copies round the anchor (1 = off), each pointing outwards. */
+  radialCount: number;
+  /** How far each copy is from the anchor: band widths ('band') or half-sizes ('free'). */
+  radialRadius: number;
+  /** Where the first copy is, in degrees clockwise from straight out ("up"). */
+  radialStart: number;
+  /** Every other copy is mirrored. */
+  radialMirror: boolean;
 }
 
 export const MIRROR_MODES = ['none', 'leftRight', 'topBottom', 'four'] as const;
@@ -463,6 +504,56 @@ export interface TextureLayer extends LayerBase {
   seed: number;
 }
 
+export const TEXT_FONTS = ['runes', 'grenze', 'atkinson'] as const;
+export type TextFont = (typeof TEXT_FONTS)[number];
+
+/**
+ * A line of text running round the band, or along a path or line layer
+ * (version 6). Letters stand on the line with their tops outwards (or, with
+ * `reverse`, read the other way with their tops inwards, for the bottom of a
+ * token).
+ */
+export interface TextLayer extends LayerBase {
+  type: 'text';
+  text: string;
+  font: TextFont;
+  /** Letter height, in band widths. */
+  size: number;
+  /** Extra room between letters, as a share of the letter height. */
+  spacing: number;
+  /** Across position of the letters' middle (on the band). */
+  at: number;
+  /** Where the text is, round the band or along the path (0–1, clockwise from the top). */
+  along: number;
+  /** `along` is the middle of the text, or where it starts. */
+  align: 'centre' | 'start';
+  reverse: boolean;
+  /** A path or line layer to follow instead of the band. */
+  follow: string | null;
+  fill: string;
+  outline: string | null;
+  /** Fraction of the letter height. */
+  outlineWidth: number;
+}
+
+/** Several lines round the band at once, a quick ring builder (version 6). */
+export interface ContoursLayer extends LayerBase {
+  type: 'contours';
+  count: number;
+  /** Across position of the first (outermost) line. */
+  from: number;
+  /** Across distance between lines (band widths). */
+  spacing: number;
+  /** The first line's width (band widths). */
+  width: number;
+  /** How much thinner the last line is than the first (−1 … 0.95; negative = thicker). */
+  taper: number;
+  paint: Paint;
+  /** Every other line in this colour instead (solid and metal paints). null = all the same. */
+  altColor: string | null;
+  dash: 'solid' | 'dashed' | 'dotted';
+}
+
 /** Layers kept together: hidden, locked, faded and moved as one. */
 export interface GroupLayer extends LayerBase {
   type: 'group';
@@ -483,7 +574,9 @@ export interface UnsupportedLayer extends LayerBase {
   reason: string;
 }
 
-export type Layer = LegacyFrameLayer | BandFillLayer | LineLayer | RepeatLayer | TextureLayer | ShapeLayer | PathLayer | GroupLayer | UnsupportedLayer;
+export type Layer = LegacyFrameLayer | BandFillLayer | LineLayer | RepeatLayer | TextureLayer | ShapeLayer | PathLayer | TextLayer | ContoursLayer | GroupLayer | UnsupportedLayer;
+/** Layers that a repeat or text can follow (their outline is a track). */
+export type TrackLayer = PathLayer | LineLayer;
 /** Layers with a placement (move, scale, rotate, mirror). */
 export type PlacedLayer = ShapeLayer | PathLayer;
 export type LayerType = Layer['type'];

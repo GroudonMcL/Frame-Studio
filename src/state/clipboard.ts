@@ -4,7 +4,7 @@
 // which every Frame Studio tab of this browser shares, for when the
 // clipboard can't be read without asking.
 
-import { cloneWithNewIds, findLayer, flatten, isLocked, locate } from '../project/tree';
+import { cloneAllWithNewIds, findLayer, flatten, isLocked, locate } from '../project/tree';
 import { newId } from '../project/defaults';
 import { parseLayers, serializeLayers, type LayerSet } from '../project/transfer';
 import type { Layer } from '../project/types';
@@ -79,7 +79,7 @@ export function pasteLayers(text: string | null): boolean {
     result = kept ? parseLayers(kept) : null;
   }
   if (!result?.ok) return false;
-  const layers = result.set.layers.map((l) => cloneWithNewIds(l, newId));
+  const layers = cloneAllWithNewIds(result.set.layers, newId);
   addLayers(layers);
   showMessage(`Pasted ${layers.length === 1 ? `"${layers[0].name}"` : `${layers.length} layers`}.${result.warnings.length ? ` ${result.warnings.join(' ')}` : ''}`);
   return true;

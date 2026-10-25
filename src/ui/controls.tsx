@@ -339,3 +339,13 @@ export function PatternField({ label, values, onChange, disabled, hint }: { labe
     </ListField>
   );
 }
+
+/** A line of text, applied as you type (each change one undo step, merged while typing). */
+export function TextField({ label, value, onChange, disabled, hint, maxLength = 200 }: { label: string; value: string; onChange: (v: string, transient?: boolean) => void; disabled?: boolean; hint?: string; maxLength?: number }) {
+  const id = useId();
+  return (
+    <Field label={label} htmlFor={id} hint={hint}>
+      <input id={id} className="wide-text" value={value} maxLength={maxLength} disabled={disabled} aria-describedby={described(id, label, hint)} onChange={(e) => onChange(e.target.value, true)} onBlur={commit} />
+    </Field>
+  );
+}
