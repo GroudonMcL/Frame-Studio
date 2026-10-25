@@ -5,24 +5,30 @@ import { SHAPES } from '../src/engine/legacy/catalog';
 import { createProject, LAYERED_TEMPLATES } from '../src/project/defaults';
 import { setCanvasFactory, type Ctx } from '../src/render/canvas';
 import { renderProject } from '../src/render/renderProject';
+import { THEMED_TEMPLATES, themedProject } from '../src/project/themedTemplates';
+import { sampleArt } from '../src/engine/legacy/sampleArt';
 import { registerShippedFonts } from './nodeFonts';
 
 setCanvasFactory((w, h) => createCanvas(w, h) as unknown as HTMLCanvasElement);
 registerShippedFonts();
-const [out = 'look.png', ...ids] = process.argv.slice(2);
+const [out = 'look.png', ...args] = process.argv.slice(2);
+// 'themed' draws every themed template.
+const ids = args[0] === 'themed' ? THEMED_TEMPLATES.map((t) => t.id) : args;
+const SHAPES_SHOWN = process.env.ONE ? SHAPES.slice(0, 1) : SHAPES;
 const S = Number(process.env.S ?? 320);
-const c = createCanvas(S * SHAPES.length, S * ids.length);
+const c = createCanvas(S * SHAPES_SHOWN.length, S * ids.length);
 const ctx = c.getContext('2d') as unknown as Ctx;
 ctx.fillStyle = '#2a2a30';
 ctx.fillRect(0, 0, c.width, c.height);
 ids.forEach((id, row) => {
-  const t = LAYERED_TEMPLATES.find((x) => x.id === id)!;
-  SHAPES.forEach((shape, col) => {
-    const p = createProject(t.make(), t.name);
-    p.stage = { ...p.stage, shape: shape.id, showArt: false, thickness: 0.2 };
+  const themed = THEMED_TEMPLATES.find((x) => x.id === id);
+  const t = themed ?? LAYERED_TEMPLATES.find((x) => x.id === id)!;
+  SHAPES_SHOWN.forEach((shape, col) => {
+    const p = themed ? themedProject(themed) : createProject(t.make(), t.name);
+    p.stage = { ...p.stage, shape: shape.id, showArt: process.env.ART === '1', thickness: Number(process.env.T ?? 0.2) };
     ctx.save();
     ctx.translate(col * S, row * S);
-    renderProject(ctx, p, S, { cache: false, clear: false });
+    renderProject(ctx, p, S, { cache: false, clear: false, art: p.stage.showArt ? sampleArt((w, h) => createCanvas(w, h) as unknown as HTMLCanvasElement, 200) : null });
     ctx.restore();
   });
 });

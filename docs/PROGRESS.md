@@ -139,6 +139,8 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Tests: colours, variations (repeatable, per option, harmony, locks, styles), themes (hue, lightness, greys, Token Maker frames, accents, locks), the rig (each part, a coloured rim, a round trip), styles in library files and the styles store, the zip, the migration and v8 fixtures, help tips on every new control; Playwright: the "done when" flow (three variations, each themed and exported as a pack checked file by file) and your own style, varying a style, the rig and axe
   - **Done when:** a design is randomised into three variations, each recoloured from a theme colour and exported as a pack on every shape ✔ (Playwright "done when" test)
 
+- [x] **Themed borders** (after Phase 10): 21 editable borders in popular token styles, in their own section of New, each tested on every shape; template pictures drawn lazily so the picker stays responsive
+
 ## Known limitations after Phase 10
 
 - **Token Maker can't open designs saved since Phase 6** (now version 9) until its copy of Frame Studio's code is updated (`npm run share:export -- ..\token-maker`, then its tests); that change is in the token-maker repository, as are **more token shapes** (octagon, triangle, shield). Both wait on the owner (DESIGN.md §9).

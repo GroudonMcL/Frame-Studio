@@ -4,6 +4,12 @@ A visual editor for code-drawn token frames. Start from one of [Token Maker](htt
 
 ![The Dwarven bronze template: hammered bronze, faceted plates, engraved runes and glowing cracks, all made with effects](docs/screenshots/24-dwarven-bronze.png)
 
+## Themed borders
+
+New → **Themed borders** offers 21 ready-made borders in the styles people buy and make for tabletop tokens, every part editable: Enamelled gold, Worn iron ring, Rose wreath, Fey glade, Gothic thorns, Tidal ring, Archmage's sigil ring, Starship hull, Hellfire ring, Frostbound ring, Stormcaller, Necropolis, Clockwork brass, Celtic knot, Dragonscale, Mossy stone circle, Nautical rope, Autumn leaves, Celestial halo, Desert tomb and Amethyst geode. They are made from the same layers, generators, styles and lighting you can use yourself, and fit every token shape.
+
+![The themed borders](docs/screenshots/26-themed-borders.png)
+
 ## What works now (Phase 10)
 
 - **Variations:** the **Variations** button shows six versions of your design (other patterns, colours turned round the colour wheel together, sizes nudged), as different as you like; pick one to use it. Locked layers stay as they are. **Vary the style** in Effects does the same to one layer's effects.

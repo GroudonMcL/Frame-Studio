@@ -496,6 +496,10 @@ A **setting** follows the gem's outline (or an oval round any other element): a 
 - **Lighting…** (over the canvas): the rig of §5.9.
 - **Export → Token pack:** one ZIP (a small stored-zip writer, no new dependency) with the design on all five token shapes at the chosen sizes (128–1024 px), see-through and, optionally, with the sample picture, plus its project file, in a folder named after the design.
 
+### 6.9 Themed borders (after Phase 10)
+
+`project/themedTemplates.ts`. New has a **Themed borders** section: 21 designs in the styles popular for tabletop tokens (metal and enamel rings, wreaths and fey borders, gothic frames, elemental rings for fire, frost and storm, necrotic, clockwork, Celtic knotwork, scales, stone, nautical, celestial, desert, crystal), built only from ordinary layers, generators and styles, so every part is editable. A few carry their own lighting rig (`stage` patch: bloom, bleed, extra lights, ambient), applied on top of the default stage when they are opened (`themedProject`). A test opens each one, checks it survives a file round trip without warnings, and draws it on every shape. Template pictures are drawn one at a time, only once their tile scrolls into view (`ui/Thumbnail.tsx`), so the picker stays responsive with many tiles.
+
 Undo/redo works on the structured project (token-maker's `history.ts`): every edit is one step; a slider, colour-picker, handle or point drag is one step. Loading a project starts a fresh history.
 
 Autosave: the project's JSON is written to IndexedDB (`frame-studio:project`) 0.4 s after each change and restored on the next visit. First visit opens Token Maker's Stamped frame.
