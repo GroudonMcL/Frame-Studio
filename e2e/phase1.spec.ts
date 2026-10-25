@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { SCHEMA_VERSION } from '../src/project/types';
 
 // A fingerprint of the preview canvas, to tell whether the picture changed.
 const previewHash = (page: Page) =>
@@ -92,13 +93,13 @@ test('save, open and export', async ({ page }, info) => {
   const original = await previewHash(page);
 
   const saving = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   const saved = await saving;
   expect(saved.suggestedFilename()).toBe('Glowing-runes.framestudio.json');
   const path = info.outputPath('saved.json');
   await saved.saveAs(path);
   const json = JSON.parse(readFileSync(path, 'utf8'));
-  expect(json).toMatchObject({ format: 'frame-studio-project', schemaVersion: 5 });
+  expect(json).toMatchObject({ format: 'frame-studio-project', schemaVersion: SCHEMA_VERSION });
 
   await page.getByRole('button', { name: 'New' }).click();
   await page.getByRole('button', { name: /Blank project/ }).click();

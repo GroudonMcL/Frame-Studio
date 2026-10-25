@@ -14,6 +14,7 @@ import { TemplateDialog } from './ui/TemplateDialog';
 import { TextureDialog } from './ui/TextureDialog';
 import { TopBar } from './ui/TopBar';
 import { WelcomeCard } from './ui/WelcomeCard';
+import { RandomiseDialog, ThemeDialog } from './ui/WorkflowDialogs';
 import { hasBeenWelcomed } from './ui/welcome';
 
 const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
@@ -34,7 +35,7 @@ function useMediaQuery(query: string): boolean {
 
 export function App() {
   const [ready, setReady] = useState(false);
-  const [dialog, setDialog] = useState<'new' | 'addFrame' | 'texture' | 'library' | null>(null);
+  const [dialog, setDialog] = useState<'new' | 'addFrame' | 'texture' | 'library' | 'vary' | 'theme' | null>(null);
   const [welcome, setWelcome] = useState(() => !hasBeenWelcomed());
   const [sheet, setSheet] = useState<'layers' | 'properties'>('layers');
   const narrow = useMediaQuery(NARROW_QUERY);
@@ -117,7 +118,7 @@ export function App() {
 
   return (
     <div className={`app${narrow ? ' narrow' : ''}`}>
-      <TopBar onNew={() => setDialog('new')} onHelp={() => setWelcome(true)} onMessage={showMessage} />
+      <TopBar onNew={() => setDialog('new')} onHelp={() => setWelcome(true)} onMessage={showMessage} onVary={() => setDialog('vary')} onTheme={() => setDialog('theme')} />
       {narrow ? (
         <main className="workspace narrow">
           <Stage />
@@ -166,6 +167,8 @@ export function App() {
       {welcome && <WelcomeCard onClose={() => setWelcome(false)} onTemplates={() => setDialog('new')} />}
       {dialog === 'texture' && <TextureDialog onClose={() => setDialog(null)} />}
       {dialog === 'library' && <LibraryDialog onClose={() => setDialog(null)} />}
+      {dialog === 'vary' && <RandomiseDialog onClose={() => setDialog(null)} />}
+      {dialog === 'theme' && <ThemeDialog onClose={() => setDialog(null)} />}
       {(dialog === 'new' || dialog === 'addFrame') && <TemplateDialog mode={dialog} onClose={() => setDialog(null)} />}
     </div>
   );

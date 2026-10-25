@@ -19,39 +19,39 @@ Each phase keeps the project's rules (DESIGN.md §7): one renderer, sizes measur
 | Brief | Idea | Phase |
 |---|---|---|
 | 1 Materials | Embossing, bevels and relief: inner bevels, width, depth, softness, profile, raised/recessed, highlight and shadow colours, shared light | **6 (done)** |
-| | Height maps combined between layers | 6 on groups (a group's effects see its layers as one shape); full height compositing in 9 |
+| | Height maps combined between layers | **9 (done)**: a group's shared height map |
 | | Material presets: gold, silver, copper, bronze, blackened iron, hammered metal, marble/granite/slate/obsidian, bone, ivory, crystal, glass, ice | **6 (done)**: 26 styles, 14 material ramps |
 | | Damascus steel, chainmail, wood, leather, parchment, porcelain, enamel, lacquer, chitin, corrupted flesh | 6 has the systems (surfaces + ramps); more presets in 10 |
 | | Wear: scratches, chips, worn edges, rust/verdigris, dirt, edge-dependent wear | **6 (done)**: chips, rubbed edges, grime; scratches and missing fragments in 8 |
 | | Lighting and glow: inner/outer glow, soft shadows, emissive cracks and runes | **6 (done)** |
-| | Bloom, coloured light bleeding onto neighbours, scattering through crystal | 10 (light rig) |
+| | Bloom, coloured light bleeding onto neighbours, scattering through crystal | **10 (done)**: the lighting rig |
 | | Filters: hue, saturation, brightness, contrast, gradient map, duotone | **6 (done)** |
 | | Posterise, threshold, noise, blur, sharpen, chromatic aberration, distortion, halftone, stippling | 8 (distortion) and 10 (the rest, as more effects) |
 | 2 Compositing | Multiply, Screen, Overlay, Soft/Hard Light, Difference/Exclusion, Darken/Lighten, Add, colour dodge/burn, hue/saturation/luminosity | **6 (done)** |
 | | Knockout (cut holes) | **6 (done)**, kept apart from colour blending in the interface |
 | | Clipping group | Phases 2 and 6 (clip to the layer below, clip to the band) |
-| | Alpha and luminance masks from any layer, matte extraction | 9 |
+| | Alpha and luminance masks from any layer, matte extraction | **9 (done)** |
 | 3 2.5D | Height → normals → lighting, profiles, normal strength and smoothing | **6 (done)** |
-| | Preview the height and normal maps | 9 |
+| | Preview the height and normal maps | **9 (done)** |
 | | Procedural faceted shapes with calculated face orientations | **6 (done)**: facets for shapes and paths; gem, plate and shard elements |
-| | Gemstone generator: cuts (brilliant, rose, emerald, cabochon, rough), settings, claws and bezels | 6 has brilliant, plate, shard and the glossy-gem style; cuts and settings in 7 |
-| | A global lighting rig with a handle | Phase 2's light dial drives everything; elevation per bevel in 6; several coloured lights and rim light in 10 |
-| | Extrusion and sidewalls | 9 (needs height compositing) |
-| 4 Geometry | Parametric ring builder (nested bands, contours, each its own material) | Already possible (band fills and lines); a "contours" layer in 7 |
-| | Polygon border generator | The five token shapes come from Token Maker; more shapes need Token Maker too, so later (10) |
-| | Bézier paths | Phase 2; separate in/out handles in 9 |
-| | Path-following objects | 7 |
-| | Boolean geometry, offset, stroke to shape | 9 |
-| | Organic generators (branches, roots, tendrils, thorns, antlers, coral, veins) | 8 |
-| | Text on a path, variable-width strokes, symmetry tools | 7 |
-| 5 Procedural | Radial array, mandala | 7 |
-| | Linear array | 7 (along a path) |
-| | Spiral generator | 8 |
-| | Voronoi, cellular patterns, crack generator | 6 as surfaces (cracked plates, scales); as geometry in 8 |
-| | Fractal branching, L-systems | 8 |
-| | Knotwork | 8 |
-| | Gears and cogs | 8 |
-| | Noise-driven displacement | 8 |
+| | Gemstone generator: cuts (brilliant, rose, emerald, cabochon, rough), settings, claws and bezels | **7 (done)** |
+| | A global lighting rig with a handle | Phase 2's light dial; elevation per bevel in 6; several coloured lights and rim light **10 (done)** |
+| | Extrusion and sidewalls | **9 (done)** |
+| 4 Geometry | Parametric ring builder (nested bands, contours, each its own material) | **7 (done)**: the contours layer |
+| | Polygon border generator | The five token shapes come from Token Maker; more shapes need Token Maker too (waiting on the owner, DESIGN.md §9) |
+| | Bézier paths | Phase 2; separate in/out handles **9 (done)** |
+| | Path-following objects | **7 (done)** |
+| | Boolean geometry, offset, stroke to shape | **9 (done)**: combining groups, grow/shrink, tapered strokes |
+| | Organic generators (branches, roots, tendrils, thorns, antlers, coral, veins) | **8 (done)** |
+| | Text on a path, variable-width strokes, symmetry tools | **7 (done)** |
+| 5 Procedural | Radial array, mandala | **7 (done)** |
+| | Linear array | **7 (done)** (along a path) |
+| | Spiral generator | **8 (done)**: curling tendrils |
+| | Voronoi, cellular patterns, crack generator | **8 (done)** as geometry (6 as surfaces) |
+| | Fractal branching, L-systems | **8 (done)**: branches on branches |
+| | Knotwork | **8 (done)** |
+| | Gears and cogs | **8 (done)** |
+| | Noise-driven displacement | **8 (done)**: the distortion effect |
 
 ## Phase 6 — Surfaces and effects (done)
 
@@ -62,7 +62,9 @@ The two examples in the brief are templates now:
 - *An ancient dwarven border of layered hammered bronze, individually bevelled hexagonal plates, recessed runes, tiny rivets, directional highlights and a warm glow from cracks in the metal* → **Dwarven bronze**: a band with the Hammered bronze style, a cracks texture with a glow, faceted hexagonal plates recoloured as bronze with a little wear, runes with the Engraved style, rivets, bevelled rims.
 - *An eldritch border of translucent purple crystals with irregular facets, internal light, overlapping tendrils and subtle distortion* → **Eldritch crystal**: an obsidian band, two bevelled wavy tendrils that cast shadows on each other, a glowing line, and faceted crystal shards with an inner and an outer glow. (Distortion comes in Phase 8.)
 
-## Phase 7 — Ornaments anywhere
+## Phase 7 — Ornaments anywhere (done)
+
+Built: repeats that follow any path or line (facing along it or upright, growing along the way, with seeded random variation), radial arrays on shapes and paths, five gem cuts with sparkle and bezel or claw settings that take their own metal style, text on the band or a path (runes, Grenze, Atkinson) and contour layers, plus the Royal inscription template. Details in DESIGN.md §4.9, §4.10, §5.6 and §6.5. The plan as it was:
 
 The ring of repeated shapes is Frame Studio's most used layer; this phase frees it from the band.
 
@@ -74,7 +76,9 @@ The ring of repeated shapes is Frame Studio's most used layer; this phase frees 
 
 Done when: a ring of gems in claw settings follows a drawn wavy path, and an engraved inscription runs round the band, both with effects, on every token shape.
 
-## Phase 8 — Generators
+## Phase 8 — Generators (done)
+
+Built: growth (vines, roots, thorns, tendrils, antlers), cracks and lightning as geometry, plates and cells (irregular, honeycomb, bricks, tiles, scales; missing pieces), knotwork with real over/under crossings, gears and chains, a distortion effect and scratches; waves fitted to the band; Druid, Knotwork, Artificer and Barbarian converted; the Overgrown ruin template. Details in DESIGN.md §5.7 and §6.6. The plan as it was:
 
 Intricate geometry from a few numbers, all seeded so preview and export match, all producing ordinary layers that effects and styles work on.
 
@@ -87,14 +91,18 @@ Intricate geometry from a few numbers, all seeded so preview and export match, a
 
 Done when: an "Overgrown ruin" template (cracked stone plates with missing fragments, roots growing through, knotwork band) is built only from generators and styles, and the four unconverted Token Maker frames that needed these (Druid, Knotwork, Artificer, Barbarian) convert.
 
-## Phase 9 — Precise control
+## Phase 9 — Precise control (done)
+
+Built: masks from any layer (shape or brightness, inverted), a shared height map per group (layers raise or carve into it, lit by the group's bevel), height and normal map views, extruded sides, grow and shrink, combining a group's shapes (union, subtract, intersect, exclude), tapered strokes, separate in/out handles, moving and turning groups on the canvas, zoom and pan, and the Rune-carved plates template. Details in DESIGN.md §5.8 and §6.7. The plan as it was:
 
 1. **Masks:** show a layer through any other layer's shape or brightness (alpha and luminance masks, inverted or not), not only the layer below.
 2. **Height compositing:** layers can add to (or cut into) a shared height map, so a bevel sees overlapping runes, plates and bands as one sculpted surface; extruded sidewalls for raised plates. A view of the height and normal maps.
 3. **Boolean geometry:** union, subtract and intersect shapes and paths; offset (grow and shrink); turn a stroke into a filled shape with taper.
 4. **Editing:** separate in/out handles for path points, move and turn a group on the canvas, zoom and pan.
 
-## Phase 10 — Workflow
+## Phase 10 — Workflow (done, except more shapes)
+
+Built: variations with locks, varying one style, your own styles (in the library and library files), a theme colour (and an accent) for a whole design, a lighting rig (more coloured lights, ambient colour, bloom, light bleeding), and token packs (every shape and size in one ZIP). Details in DESIGN.md §5.9 and §6.8. **Not built: more shapes** (item 6), which needs the shapes added to Token Maker's engine first; see DESIGN.md §9. The plan as it was:
 
 1. **Randomise:** a dice button on a style or a whole design that varies seeds, colours and sizes within sensible limits; lock what shouldn't change.
 2. **Your own styles:** save a layer's effects as a style in your library (and in library files), next to the built-in ones.
@@ -105,4 +113,4 @@ Done when: an "Overgrown ruin" template (cracked stone plates with missing fragm
 
 ## Token Maker
 
-Token Maker draws Frame Studio designs with a copy of Frame Studio's reader and renderer (DESIGN.md §10). Its copy reads designs up to schema version 4, so it refuses version-5 files (those saved since Phase 6) with "made with a newer Frame Studio". Running `npm run share:export -- ..\token-maker` copies the new reader and renderer (effects included) across; that should be done, and Token Maker's tests run, before sharing new designs. It wasn't done in Phase 6 because the token-maker repository wasn't available to this build.
+Token Maker draws Frame Studio designs with a copy of Frame Studio's reader and renderer (DESIGN.md §10). Its copy reads designs up to schema version 4, so it refuses files saved since Phase 6 (now version 9) with "made with a newer Frame Studio". Running `npm run share:export -- ..\token-maker` copies the new reader and renderer (effects included) across; that should be done, and Token Maker's tests run, before sharing new designs. It wasn't done in Phases 6–10 because changing the token-maker repository was outside these builds (the same change would add the new token shapes).

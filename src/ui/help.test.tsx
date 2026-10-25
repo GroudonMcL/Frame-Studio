@@ -5,12 +5,13 @@
 import 'fake-indexeddb/auto';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { bandFillLayer, createProject, NEW_EFFECT, groupLayer, legacyFrameLayer, lineLayer, pathLayer, repeatLayer, shapeLayer, textureLayer, GEM_POINTS } from '../project/defaults';
+import { NEW_LAYER, bandFillLayer, contoursLayer, textLayer, createProject, NEW_EFFECT, groupLayer, legacyFrameLayer, lineLayer, pathLayer, repeatLayer, shapeLayer, textureLayer, GEM_POINTS } from '../project/defaults';
 import { EFFECT_KINDS, TEXTURE_KINDS, type Effect, type Layer, type Paint } from '../project/types';
 import { loadProject, select, setMode } from '../state/projectStore';
 import { PropertiesPanel } from './PropertiesPanel';
 import { Stage } from './Stage';
 import { TopBar } from './TopBar';
+import { LightingDialog, RandomiseDialog, ThemeDialog } from './WorkflowDialogs';
 
 const PAINTS: Paint[] = [
   { kind: 'lit', color: '#806040', light: 0.8, dark: 0.8, pressed: false, highlight: '#ffeecc' },
@@ -33,6 +34,15 @@ const LAYERS: [string, Layer][] = [
   ['layer with every effect', { ...bandFillLayer(), effects: [...EFFECT_KINDS.map((k) => NEW_EFFECT[k]()), { ...NEW_EFFECT.bevel(), surface: 'hammered' } as Effect, { ...NEW_EFFECT.glow(), inner: true } as Effect] }],
   ['group with effects', { ...groupLayer([lineLayer()]), effects: [NEW_EFFECT.shadow()] }],
   ['faceted shape that cuts a hole', { ...shapeLayer(), faceted: true, blend: 'destination-out' }],
+  ['shape in a radial array', { ...shapeLayer(), radialCount: 6 }],
+  ['set gems with random variation', { ...repeatLayer(), element: 'gem', setting: 'claws4', settingEffects: [NEW_EFFECT.bevel()], jitterSize: 0.2 }],
+  ['text', { ...textLayer(), outline: '#000000' }],
+  ['contours', { ...contoursLayer(), altColor: '#ff0000' }],
+  ...(['growth', 'fracture', 'cells', 'knotwork', 'gears', 'chain'] as const).map((t): [string, Layer] => [t, NEW_LAYER[t]()]),
+  ['wavy line fitted to the band', { ...lineLayer(), waveAmplitude: 0.2, waveFit: 1 }],
+  ['masked layer carving a shared height', { ...lineLayer(), mask: { source: 'x', mode: 'alpha', invert: false }, heightMode: 'carve' }],
+  ['combining group', { ...groupLayer([lineLayer()]), combine: 'subtract' }],
+  ['tapered stroke', { ...pathLayer(GEM_POINTS), stroke: 0.3 }],
 ];
 
 /** Every control in `root` with no help tip, by its label. */
@@ -76,4 +86,31 @@ describe('help tips', () => {
     // One plain sentence each.
     for (const tip of container.querySelectorAll('.help-text')) expect(tip.textContent).toMatch(/^[A-Z0-9].*[.]$/);
   });
+});
+
+it('every control of a repeat following a path has one', () => {
+  setMode('advanced');
+  const path = pathLayer(GEM_POINTS);
+  const r = { ...repeatLayer(), follow: path.id };
+  loadProject(createProject([path, r]));
+  select(r.id);
+  const { container } = render(<PropertiesPanel />);
+  expect(withoutHelp(container)).toEqual([]);
+  setMode('basic');
+});
+
+it('every control of the variations, theme colour and lighting dialogs, and the token pack export, has one', async () => {
+  loadProject(createProject([lineLayer()]));
+  const { container } = render(
+    <>
+      <RandomiseDialog onClose={() => {}} />
+      <ThemeDialog onClose={() => {}} />
+      <LightingDialog onClose={() => {}} />
+      <TopBar onNew={() => {}} onHelp={() => {}} onMessage={() => {}} />
+    </>,
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Add a light', hidden: true }));
+  await userEvent.click(screen.getByRole('button', { name: 'Export' }));
+  await userEvent.selectOptions(screen.getByLabelText('Export as'), 'pack');
+  expect(withoutHelp(container)).toEqual([]);
 });

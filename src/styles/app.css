@@ -237,7 +237,9 @@ textarea {
   border-color: var(--accent);
 }
 .layer-row.hidden-layer .layer-name {
-  opacity: 0.5;
+  /* Muted and slanted rather than see-through, so it stays readable (WCAG contrast). */
+  color: var(--text-muted);
+  font-style: italic;
 }
 .layer-row.dragging {
   opacity: 0.4;
@@ -337,6 +339,7 @@ textarea {
 }
 .stage-canvas {
   position: relative;
+  transform-origin: center;
   background: repeating-conic-gradient(var(--checker-a) 0 25%, var(--checker-b) 0 50%) 0 0 / 20px 20px;
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
@@ -1004,6 +1007,38 @@ select {
 }
 .app.narrow .actions {
   margin-left: 0;
+  /* One row that scrolls sideways if it must, so the canvas keeps its room. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 200px;
+}
+/* On a phone the canvas tools are a slim column of icons beside the canvas. */
+.app.narrow .stage-tools {
+  top: var(--space-1);
+  right: var(--space-1);
+  padding: 2px;
+  gap: 2px;
+}
+.app.narrow .stage-tools .zoom {
+  flex-direction: column;
+}
+.app.narrow .stage-tools .zoom-level {
+  min-width: 0;
+  padding: 0 4px;
+  font-size: var(--text-xs);
+}
+.app.narrow .stage-tools .tool-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.app.narrow .actions > * {
+  flex: none;
 }
 .app.narrow .actions .btn {
   min-width: var(--hit);
@@ -1143,4 +1178,54 @@ select {
   height: 14px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-strong);
+}
+
+/* Zoom and the view menu float over the canvas's corner, so they never resize it (Phase 9). */
+.stage-tools {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  z-index: 2;
+}
+.stage-tools .field {
+  width: auto;
+}
+.zoom {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.zoom-level {
+  min-width: 4.2em;
+  justify-content: center;
+}
+
+/* Workflow dialogs (Phase 10). */
+.small-dialog {
+  width: min(520px, calc(100vw - 32px));
+}
+.light-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.own-style {
+  position: relative;
+}
+.own-style > .icon-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
 }

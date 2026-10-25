@@ -10,7 +10,9 @@ import { createProject, groupLayer, newId, NEW_LAYER } from '../project/defaults
 import { cloneWithNewIds, findLayer, flatten, insertLayer, isLocked, locate, mapLayer, removeLayer } from '../project/tree';
 import type { EditableLayerType, Effect, FrameProject, Layer, PathPoint, StageSettings } from '../project/types';
 import { bandGeometry } from '../render/band';
-import { recentrePath } from '../render/hitTest';
+import { finder, recentrePath, turnLayer } from '../render/hitTest';
+import { repeatPlacements } from '../render/layers';
+import { shapeAsPath } from '../render/placed';
 import { createHistoryStore } from './history';
 
 export const history = createHistoryStore<FrameProject>(createProject());
@@ -311,4 +313,49 @@ export function copyEffects(): void {
 export function pasteEffects(): void {
   const copied = ui.getState().copiedEffects;
   if (copied) applyEffectsToSelected(copied, 'replace');
+}
+
+/** Changes several layers at once (one undo step unless transient); locked ones are left alone. */
+export function updateLayers(patches: { id: string; patch: Partial<Layer> }[], opts?: EditOptions): void {
+  let layers = get().layers;
+  for (const { id, patch } of patches) {
+    if (!findLayer(layers, id) || isLocked(layers, id)) continue;
+    layers = mapLayer(layers, id, (l) => ({ ...l, ...patch }) as Layer);
+  }
+  if (layers !== get().layers) update(withLayers(() => layers), opts);
+}
+
+/** The layers inside a group that move with it (not groups themselves, not locked ones). */
+export function movableIn(group: Layer): Layer[] {
+  return group.type === 'group' ? flatten(group.children).filter((l) => l.type !== 'group' && !isLocked(get().layers, l.id)) : [];
+}
+
+/** Turns everything in a group round the token's centre (one undo step). */
+export function turnGroup(id: string, degrees: number): void {
+  const group = findLayer(get().layers, id);
+  if (!group || group.type !== 'group' || isLocked(get().layers, id)) return;
+  const g = bandGeometry(get().stage, 1000);
+  const find = finder(get());
+  const patches = movableIn(group).flatMap((l) => {
+    const n = l.type === 'repeat' ? Math.max(1, repeatPlacements(l, g, find).length) : l.type === 'gears' ? Math.max(1, l.count) : 1;
+    const patch = turnLayer(l, degrees, n);
+    return patch ? [{ id: l.id, patch }] : [];
+  });
+  updateLayers(patches);
+}
+
+/** Turns a shape layer into a path layer in its place, with the same look, so its points can be edited (one undo step). */
+export function shapeToPath(id: string): void {
+  const layer = findLayer(get().layers, id);
+  if (layer?.type !== 'shape' || isLocked(get().layers, id)) return;
+  const { shape: _s, sides: _d, innerRatio: _i, corner: _c, type: _t, ...rest } = layer;
+  const path: Layer = { ...rest, type: 'path', points: shapeAsPath(layer), closed: true, stroke: 0, taperStart: 0, taperEnd: 0 };
+  update(withLayers((layers) => mapLayer(layers, id, () => path)));
+}
+
+/** Puts a whole new set of layers in place of the project's (a variation or a recolouring), as one undo step, keeping the selection where it can. */
+export function replaceLayers(layers: Layer[]): void {
+  update(withLayers(() => layers));
+  const sel = ui.getState().selectedId;
+  if (sel && !findLayer(layers, sel)) select(null);
 }

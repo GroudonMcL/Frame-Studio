@@ -1,0 +1,266 @@
+{
+  "format": "frame-studio-project",
+  "schemaVersion": 8,
+  "name": "Rune-carved plates",
+  "stage": {
+    "shape": "square",
+    "thickness": 0.14,
+    "outerSpacing": 0.1,
+    "showArt": false,
+    "backingColor": "#1d1f27",
+    "light": 140
+  },
+  "layers": [
+    {
+      "id": "Lmvn6xwgs1qqg",
+      "name": "Iron band",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "wear",
+          "on": true,
+          "chips": 0.25,
+          "polish": 0.55,
+          "grime": 0.3,
+          "grimeColor": "#2a2016",
+          "scale": 0.3,
+          "seed": 1,
+          "scratches": 0
+        },
+        {
+          "kind": "bevel",
+          "on": true,
+          "direction": "raised",
+          "profile": "chisel",
+          "size": 0.12,
+          "depth": 1,
+          "soften": 0.02,
+          "highlight": "#ffffff",
+          "highlightOpacity": 0.75,
+          "shadow": "#000000",
+          "shadowOpacity": 0.6,
+          "gloss": 0.25,
+          "lightHeight": 35,
+          "surface": "grain",
+          "surfaceDepth": 0.35,
+          "surfaceScale": 0.25,
+          "seed": 1
+        },
+        {
+          "kind": "recolour",
+          "on": true,
+          "stops": [
+            {
+              "at": 0,
+              "color": "#060606",
+              "opacity": 1
+            },
+            {
+              "at": 0.25,
+              "color": "#1c1d20",
+              "opacity": 1
+            },
+            {
+              "at": 0.5,
+              "color": "#3c3e44",
+              "opacity": 1
+            },
+            {
+              "at": 0.75,
+              "color": "#7a7e88",
+              "opacity": 1
+            },
+            {
+              "at": 1,
+              "color": "#c8ccd4",
+              "opacity": 1
+            }
+          ],
+          "amount": 1
+        }
+      ],
+      "mask": null,
+      "heightMode": "none",
+      "heightDepth": 1,
+      "heightSize": 0.15,
+      "type": "bandFill",
+      "from": 0,
+      "to": 1,
+      "paint": {
+        "kind": "solid",
+        "color": "#7a7a7a"
+      }
+    },
+    {
+      "id": "Lmvn6xwgu41b7a",
+      "name": "Runic plates",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "bevel",
+          "on": true,
+          "direction": "raised",
+          "profile": "rounded",
+          "size": 0.12,
+          "depth": 1.2,
+          "soften": 0.02,
+          "highlight": "#ffffff",
+          "highlightOpacity": 0.75,
+          "shadow": "#000000",
+          "shadowOpacity": 0.6,
+          "gloss": 0.45,
+          "lightHeight": 35,
+          "surface": "smooth",
+          "surfaceDepth": 0.5,
+          "surfaceScale": 0.25,
+          "seed": 1
+        },
+        {
+          "kind": "recolour",
+          "on": true,
+          "stops": [
+            {
+              "at": 0,
+              "color": "#1c0e04",
+              "opacity": 1
+            },
+            {
+              "at": 0.25,
+              "color": "#5a3414",
+              "opacity": 1
+            },
+            {
+              "at": 0.5,
+              "color": "#9a6430",
+              "opacity": 1
+            },
+            {
+              "at": 0.75,
+              "color": "#d0a060",
+              "opacity": 1
+            },
+            {
+              "at": 1,
+              "color": "#f6e0b0",
+              "opacity": 1
+            }
+          ],
+          "amount": 1
+        },
+        {
+          "kind": "extrude",
+          "on": true,
+          "depth": 0.07,
+          "shade": 0.6
+        },
+        {
+          "kind": "shadow",
+          "on": true,
+          "inner": false,
+          "color": "#000000",
+          "opacity": 0.6,
+          "distance": 0.05,
+          "blur": 0.06
+        }
+      ],
+      "mask": null,
+      "heightMode": "none",
+      "heightDepth": 1,
+      "heightSize": 0.15,
+      "type": "group",
+      "children": [
+        {
+          "id": "Lmvn6xwgu21237",
+          "name": "Plates",
+          "visible": true,
+          "locked": false,
+          "opacity": 1,
+          "blend": "source-over",
+          "clip": "none",
+          "effects": [],
+          "mask": null,
+          "heightMode": "none",
+          "heightDepth": 1,
+          "heightSize": 0.15,
+          "type": "repeat",
+          "element": "square",
+          "mode": "count",
+          "count": 8,
+          "spacing": 1,
+          "snapToCorners": true,
+          "at": 0.5,
+          "size": 0.78,
+          "stretch": 1.6,
+          "rotation": 0,
+          "offset": 0,
+          "fill": "#9a9a9a",
+          "outline": null,
+          "outlineWidth": 0.08,
+          "raised": false,
+          "glow": null,
+          "accentEvery": 0,
+          "accentScale": 1.6,
+          "accentColor": null,
+          "seed": 1,
+          "altColors": [],
+          "altSizes": [],
+          "skipAroundAccent": 0,
+          "alternateSides": 0,
+          "shaded": false,
+          "show": [],
+          "follow": null,
+          "orient": "along",
+          "scaleEnd": 1,
+          "jitterSize": 0,
+          "jitterAngle": 0,
+          "skipChance": 0,
+          "gemCut": "brilliant",
+          "gemTable": 0.52,
+          "gemCrown": 0.9,
+          "gemFacets": 8,
+          "gemSparkle": 0,
+          "setting": "none",
+          "settingColor": "#d4a838",
+          "settingEffects": []
+        },
+        {
+          "id": "Lmvn6xwgu31d4a",
+          "name": "Carved runes",
+          "visible": true,
+          "locked": false,
+          "opacity": 0,
+          "blend": "source-over",
+          "clip": "none",
+          "effects": [],
+          "mask": null,
+          "heightMode": "carve",
+          "heightDepth": 1.4,
+          "heightSize": 0.05,
+          "type": "text",
+          "text": "ANSUZ RAIDO KAUNAN GEBO WUNJO HAGALAZ NAUDIZ ISAZ JERA EIHWAZ PERTH ALGIZ SOWILO TIWAZ BERKANAN EHWAZ MANNAZ LAGUZ INGWAZ DAGAZ OTHALA FEHU URUZ THURISAZ",
+          "font": "runes",
+          "size": 0.36,
+          "spacing": 0.3,
+          "at": 0.5,
+          "along": 0,
+          "align": "centre",
+          "reverse": false,
+          "follow": null,
+          "fill": "#2a1a0a",
+          "outline": null,
+          "outlineWidth": 0.06
+        }
+      ],
+      "collapsed": false,
+      "combine": "normal"
+    }
+  ]
+}

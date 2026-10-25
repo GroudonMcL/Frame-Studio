@@ -96,16 +96,65 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] `npm run effects-sheet` draws every style and effects template
   - [x] Tests: 565 unit tests (87 new: every effect and its lighting, size independence, shadows, glows, materials, adjust, wear, groups, clipping, caching, shapes, a time budget, the helpers, facets and elements, every blend mode and the knockout, the migration and v4 fixtures, the Effects panel, the style library, copy and paste, facets and knockout controls, help tips on every new control) and 58 Playwright runs (31 flows: 27 × 2 desktop sizes and 4 on a phone; 4 new: the "done when" flow, the templates and pasting effects, adding effects and facets, axe on the Effects section and the style library)
   - **Done when:** a band given a style from the library becomes hammered bronze, follows the light dial, can be adjusted and undone, and its exported picture is the picture the renderer draws from the saved file ✔ (Playwright "done when" test)
-- [ ] **Phase 7 — Ornaments anywhere** (repeat along a path, radial arrays, gem cuts and settings, text on a path, contours)
-- [ ] **Phase 8 — Generators** (organic growth, cracks and lightning as geometry, plates and cells, knotwork, gears and chains, distortion)
-- [ ] **Phase 9 — Precise control** (masks, height compositing, boolean geometry, in/out handles, groups on the canvas, zoom)
-- [ ] **Phase 10 — Workflow** (randomise, your own styles, a theme colour, a lighting rig, batch export, more shapes with Token Maker)
+- [x] **Phase 7 — Ornaments anywhere**
+  - [x] Repeats follow a path or line layer (open or closed, mirrored copies included, hidden or not) instead of the band: count or spacing along it, facing along it or upright, alternate sides, size along the way, seeded random variation of size, angle and gaps (`render/track.ts`)
+  - [x] Radial arrays on shapes and paths: copies round the anchor, distance, start angle, every other one mirrored; works on the band and placed freely, with mirroring
+  - [x] Gem cuts: brilliant, rose, emerald (step cut), cabochon, rough crystal; facets, table, crown height, sparkle, all lit by the light; bezel and four- or six-claw settings round any element, with their own metal style (effects drawn on the setting alone)
+  - [x] Text layers on the band or along a path: runes (an Elder Futhark alphabet drawn from strokes), Grenze, Atkinson; size, spacing, centred or starting, read the other way, outline; effects (engraved, glowing)
+  - [x] Contours layer: several lines at once, spacing, taper, alternate colour, dashes
+  - [x] References between layers survive copy, paste, duplicate and the library (`cloneAllWithNewIds`); a followed layer's changes redraw only what follows it
+  - [x] Template: Royal inscription
+  - [x] Schema version 6 with a migration from version 5; version-5 fixture files saved by Phase 6 open and draw as before (versions 1–4 too); `npm run make-fixtures` writes a version's fixtures
+  - [x] A hidden layer's row is readable (axe colour contrast)
+  - [x] Tests: Phase 7 unit tests (tracks, spacing on open and closed paths, wavy lines, mirrored paths, facing, size along the way, variation, cache dependencies, copying references, picking, radial arrays, every gem cut and setting, text placement, fonts and runes, contours, the template on every shape, the migration and v5 fixtures, help tips) and Playwright runs for the "done when" flow (draw a path, gems in claws along it, an engraved inscription, every shape, export matches the renderer) and radial arrays, contours and the template with axe
+  - **Done when:** a ring of gems in claw settings follows a drawn wavy path, and an engraved inscription runs round the band, both with effects, on every token shape ✔ (Playwright "done when" test)
+- [x] **Phase 8 — Generators**
+  - [x] Growth layer: vine, roots, thorny stem, curling tendrils, antlers; wavy and gnarled stems, branches that curl, taper and fork (up to 3 levels), leaves, thorns or berries; along the band or a path
+  - [x] Cracks (forking, jagged, staying in their part of the band) and lightning (bolts running round it) as geometry
+  - [x] Plates and cells: irregular (Voronoi), honeycomb, bricks, tiles, scales; gap, rounding, missing pieces, colour variation; each plate bevelled on its own by a style
+  - [x] Knotwork with real over/under crossings; gears (teeth, spokes, hub, domed boss, meshing); interlocking chains
+  - [x] Distortion effect (noise displacement) and scratches on wear; lines whose waves fit the band; gear-tooth and claw-gash elements
+  - [x] Converted Druid, Knotwork, Artificer and Barbarian, with comparison limits (22 frames convert)
+  - [x] Template: Overgrown ruin, made only from generators and styles
+  - [x] Schema version 7 with a migration from version 6; version-6 fixture files saved by Phase 7 open and draw as before (versions 1–5 too)
+  - [x] Tests: every generator repeatable, seeded, on every shape, growing with the band, pickable and with effects; growth (waves, leaves, branches from the stem, taper, depth, antlers, following a path), cracks staying in their part, lightning running round, cells inside their part, missing and varied, bevelled plates, knotwork arcs and swapping, gears' sizes and meshing, chains' even links, distortion, scratches, fitted waves, the template, the migration and v6 fixtures, help tips, the four conversions' limits; Playwright: the "done when" flow (template, changes, every shape, export matches the renderer) and adding every generator, the four conversions and axe
+  - **Done when:** an "Overgrown ruin" template (cracked stone plates with missing fragments, roots growing through, a knotwork band) is built only from generators and styles ✔ (Playwright "done when" test)
+- [x] **Phase 9 — Precise control**
+  - [x] Masks from any layer: its shape or its brightness, inverted or not; the mask layer can be hidden
+  - [x] Shared height map: layers raise or carve into their group's surface, lit by the group's bevel as one surface; height and normal map views (Advanced → Show); extruded sides
+  - [x] Combining a group's shapes (union, subtract, intersect, exclude), grow and shrink, paths stroked into tapered shapes, shapes turned into paths
+  - [x] Separate in/out handles (a button, or Alt while dragging); moving a group by dragging any of its layers; turning a group round the token; zoom (to 800 %) and pan
+  - [x] Template: Rune-carved plates
+  - [x] Schema version 8 with a migration from version 7; version-7 fixture files saved by Phase 8 open and draw as before (versions 1–6 too)
+  - [x] Tests: masks (shape, brightness, inverted, missing), carving and raising in a shared height map, height-only layers, no bevel no change, the views, the template on every shape, sides, grow and shrink, every combine mode and a bevel on it, strokes and tapers, separate and joined handles, a shape as a path, turning layers, the migration and v7 fixtures, help tips; Playwright: the "done when" flow (height-map view with and without the carving, normal map, export matches the renderer and shows the carving) and a mask, combining, turning and dragging a group, zoom
+  - **Done when:** runes cut through a raised plate share one height map with it (the plate's bevel follows the cut edges), seen in the height-map view and in the export ✔ (Playwright "done when" test)
+- [x] **Phase 10 — Workflow** (all but more shapes)
+  - [x] Variations: six at a time, varying patterns, colours (turned together round the colour wheel) and sizes within "How different"; locked layers stay; one undo step; "Vary the style" in Effects
+  - [x] Your own styles: saved from Effects, shown first in the style library, removable, carried by library files
+  - [x] A theme colour (and an accent colour) recolouring the whole design, Token Maker frames and converted frames included, keeping lightness
+  - [x] A lighting rig: up to three more coloured lights on bevels, an ambient colour, bloom and light bleeding
+  - [x] Token packs: one ZIP with every shape at chosen sizes, see-through and with the sample picture, and the project file
+  - [ ] More shapes (octagon, triangle, shield) with Token Maker: needs token-maker's engine changed first (DESIGN.md §9, an open question)
+  - [x] Schema version 9 with a migration from version 8; version-8 fixture files saved by Phase 9 open and draw as before (versions 1–7 too)
+  - [x] Tests: colours, variations (repeatable, per option, harmony, locks, styles), themes (hue, lightness, greys, Token Maker frames, accents, locks), the rig (each part, a coloured rim, a round trip), styles in library files and the styles store, the zip, the migration and v8 fixtures, help tips on every new control; Playwright: the "done when" flow (three variations, each themed and exported as a pack checked file by file) and your own style, varying a style, the rig and axe
+  - **Done when:** a design is randomised into three variations, each recoloured from a theme colour and exported as a pack on every shape ✔ (Playwright "done when" test)
+
+- [x] **Themed borders** (after Phase 10): 21 editable borders in popular token styles, in their own section of New, each tested on every shape; template pictures drawn lazily so the picker stays responsive
+
+## Known limitations after Phase 10
+
+- **Token Maker can't open designs saved since Phase 6** (now version 9) until its copy of Frame Studio's code is updated (`npm run share:export -- ..\token-maker`, then its tests); that change is in the token-maker repository, as are **more token shapes** (octagon, triangle, shield). Both wait on the owner (DESIGN.md §9).
+- Extra lights and the ambient colour light bevels only; paints, facets and element shading follow the main light.
+- Boolean geometry is by pixels (a group's combine mode): the result can't be edited as a path.
+- Effects, masks, shared height and the light pass work on every pixel: large designs with many of them take a while at big sizes (zoomed previews up to 4096 px, packs at 1024 px on five shapes).
+- Text is limited to Frame Studio's fonts (runes, Grenze, Atkinson).
+- Still from earlier phases: the library, your styles and the paste copy are per browser; four Token Maker frames can't be converted (Stamped, Ranger, Bard, Warlock).
 
 ## Known limitations after Phase 6
 
 - **Token Maker can't open version-5 designs yet:** its copy of the reader and renderer is from Phase 5. Run `npm run share:export -- ..\token-maker` (then Token Maker's tests) to give it effects; until then, keep version-4 copies of designs meant for Token Maker.
 - Effects are work on every pixel: a design with many effects takes a second or two to open at a large preview, and very large exports (4096 px) take a while and need a lot of memory.
-- Height doesn't combine between separate layers yet (a bevel sees only its own layer, or its group as one shape); overlapping layers are lit one by one (Phase 9).
+- Height doesn't combine between separate layers yet (a bevel sees only its own layer, or its group as one shape); overlapping layers are lit one by one (Phase 9 adds a group's shared height map).
 - One light: its height is set per bevel; no coloured or second lights, bloom or light bleeding onto neighbouring layers (Phase 10).
 - Facets are drawn from the centre of the shape's corners, so a very uneven drawn path can get odd faces.
 - Styles can't be saved as your own yet (copy and paste effects in the meantime; a layer with effects can go in your library).

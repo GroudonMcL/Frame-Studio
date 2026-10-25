@@ -1,0 +1,287 @@
+{
+  "format": "frame-studio-project",
+  "schemaVersion": 5,
+  "name": "Eldritch crystal",
+  "stage": {
+    "shape": "square",
+    "thickness": 0.14,
+    "outerSpacing": 0.1,
+    "showArt": true,
+    "backingColor": "#1d1f27",
+    "light": 160
+  },
+  "layers": [
+    {
+      "id": "Lmvn4xbpl914df",
+      "name": "Obsidian band",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "bevel",
+          "on": true,
+          "direction": "raised",
+          "profile": "rounded",
+          "size": 0.25,
+          "depth": 1,
+          "soften": 0.02,
+          "highlight": "#ffffff",
+          "highlightOpacity": 0.5,
+          "shadow": "#000000",
+          "shadowOpacity": 0.6,
+          "gloss": 1,
+          "lightHeight": 35,
+          "surface": "smooth",
+          "surfaceDepth": 0.5,
+          "surfaceScale": 0.25,
+          "seed": 1
+        },
+        {
+          "kind": "recolour",
+          "on": true,
+          "stops": [
+            {
+              "at": 0,
+              "color": "#020104",
+              "opacity": 1
+            },
+            {
+              "at": 0.25,
+              "color": "#0e0a16",
+              "opacity": 1
+            },
+            {
+              "at": 0.5,
+              "color": "#241c34",
+              "opacity": 1
+            },
+            {
+              "at": 0.75,
+              "color": "#5a5070",
+              "opacity": 1
+            },
+            {
+              "at": 1,
+              "color": "#d0c8e8",
+              "opacity": 1
+            }
+          ],
+          "amount": 1
+        }
+      ],
+      "type": "bandFill",
+      "from": 0,
+      "to": 1,
+      "paint": {
+        "kind": "solid",
+        "color": "#404040"
+      }
+    },
+    {
+      "id": "Lmvn4xbpmc4o5",
+      "name": "Tendrils",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [],
+      "type": "group",
+      "children": [
+        {
+          "id": "Lmvn4xbpma107s",
+          "name": "Tendril",
+          "visible": true,
+          "locked": false,
+          "opacity": 1,
+          "blend": "source-over",
+          "clip": "none",
+          "effects": [
+            {
+              "kind": "bevel",
+              "on": true,
+              "direction": "raised",
+              "profile": "rounded",
+              "size": 0.6,
+              "depth": 1,
+              "soften": 0.02,
+              "highlight": "#ffffff",
+              "highlightOpacity": 0.5,
+              "shadow": "#000000",
+              "shadowOpacity": 0.6,
+              "gloss": 0.35,
+              "lightHeight": 35,
+              "surface": "smooth",
+              "surfaceDepth": 0.5,
+              "surfaceScale": 0.25,
+              "seed": 1
+            },
+            {
+              "kind": "shadow",
+              "on": true,
+              "inner": false,
+              "color": "#000000",
+              "opacity": 0.8,
+              "distance": 0.05,
+              "blur": 0.06
+            }
+          ],
+          "type": "line",
+          "at": 0.5,
+          "width": 0.14,
+          "paint": {
+            "kind": "solid",
+            "color": "#4a1a66"
+          },
+          "dash": "solid",
+          "glow": null,
+          "waveAmplitude": 0.3,
+          "waves": 9,
+          "wavePhase": 0
+        },
+        {
+          "id": "Lmvn4xbpmbv9w",
+          "name": "Tendril",
+          "visible": true,
+          "locked": false,
+          "opacity": 1,
+          "blend": "source-over",
+          "clip": "none",
+          "effects": [
+            {
+              "kind": "bevel",
+              "on": true,
+              "direction": "raised",
+              "profile": "rounded",
+              "size": 0.6,
+              "depth": 1,
+              "soften": 0.02,
+              "highlight": "#ffffff",
+              "highlightOpacity": 0.5,
+              "shadow": "#000000",
+              "shadowOpacity": 0.6,
+              "gloss": 0.35,
+              "lightHeight": 35,
+              "surface": "smooth",
+              "surfaceDepth": 0.5,
+              "surfaceScale": 0.25,
+              "seed": 1
+            },
+            {
+              "kind": "shadow",
+              "on": true,
+              "inner": false,
+              "color": "#000000",
+              "opacity": 0.8,
+              "distance": 0.05,
+              "blur": 0.06
+            }
+          ],
+          "type": "line",
+          "at": 0.5,
+          "width": 0.11,
+          "paint": {
+            "kind": "solid",
+            "color": "#5e2a7e"
+          },
+          "dash": "solid",
+          "glow": null,
+          "waveAmplitude": 0.26,
+          "waves": 7,
+          "wavePhase": 0.4
+        }
+      ],
+      "collapsed": false
+    },
+    {
+      "id": "Lmvn4xbpmdlq1",
+      "name": "Glow line",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "glow",
+          "on": true,
+          "inner": false,
+          "color": "#9a5aff",
+          "opacity": 0.9,
+          "size": 0.15
+        }
+      ],
+      "type": "line",
+      "at": 0.94,
+      "width": 0.025,
+      "paint": {
+        "kind": "solid",
+        "color": "#e0c0ff"
+      },
+      "dash": "solid",
+      "glow": null,
+      "waveAmplitude": 0,
+      "waves": 12,
+      "wavePhase": 0
+    },
+    {
+      "id": "Lmvn4xbpmeg6w",
+      "name": "Crystals",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "glow",
+          "on": true,
+          "inner": true,
+          "color": "#f0d8ff",
+          "opacity": 0.35,
+          "size": 0.08
+        },
+        {
+          "kind": "glow",
+          "on": true,
+          "inner": false,
+          "color": "#a060ff",
+          "opacity": 0.55,
+          "size": 0.22
+        }
+      ],
+      "type": "repeat",
+      "element": "shard",
+      "mode": "count",
+      "count": 14,
+      "spacing": 1,
+      "snapToCorners": false,
+      "at": -0.02,
+      "size": 0.85,
+      "stretch": 0.55,
+      "rotation": 0,
+      "offset": 0,
+      "fill": "#9a5ad0",
+      "outline": null,
+      "outlineWidth": 0.08,
+      "raised": false,
+      "glow": null,
+      "accentEvery": 0,
+      "accentScale": 1.6,
+      "accentColor": null,
+      "seed": 1,
+      "altColors": [],
+      "altSizes": [
+        1,
+        0.6
+      ],
+      "skipAroundAccent": 0,
+      "alternateSides": 0,
+      "shaded": true,
+      "show": []
+    }
+  ]
+}

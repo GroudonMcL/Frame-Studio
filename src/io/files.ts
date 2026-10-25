@@ -4,9 +4,10 @@
 import { SHAPES } from '../engine/legacy/catalog';
 import type { RenderSource } from '../engine/legacy/render';
 import { parseProject, serializeProject, type ParseResult } from '../project/migrate';
-import { LIBRARY_EXTENSION, PROJECT_EXTENSION, serializeLibrary, type LayerSet } from '../project/transfer';
+import { LIBRARY_EXTENSION, PROJECT_EXTENSION, serializeLibrary, type LayerSet, type SavedStyle } from '../project/transfer';
 import type { FrameProject } from '../project/types';
 import { renderProject } from '../render/renderProject';
+import { zip, type ZipEntry } from './zip';
 
 export { LIBRARY_EXTENSION, PROJECT_EXTENSION };
 export const EXPORT_SIZES = [256, 512, 1024, 2048] as const;
@@ -57,8 +58,8 @@ export async function readProjectFile(file: File): Promise<ParseResult> {
   return parseProject(await file.text());
 }
 
-export function saveLibraryFile(sets: LayerSet[], name: string): void {
-  download(new Blob([serializeLibrary(sets)], { type: 'application/json' }), fileNameFor(name, LIBRARY_EXTENSION));
+export function saveLibraryFile(sets: LayerSet[], name: string, styles: SavedStyle[] = []): void {
+  download(new Blob([serializeLibrary(sets, styles)], { type: 'application/json' }), fileNameFor(name, LIBRARY_EXTENSION));
 }
 
 export async function readTextFile(file: File, limit = 20_000_000): Promise<string | null> {
@@ -106,4 +107,38 @@ export async function exportPng(project: FrameProject, size: number, art: Render
 
 export async function exportSheet(project: FrameProject, cell: number, art: RenderSource | null): Promise<void> {
   await downloadCanvas(renderSheet(project, Math.min(MAX_SHEET_CELL, clampExportSize(cell)), art), fileNameFor(`${project.name} every shape`, '.png'));
+}
+
+/** What a token pack holds (version 9's batch export). */
+export interface PackOptions {
+  sizes: number[];
+  /** Pictures with the middle see-through. */
+  plain: boolean;
+  /** Pictures with the sample picture in the middle. */
+  withArt: boolean;
+}
+
+export const PACK_SIZES = [128, 256, 512, 1024] as const;
+
+/** The file names and pictures of a pack: the design on every token shape, at every size, see-through and/or with the sample picture. */
+export async function packEntries(project: FrameProject, opts: PackOptions, art: RenderSource | null): Promise<ZipEntry[]> {
+  const folder = fileNameFor(project.name, '');
+  const entries: ZipEntry[] = [];
+  const kinds = [...(opts.plain ? [null] : []), ...(opts.withArt && art ? [art] : [])];
+  for (const shape of SHAPES)
+    for (const size of opts.sizes)
+      for (const a of kinds) {
+        const canvas = renderToCanvas({ ...project, stage: { ...project.stage, shape: shape.id } }, clampExportSize(size), a);
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) throw new Error('The picture could not be made.');
+        entries.push({ name: `${folder}/${shape.id}-${size}${a ? '-with-picture' : ''}.png`, data: new Uint8Array(await blob.arrayBuffer()) });
+      }
+  entries.push({ name: `${folder}/${fileNameFor(project.name, PROJECT_EXTENSION)}`, data: new TextEncoder().encode(serializeProject(project)) });
+  return entries;
+}
+
+/** Downloads a token pack: one zip with the design on every shape and size, and its project file. */
+export async function exportPack(project: FrameProject, opts: PackOptions, art: RenderSource | null): Promise<void> {
+  const bytes = zip(await packEntries(project, opts, art));
+  download(new Blob([bytes as BlobPart], { type: 'application/zip' }), fileNameFor(`${project.name} token pack`, '.zip'));
 }

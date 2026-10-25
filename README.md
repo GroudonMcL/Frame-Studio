@@ -4,22 +4,61 @@ A visual editor for code-drawn token frames. Start from one of [Token Maker](htt
 
 ![The Dwarven bronze template: hammered bronze, faceted plates, engraved runes and glowing cracks, all made with effects](docs/screenshots/24-dwarven-bronze.png)
 
-## What works now (Phase 6)
+## Themed borders
+
+New → **Themed borders** offers 21 ready-made borders in the styles people buy and make for tabletop tokens, every part editable: Enamelled gold, Worn iron ring, Rose wreath, Fey glade, Gothic thorns, Tidal ring, Archmage's sigil ring, Starship hull, Hellfire ring, Frostbound ring, Stormcaller, Necropolis, Clockwork brass, Celtic knot, Dragonscale, Mossy stone circle, Nautical rope, Autumn leaves, Celestial halo, Desert tomb and Amethyst geode. They are made from the same layers, generators, styles and lighting you can use yourself, and fit every token shape.
+
+![The themed borders](docs/screenshots/26-themed-borders.png)
+
+## What works now (Phase 10)
+
+- **Variations:** the **Variations** button shows six versions of your design (other patterns, colours turned round the colour wheel together, sizes nudged), as different as you like; pick one to use it. Locked layers stay as they are. **Vary the style** in Effects does the same to one layer's effects.
+- **Theme:** recolour the whole design from one colour (and an accent colour), keeping how light or dark each part is; Token Maker frames and converted frames recolour too.
+- **Your own styles:** **Save as a style** in Effects; they appear first in Styles… and travel in library files.
+- **Lighting…** (over the canvas): up to three more coloured lights (a cold rim light, a warm fill), an ambient colour for shaded sides, bloom and light bleeding.
+- **Export → Token pack:** one ZIP with the design on every shape at the sizes you choose, see-through and with the sample picture, plus its project file.
+- *Not yet:* more token shapes (octagon, triangle, shield) need Token Maker's engine changed first; see [`docs/DESIGN.md`](docs/DESIGN.md) §9.
+
+## Also there from Phase 9
+
+- **Masks:** show a layer only through another layer's shape or brightness, inverted or not (Advanced → Mask).
+- **One sculpted surface:** layers in a group can be **raised** out of or **carved** into its surface (Advanced → Shared height); a bevel on the group lights them all as one, so runes cut through a plate slope and catch the light. **Show → Height map / Normal map** (Advanced, under the canvas) shows how it is shaped.
+- **Sides** (extrude) and **Grow or shrink** effects; a group can **combine** its shapes (added, cut out, overlapping, all but the overlaps); a path can be drawn as a **tapered stroke**; a shape can be **turned into a path**.
+- **Editing:** separate curve handles on a point (or Alt while dragging), drag a group by any of its layers, turn a group round the token, **zoom** (to 800 %) and pan.
+- **New template:** Rune-carved plates.
+
+## Also there from Phase 8
+
+- **Generators:** Add layer → **Growth** (vines, roots, thorny stems, curling tendrils, antlers, with leaves, thorns or berries), **Plates and cells** (flagstones, honeycomb, bricks, tiles, scales, with missing pieces), **Cracks and lightning**, **Knotwork** (strands that really weave over and under), **Gears** and **Chain**. Each is made from a few settings and a variation number, runs round the band or along a path, and takes styles and effects like any layer (a bevel on plates bevels each plate).
+- **Distortion** effect (wobbly edges, irregular stone) and **scratches** on Wear and grime; wavy lines can **fit their waves to the band**.
+- **Four more Token Maker frames convert into editable layers:** Druid, Knotwork, Artificer and Barbarian (22 in all).
+- **New template:** Overgrown ruin, made only from generators and styles.
+
+## Also there from Phase 7
+
+- **Ornaments along any path:** Repeated shapes can **follow** a path you drew or a line (wavy or not) instead of the band: facing along it or upright, growing or shrinking along the way, with random variation of size, angle and gaps. The path can be hidden and still be followed.
+- **Radial arrays:** repeat a shape or drawn path round a point (how many, how far out, start angle, every other one mirrored), for rosettes, sigils, compass roses and clusters of gems.
+- **Gem cuts and settings:** cut gems can be brilliant, rose, emerald, cabochon or rough crystal (facets, table, crown height, sparkle), all lit by the light dial; any repeated shape can sit in a **bezel or four or six claws** in a metal style of its own.
+- **Text:** Add layer → Text runs words round the band or along a path, in runes (Elder Futhark, drawn from strokes), Grenze or Atkinson; read the other way for the bottom of a token; give it the Engraved style to cut it in, or a glow.
+- **Contours:** several lines round the band at once, tapering, in one or two colours.
+- **New template:** Royal inscription.
+
+## Also there from Phase 6
 
 - **Effects on any layer or group** (Properties → Effects): give it depth with **Bevel and surface** (raised or sunk in, rounded, chiselled or stepped edges, and a surface of hammered dents, rough grain, brushed streaks, cracked plates or scales), a **Shadow** or **Glow** (outside or inside its edge), a **Material colour** that turns its shading into gold, silver, bronze, bone, obsidian, jade…, **Colour adjust**, and **Wear and grime** (chipped and rubbed edges, patches of dirt or verdigris). Everything is lit by the light dial, switches off and on, can be reordered, and fits every token shape and thickness.
 - **Styles…:** 26 ready-made looks (polished gold, hammered bronze, blackened iron, carved stone, obsidian, amethyst crystal, engraved, arcane glow, hellfire, holy radiance, aged and worn…), each shown as a picture of *your* design in that style. One click applies it to every picked layer; then change any part of it. **Copy effects / Paste effects** moves a look from one layer to others.
 - **Facets:** cut a shape or drawn path into flat faces lit by the light (gems, star badges, plates, crystals); repeated shapes can be cut gems, hexagonal plates or crystal shards.
 - **More blend modes** (hard light, dodge, burn, darken, lighten, difference, exclusion, hue, saturation, luminosity) and **Cut a hole in the layers below** (in Advanced).
 - **New templates made with effects:** Dwarven bronze, Eldritch crystal, Radiant gold and Hellforged iron.
-- **What comes next** is planned in [`docs/ROADMAP.md`](docs/ROADMAP.md): ornaments along any path and round any point, gem settings, generators (vines, roots, cracks, plates, knotwork, gears), masks and combined height, and workflow tools.
-- *Token Maker:* designs saved now (format 5) open in Token Maker once its copy of Frame Studio's code is updated with `npm run share:export` (below).
+- **The plan these phases followed** is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+- *Token Maker:* designs saved now (format 9) open in Token Maker once its copy of Frame Studio's code is updated with `npm run share:export` (below).
 
 ![The style library: the selected layer shown in every style](docs/screenshots/22-style-library.png)
 
 ## Also there from Phases 1–5
 
 - **Templates:** all 27 Token Maker frames (each as one layer whose colour you can change), five designs built from editable layers (two with textures), or a blank project.
-- **Token Maker frames as editable layers:** 18 of the frames (Polished, Paladin, Gilded, Engraved, Arcane, Infernal, Wizard, Double line, Oak, Cobblestone, Magma, Harlequin, Starfield, Cleric, Fighter, Monk, Rogue, Sorcerer) can be opened as a stack of layers you can change one by one: the band, the pressed-in step, the rims, the textures and the ornaments. They look like the originals (tests measure how close each one is) and, unlike the originals, they follow the light dial. Pick one marked **Editable** in New, or select a Token Maker frame layer and press **Turn into editable layers**; the originals are all still there.
+- **Token Maker frames as editable layers:** 22 of the frames (Polished, Paladin, Gilded, Engraved, Arcane, Infernal, Wizard, Double line, Oak, Cobblestone, Magma, Harlequin, Starfield, Cleric, Fighter, Monk, Rogue, Sorcerer, and since Phase 8 Druid, Knotwork, Artificer, Barbarian) can be opened as a stack of layers you can change one by one: the band, the pressed-in step, the rims, the textures and the ornaments. They look like the originals (tests measure how close each one is) and, unlike the originals, they follow the light dial. Pick one marked **Editable** in New, or select a Token Maker frame layer and press **Turn into editable layers**; the originals are all still there.
 - **Layers:** Band fill, Line (plain or wavy), Repeated shapes, Shape (circle, rectangle, polygon, star) and Path (draw your own), plus Token Maker frames as layers. Show/hide, lock, rename, reorder, duplicate, delete.
 - **Groups:** Ctrl+click layers and press Group (Ctrl+G). Hide, lock or fade a whole group at once. Layers can also be clipped to the band or to the layer below.
 - **Drawing:** Add layer → Path, then click points on the canvas; click the first point (or press Enter) to finish. Drag points and their round handles; double-click a point to make it curved.
@@ -40,6 +79,20 @@ A visual editor for code-drawn token frames. Start from one of [Token Maker](htt
 - **Use your designs in Token Maker:** save a design (`.framestudio.json`) and, in Token Maker, choose **Frame & shape → Frame type → Frame Studio → Open a Frame Studio design**. It follows the token's shape, thickness and spacing and looks exactly as it does here. Token Maker uses a copy of Frame Studio's own reader and renderer (`npm run share:export`, below).
 
 See [`docs/PROGRESS.md`](docs/PROGRESS.md) for what's next and the known limitations.
+
+## Installing it on Windows
+
+Frame Studio can be installed like any other Windows program, with a Start menu entry and a desktop shortcut. No Node.js needed.
+
+1. Get **`Frame-Studio-Setup-<version>.exe`**: from the repository's **Releases** page, or from the **Actions** tab → **Windows installer** → the latest run → **Artifacts** (it downloads as a zip; the installer is inside). To make a new one, open **Actions → Windows installer → Run workflow**, or push a tag such as `v0.10.0` to also put it on a release.
+2. Run it. Windows may say *"Windows protected your PC"* because the installer isn't signed: press **More info**, then **Run anyway**.
+3. Choose where to install (the default needs no administrator rights) and press **Install**.
+
+To remove it, use **Settings → Apps → Installed apps → Frame Studio → Uninstall**.
+
+The installed app is the same editor as `npm run dev`, in its own window. Your work is autosaved inside the app (separately from any browser copy), **Save** and **Export** ask where to put the file, and links open in your normal browser.
+
+To build the installer yourself (with Node.js, below): `npm run installer` makes `release\Frame-Studio-Setup-<version>.exe`, and `npm run desktop` opens the desktop app without installing it. The desktop shell is `desktop\main.cjs`; the installer settings are under `"build"` in `package.json` (the version in the installer's name is `package.json`'s `"version"`).
 
 ## Running it on Windows
 
@@ -71,6 +124,8 @@ npm run frame-sheet -- sheet.png circle    # every template on one picture (try 
 npm run effects-sheet -- fx.png 240 circle # every style and effects template on one picture
 npm run screenshots                        # with npm run dev running: editor screenshots into docs\screenshots
 npm run compare-conversions                # each editable Token Maker frame beside its original, with the differences
+npm run look -- look.png royal-inscription # templates on every shape (any template ids)
+npm run make-fixtures -- name:template:shape:light:showArt   # fixture files for the current format (before changing it)
 ```
 
 `npm run e2e` also runs the phone tests (a Pixel 7 with touch).

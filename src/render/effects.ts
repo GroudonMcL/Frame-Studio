@@ -10,7 +10,8 @@
 // plain arithmetic on the pixels (no canvas filters), so the preview, the
 // export and the tests (node) draw exactly the same picture.
 
-import type { AdjustEffect, BevelEffect, BevelProfile, Effect, GlowEffect, GradientStop, RecolourEffect, ShadowEffect, Surface, WearEffect } from '../project/types';
+import type { StageSettings } from '../project/types';
+import type { AdjustEffect, BevelEffect, BevelProfile, DistortEffect, Effect, ExtrudeEffect, OffsetEffect, GlowEffect, GradientStop, RecolourEffect, ShadowEffect, Surface, WearEffect } from '../project/types';
 import type { Ctx } from './canvas';
 import { lightVector } from './light';
 
@@ -19,7 +20,15 @@ export interface EffectEnv {
   bw: number;
   /** The stage's light, in degrees. */
   light: number;
+  /** Height (pixels, raised positive) other layers add to a bevel's own: a group's shared height map (version 8). */
+  height?: Float32Array;
+  /** Draw bevels as their height map or normal map instead of lit (the editor's views, version 8). */
+  view?: RenderView;
+  /** The stage's lighting rig (version 9): more coloured lights, and an ambient colour for shaded sides. */
+  rig?: Pick<StageSettings, 'lights' | 'ambient' | 'ambientStrength'>;
 }
+
+export type RenderView = 'picture' | 'height' | 'normals';
 
 /** Effects that are switched on. */
 export const activeEffects = (effects: Effect[] | undefined) => (effects ?? []).filter((e) => e.on);
@@ -53,6 +62,15 @@ export function applyEffects(ctx: Ctx, size: number, effects: Effect[], env: Eff
         break;
       case 'wear':
         wear(px, size, e, env);
+        break;
+      case 'distort':
+        distort(px, size, e, env);
+        break;
+      case 'extrude':
+        extrude(px, size, e, env);
+        break;
+      case 'offset':
+        offset(px, size, e, env);
         break;
     }
   }
@@ -360,6 +378,8 @@ export function bevelHeight(alpha: Float32Array, size: number, e: BevelEffect, e
 function bevel(px: Uint8ClampedArray, size: number, e: BevelEffect, env: EffectEnv): void {
   const alpha = alphaOf(px);
   const H = bevelHeight(alpha, size, e, env);
+  if (env.height) for (let i = 0; i < H.length; i++) H[i] += env.height[i];
+  if (env.view === 'height' || env.view === 'normals') return showMaps(px, alpha, H, size, env, env.view);
   const [lx, ly, lz] = light3d(env.light, e.lightHeight);
   // Half-way between the light and the viewer, for the shine.
   const hl = Math.hypot(lx, ly, lz + 1);
@@ -369,7 +389,17 @@ function bevel(px: Uint8ClampedArray, size: number, e: BevelEffect, env: EffectE
   const shin = 8 + e.gloss * e.gloss * 120;
   const flatSpec = Math.pow(hz, shin);
   const [hr, hg, hb] = rgbOf(e.highlight);
-  const [sr, sg, sb] = rgbOf(e.shadow);
+  let [sr, sg, sb] = rgbOf(e.shadow);
+  // The rig: shaded sides take on the ambient colour; more lights add their colour where they fall.
+  if (env.rig && env.rig.ambientStrength > 0) {
+    const [ar, ag, ab] = rgbOf(env.rig.ambient);
+    const k = env.rig.ambientStrength;
+    [sr, sg, sb] = [sr + (ar - sr) * k, sg + (ag - sg) * k, sb + (ab - sb) * k];
+  }
+  const extra = (env.rig?.lights ?? []).map((l) => {
+    const [x, y, z] = light3d(l.angle, l.height);
+    return { x, y, z, rgb: rgbOf(l.color), strength: l.strength };
+  });
   for (let y = 0; y < size; y++)
     for (let x = 0; x < size; x++) {
       const i = y * size + x;
@@ -401,9 +431,107 @@ function bevel(px: Uint8ClampedArray, size: number, e: BevelEffect, env: EffectE
         g += (hg - g) * k;
         b += (hb - b) * k;
       }
+      for (const l of extra) {
+        // Only where it lights more than it lights a flat surface: a rim of colour on the edges facing it.
+        const d = nx * l.x + ny * l.y + nz * l.z - l.z;
+        if (d <= 0) continue;
+        const a = clamp01((d / Math.max(0.05, 1 - l.z)) * l.strength);
+        r += (l.rgb[0] - r) * a;
+        g += (l.rgb[1] - g) * a;
+        b += (l.rgb[2] - b) * a;
+      }
       px[p] = r;
       px[p + 1] = g;
       px[p + 2] = b;
+    }
+}
+
+/**
+ * Fine scratches (version 7): thin bright lines with a dark edge beside
+ * them, in seeded random directions, only on painted pixels.
+ */
+function scratch(px: Uint8ClampedArray, size: number, e: WearEffect, cell: number): void {
+  let painted = 0;
+  for (let i = 3; i < px.length; i += 4) if (px[i]) painted++;
+  const count = Math.round((e.scratches * painted * 3) / (cell * cell));
+  let h = (e.seed * 2654435761 + 0x5c2a7c) >>> 0;
+  const random = () => {
+    h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0;
+    h = (h + 0x6d2b79f5) >>> 0;
+    return (h >>> 8) / 16777216;
+  };
+  for (let k = 0; k < count; k++) {
+    const x0 = random() * size;
+    const y0 = random() * size;
+    const a = random() * Math.PI;
+    const len = cell * (0.4 + random() * 1.4);
+    const dx = Math.cos(a);
+    const dy = Math.sin(a);
+    const strength = 0.25 + random() * 0.45;
+    // Walk along the scratch a pixel at a time: lighten its line and darken the pixel beside it.
+    for (let t = 0; t < len; t += 0.7) {
+      const x = Math.round(x0 + dx * t);
+      const y = Math.round(y0 + dy * t);
+      if (x < 1 || y < 1 || x >= size - 1 || y >= size - 1) continue;
+      const fade = Math.sin((Math.PI * t) / len) * strength;
+      const p = (y * size + x) * 4;
+      if (!px[p + 3]) continue;
+      px[p] += (255 - px[p]) * fade * 0.6;
+      px[p + 1] += (255 - px[p + 1]) * fade * 0.6;
+      px[p + 2] += (255 - px[p + 2]) * fade * 0.6;
+      const q = ((y + Math.round(dx)) * size + x - Math.round(dy)) * 4;
+      if (px[q + 3]) {
+        px[q] *= 1 - fade * 0.45;
+        px[q + 1] *= 1 - fade * 0.45;
+        px[q + 2] *= 1 - fade * 0.45;
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------- distortion
+
+/**
+ * Moves every pixel by smooth noise (sizes in band widths), sampling the
+ * picture between pixels (premultiplied, so edges don't fringe).
+ */
+function distort(px: Uint8ClampedArray, size: number, e: DistortEffect, env: EffectEnv): void {
+  const amount = e.amount * env.bw;
+  if (amount < 0.05) return;
+  const cell = Math.max(2, e.scale * env.bw);
+  const src = new Float32Array(px.length);
+  for (let i = 0; i < px.length; i += 4) {
+    const a = px[i + 3] / 255;
+    src[i] = px[i] * a;
+    src[i + 1] = px[i + 1] * a;
+    src[i + 2] = px[i + 2] * a;
+    src[i + 3] = px[i + 3];
+  }
+  const at = (x: number, y: number, c: number) => (x < 0 || y < 0 || x >= size || y >= size ? 0 : src[(y * size + x) * 4 + c]);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const u = x / cell;
+      const v = y / cell;
+      const sx = x + (fbm(u, v, e.seed + 101, 3) - 0.5) * 2 * amount;
+      const sy = y + (fbm(u, v, e.seed + 211, 3) - 0.5) * 2 * amount;
+      const ix = Math.floor(sx);
+      const iy = Math.floor(sy);
+      const fx = sx - ix;
+      const fy = sy - iy;
+      const p = (y * size + x) * 4;
+      const out = [0, 0, 0, 0];
+      for (let c = 0; c < 4; c++) {
+        const top = at(ix, iy, c) * (1 - fx) + at(ix + 1, iy, c) * fx;
+        const bottom = at(ix, iy + 1, c) * (1 - fx) + at(ix + 1, iy + 1, c) * fx;
+        out[c] = top * (1 - fy) + bottom * fy;
+      }
+      const a = out[3] / 255;
+      px[p + 3] = out[3];
+      if (a > 0) {
+        px[p] = out[0] / a;
+        px[p + 1] = out[1] / a;
+        px[p + 2] = out[2] / a;
+      }
     }
 }
 
@@ -608,4 +736,188 @@ function wear(px: Uint8ClampedArray, size: number, e: WearEffect, env: EffectEnv
       px[p + 1] = g;
       px[p + 2] = b;
     }
+  if (e.scratches > 0) scratch(px, size, e, cell);
+}
+
+// ---------------------------------------------------------------- views, sides and offset (version 8)
+
+/** Writes a bevel's height map (grey: mid-grey flat, lighter higher) or its normal map (RGB = x, y, z) over the picture. */
+function showMaps(px: Uint8ClampedArray, alpha: Float32Array, H: Float32Array, size: number, env: EffectEnv, view: 'height' | 'normals'): void {
+  const unit = Math.max(1, env.bw * 0.25);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const i = y * size + x;
+      if (alpha[i] <= 0) continue;
+      const p = i * 4;
+      if (view === 'height') {
+        const v = clamp01(0.5 + H[i] / unit / 2) * 255;
+        px[p] = px[p + 1] = px[p + 2] = v;
+        continue;
+      }
+      const gx = (H[x < size - 1 ? i + 1 : i] - H[x > 0 ? i - 1 : i]) / 2;
+      const gy = (H[y < size - 1 ? i + size : i] - H[y > 0 ? i - size : i]) / 2;
+      const nl = Math.hypot(gx, gy, 1);
+      px[p] = (0.5 - gx / nl / 2) * 255;
+      px[p + 1] = (0.5 - gy / nl / 2) * 255;
+      px[p + 2] = (0.5 + 1 / nl / 2) * 255;
+    }
+}
+
+/** A shape height map for a layer in a shared height map: its distance from its own edge through a rounded profile, `depth` high. */
+export function heightContribution(alpha: Float32Array, size: number, sizeBw: number, depth: number, bw: number): Float32Array {
+  const dist = insideDistance(alpha, size);
+  const S = Math.max(1, sizeBw * bw);
+  const H = new Float32Array(alpha.length);
+  for (let i = 0; i < H.length; i++) if (alpha[i] > 0) H[i] = profile('rounded', clamp01(dist[i] / S)) * S * depth * Math.min(1, alpha[i] * 2);
+  return H;
+}
+
+/**
+ * Sides: the picture pushed back away from the light a pixel at a time,
+ * each step darker, put behind it, so it looks like a thick plate.
+ */
+function extrude(px: Uint8ClampedArray, size: number, e: ExtrudeEffect, env: EffectEnv): void {
+  const n = Math.round(e.depth * env.bw);
+  if (n < 1) return;
+  const v = lightVector(env.light);
+  const back = new Float32Array(px.length);
+  for (let k = n; k >= 1; k--) {
+    const dx = Math.round(-v.x * k);
+    const dy = Math.round(-v.y * k);
+    const dark = 1 - e.shade * (0.55 + 0.45 * (k / n));
+    for (let y = 0; y < size; y++) {
+      const sy = y - dy;
+      if (sy < 0 || sy >= size) continue;
+      for (let x = 0; x < size; x++) {
+        const sx = x - dx;
+        if (sx < 0 || sx >= size) continue;
+        const q = (sy * size + sx) * 4;
+        const a = px[q + 3] / 255;
+        if (a <= 0) continue;
+        const p = (y * size + x) * 4;
+        // Over what is already behind (premultiplied).
+        back[p] = px[q] * dark * a + back[p] * (1 - a);
+        back[p + 1] = px[q + 1] * dark * a + back[p + 1] * (1 - a);
+        back[p + 2] = px[q + 2] * dark * a + back[p + 2] * (1 - a);
+        back[p + 3] = a + back[p + 3] * (1 - a);
+      }
+    }
+  }
+  for (let p = 0; p < px.length; p += 4) {
+    const a = px[p + 3] / 255;
+    const b = back[p + 3] * (1 - a);
+    const out = a + b;
+    if (out <= 0 || a >= 1) continue;
+    for (let c = 0; c < 3; c++) px[p + c] = (px[p + c] * a + back[p + c] * (1 - a)) / out;
+    px[p + 3] = out * 255;
+  }
+}
+
+/** Grows the shape by `amount` band widths (new pixels take their neighbours' colour) or shrinks it. */
+function offset(px: Uint8ClampedArray, size: number, e: OffsetEffect, env: EffectEnv): void {
+  const d = e.amount * env.bw;
+  if (Math.abs(d) < 0.25) return;
+  const alpha = alphaOf(px);
+  if (d < 0) {
+    const inside = insideDistance(alpha, size);
+    for (let i = 0; i < alpha.length; i++) if (alpha[i] > 0) px[i * 4 + 3] = alpha[i] * clamp01(inside[i] + d + 0.5) * 255;
+    return;
+  }
+  const outside = insideDistance(alpha.map((a) => 1 - a), size, true);
+  // Spread the colours outwards a ring at a time, so a new pixel takes the colour of the painted ones beside it.
+  const colour = new Float32Array(px.length);
+  const known = new Uint8Array(alpha.length);
+  for (let i = 0; i < alpha.length; i++)
+    if (alpha[i] > 0) {
+      known[i] = 1;
+      for (let c = 0; c < 3; c++) colour[i * 4 + c] = px[i * 4 + c];
+    }
+  for (let step = 0; step < Math.ceil(d) + 1; step++) {
+    const add: number[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        if (known[i] || outside[i] > d + 1) continue;
+        let n = 0;
+        const sum = [0, 0, 0];
+        for (const j of [i - 1, i + 1, i - size, i + size]) {
+          if (j < 0 || j >= known.length || !known[j] || Math.abs((j % size) - x) > 1) continue;
+          n++;
+          for (let c = 0; c < 3; c++) sum[c] += colour[j * 4 + c];
+        }
+        if (n) {
+          add.push(i);
+          for (let c = 0; c < 3; c++) colour[i * 4 + c] = sum[c] / n;
+        }
+      }
+    if (!add.length) break;
+    for (const i of add) known[i] = 1;
+  }
+  for (let i = 0; i < alpha.length; i++) {
+    if (alpha[i] >= 1 || !known[i]) continue;
+    const grown = clamp01(d - outside[i] + 0.5);
+    const a = Math.max(alpha[i], grown);
+    if (a <= alpha[i]) continue;
+    const p = i * 4;
+    for (let c = 0; c < 3; c++) px[p + c] = alpha[i] > 0 ? px[p + c] : colour[p + c];
+    px[p + 3] = a * 255;
+  }
+}
+
+// ---------------------------------------------------------------- bloom and bleed (version 9)
+
+/**
+ * Over the whole design: bloom (a soft glow round its brightest parts) and
+ * bleed (its colours spilling onto their neighbours), both added like light
+ * (screen), sized in band widths.
+ */
+export function lightPass(ctx: Ctx, size: number, bloom: number, bleed: number, bw: number): void {
+  if (bloom <= 0 && bleed <= 0) return;
+  const image = ctx.getImageData(0, 0, size, size);
+  const px = image.data;
+  const n = size * size;
+  const add = [new Float32Array(n), new Float32Array(n), new Float32Array(n)];
+  const pass = (weight: (r: number, g: number, b: number, a: number) => number, radius: number, amount: number) => {
+    const ch = [new Float32Array(n), new Float32Array(n), new Float32Array(n)];
+    for (let i = 0; i < n; i++) {
+      const p = i * 4;
+      const a = px[p + 3] / 255;
+      if (!a) continue;
+      const w = weight(px[p] / 255, px[p + 1] / 255, px[p + 2] / 255, a);
+      for (let c = 0; c < 3; c++) ch[c][i] = (px[p + c] / 255) * w;
+    }
+    for (let c = 0; c < 3; c++) {
+      const blurred = blur(ch[c], size, radius);
+      for (let i = 0; i < n; i++) add[c][i] += blurred[i] * amount;
+    }
+  };
+  if (bloom > 0) pass((r, g, b, a) => clamp01((0.2126 * r + 0.7152 * g + 0.0722 * b - 0.6) / 0.4) * a, Math.max(2, bw * 0.3), bloom * 1.6);
+  if (bleed > 0)
+    pass(
+      (r, g, b, a) => {
+        const mx = Math.max(r, g, b);
+        const mn = Math.min(r, g, b);
+        // Bright, vivid colours spill the most.
+        return (mx - mn) * mx * a;
+      },
+      Math.max(3, bw * 0.6),
+      bleed * 1.2,
+    );
+  for (let i = 0; i < n; i++) {
+    const p = i * 4;
+    const a = px[p + 3] / 255;
+    let lightA = 0;
+    for (let c = 0; c < 3; c++) lightA = Math.max(lightA, clamp01(add[c][i]));
+    if (lightA <= 0) continue;
+    // Screen the added light over the pixel (premultiplied), so it can also shine past the design's edge.
+    const out = a + lightA * (1 - a);
+    for (let c = 0; c < 3; c++) {
+      const base = (px[p + c] / 255) * a;
+      const light = clamp01(add[c][i]);
+      const v = 1 - (1 - base) * (1 - light);
+      px[p + c] = clamp01(v / out) * 255;
+    }
+    px[p + 3] = out * 255;
+  }
+  ctx.putImageData(image, 0, 0);
 }

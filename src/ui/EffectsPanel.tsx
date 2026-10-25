@@ -4,7 +4,10 @@
 // most people need come first; the rest are in Advanced.
 
 import { useId, useState } from 'react';
-import { ArrowDown, ArrowUp, ClipboardCopy, ClipboardPaste, Palette, Plus, Shuffle, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, BookmarkPlus, ClipboardCopy, ClipboardPaste, Dices, Palette, Plus, Shuffle, Trash2 } from 'lucide-react';
+import { DEFAULT_RANDOMISE, randomiseEffects } from '../project/variation';
+import { saveUserStyle } from '../state/styles';
+import { showMessage } from '../state/messages';
 import { EFFECT_NAMES, NEW_EFFECT } from '../project/defaults';
 import { MATERIALS } from '../project/styles';
 import { BEVEL_PROFILES, EFFECT_KINDS, SURFACES, type BevelProfile, type Effect, type EffectKind, type Layer, type Surface } from '../project/types';
@@ -37,15 +40,11 @@ export function EffectsSection({ layer }: { layer: Layer }) {
   const copied = useUi((s) => s.copiedEffects);
   const picked = useUi((s) => s.selectedIds.length);
   const [styles, setStyles] = useState(false);
+  const [naming, setNaming] = useState<string | null>(null);
+  const nameId = useId();
   const disabled = layer.locked;
   const effects = layer.effects;
   const set = (next: Effect[], transient?: boolean) => setEffects(layer.id, next, { transient });
-  const patch = (i: number) => (p: Partial<Effect>, transient?: boolean) => set(effects.map((e, k) => (k === i ? ({ ...e, ...p } as Effect) : e)), transient);
-  const move = (i: number, by: number) => {
-    const next = [...effects];
-    [next[i], next[i + by]] = [next[i + by], next[i]];
-    set(next);
-  };
 
   return (
     <section className="effects" aria-label="Effects">
@@ -65,20 +64,60 @@ export function EffectsSection({ layer }: { layer: Layer }) {
         <button type="button" className="btn small" disabled={disabled || !copied} onClick={pasteEffects} title="Give the picked layers the copied effects, in place of their own">
           <ClipboardPaste size={16} /> Paste effects
         </button>
+        <button type="button" className="btn small" disabled={disabled || effects.length === 0} onClick={() => set(randomiseEffects(effects, DEFAULT_RANDOMISE, Math.floor(Math.random() * 1e6)))} title="Try a variation of these effects: new patterns, colours and sizes (undo to go back)">
+          <Dices size={16} /> Vary the style
+        </button>
+        <button type="button" className="btn small" disabled={effects.length === 0} onClick={() => setNaming(naming === null ? layer.name : null)} title="Keep these effects as a style of your own, in the style library and library files">
+          <BookmarkPlus size={16} /> Save as a style
+        </button>
       </div>
-      <AddEffect disabled={disabled} onAdd={(kind) => set([...effects, NEW_EFFECT[kind]()])} />
+      {naming !== null && (
+        <form
+          className="row"
+          onSubmit={(ev) => {
+            ev.preventDefault();
+            void saveUserStyle(naming, effects).then((st) => showMessage(`Saved the style "${st.name}". Find it in Styles… under Your styles.`));
+            setNaming(null);
+          }}
+        >
+          <Field label="Style name" htmlFor={nameId} hint="What your style is called in the style library.">
+            <input id={nameId} className="wide-text" autoFocus value={naming} maxLength={60} aria-describedby={hintId(nameId)} onChange={(ev) => setNaming(ev.target.value)} />
+          </Field>
+          <button type="submit" className="btn small primary">
+            Save the style
+          </button>
+        </form>
+      )}
+      <EffectStack effects={effects} disabled={disabled} advanced={advanced} onChange={set} />
+      {styles && <StyleDialog layer={layer} onClose={() => setStyles(false)} />}
+    </section>
+  );
+}
+
+/** A stack of effects, first first: add, switch off, reorder, remove and change each one. */
+export function EffectStack({ effects, disabled, advanced, onChange, label = '' }: { effects: Effect[]; disabled: boolean; advanced: boolean; onChange: (next: Effect[], transient?: boolean) => void; label?: string }) {
+  const patch = (i: number) => (p: Partial<Effect>, transient?: boolean) => onChange(effects.map((e, k) => (k === i ? ({ ...e, ...p } as Effect) : e)), transient);
+  const move = (i: number, by: number) => {
+    const next = [...effects];
+    [next[i], next[i + by]] = [next[i + by], next[i]];
+    onChange(next);
+  };
+  const of = label ? ` ${label}` : '';
+  return (
+    <>
+      <AddEffect disabled={disabled} label={label ? `Add an effect to the${of}` : 'Add an effect'} onAdd={(kind) => onChange([...effects, NEW_EFFECT[kind]()])} />
       {effects.map((e, i) => (
         <div className={`effect${e.on ? '' : ' off'}`} key={i}>
           <div className="effect-head">
-            <Toggle label={EFFECT_NAMES[e.kind]} hint={EFFECT_HINTS[e.kind]} checked={e.on} disabled={disabled} onChange={(on) => patch(i)({ on })} />
+            <Toggle label={`${EFFECT_NAMES[e.kind]}${label ? ` (${label})` : ''}`} hint={EFFECT_HINTS[e.kind]} checked={e.on} disabled={disabled} onChange={(on) => patch(i)({ on })} />
             <span className="effect-buttons">
-              <button type="button" className="icon-btn" aria-label={`Move ${EFFECT_NAMES[e.kind].toLowerCase()} earlier`} title="Apply it earlier" disabled={disabled || i === 0} onClick={() => move(i, -1)}>
+              <button type="button" className="icon-btn" aria-label={`Move ${EFFECT_NAMES[e.kind].toLowerCase()}${of} earlier`} title="Apply it earlier" disabled={disabled || i === 0} onClick={() => move(i, -1)}>
                 <ArrowUp size={16} />
               </button>
-              <button type="button" className="icon-btn" aria-label={`Move ${EFFECT_NAMES[e.kind].toLowerCase()} later`} title="Apply it later" disabled={disabled || i === effects.length - 1} onClick={() => move(i, 1)}>
+              <button type="button" className="icon-btn" aria-label={`Move ${EFFECT_NAMES[e.kind].toLowerCase()}${of} later`} title="Apply it later" disabled={disabled || i === effects.length - 1} onClick={() => move(i, 1)}>
                 <ArrowDown size={16} />
               </button>
-              <button type="button" className="icon-btn danger" aria-label={`Remove ${EFFECT_NAMES[e.kind].toLowerCase()}`} title="Remove this effect" disabled={disabled} onClick={() => set(effects.filter((_x, k) => k !== i))}>
+              <button type="button" className="icon-btn danger" aria-label={`Remove ${EFFECT_NAMES[e.kind].toLowerCase()}${of}`} title="Remove this effect" disabled={disabled} onClick={() => onChange(effects.filter((_x, k) => k !== i))}>
                 <Trash2 size={16} />
               </button>
             </span>
@@ -86,8 +125,7 @@ export function EffectsSection({ layer }: { layer: Layer }) {
           {e.on && <EffectControls effect={e} disabled={disabled} advanced={advanced} onChange={patch(i)} />}
         </div>
       ))}
-      {styles && <StyleDialog layer={layer} onClose={() => setStyles(false)} />}
-    </section>
+    </>
   );
 }
 
@@ -97,14 +135,17 @@ const EFFECT_HINTS: Record<EffectKind, string> = {
   glow: 'A soft glow of colour round its edge, outside or inside.',
   recolour: 'Recolours it from dark to light, so its shading becomes gold, bronze, bone or any colours you choose.',
   adjust: 'Changes its hue, how vivid it is, its brightness and its contrast.',
-  wear: 'Makes it look old: chipped edges, edges rubbed bright and patches of grime.',
+  wear: 'Makes it look old: chipped edges, edges rubbed bright, scratches and patches of grime.',
+  distort: 'Warps it with smooth wobbles: uneven edges, irregular stone, a subtle shimmer.',
+  extrude: 'Gives it sides: pushed back away from the light, as if it were a thick raised plate.',
+  offset: 'Makes its shape fatter or thinner all round.',
 };
 
-function AddEffect({ disabled, onAdd }: { disabled: boolean; onAdd: (k: EffectKind) => void }) {
+function AddEffect({ disabled, onAdd, label }: { disabled: boolean; onAdd: (k: EffectKind) => void; label: string }) {
   const id = useId();
   const tip = 'Adds one effect after the others, set up to look good straight away.';
   return (
-    <Field label="Add an effect" htmlFor={id} hint={tip}>
+    <Field label={label} htmlFor={id} hint={tip}>
       <select
         id={id}
         value=""
@@ -279,6 +320,27 @@ function EffectControls({ effect: e, disabled, advanced, onChange }: { effect: E
           {slider('contrast', 'Contrast', -1, 1, 'Flatter or punchier.')}
         </div>
       );
+    case 'distort':
+      return (
+        <div className="effect-body">
+          {slider('amount', 'Amount', 0, 0.3, 'How far it is pushed about, as a share of the band width.')}
+          {slider('scale', 'Wobble size', 0.03, 2, 'How big the wobbles are, as a share of the band width.')}
+          {shuffle}
+        </div>
+      );
+    case 'extrude':
+      return (
+        <div className="effect-body">
+          {slider('depth', 'Side depth', 0, 0.4, 'How deep the sides are, as a share of the band width.')}
+          {slider('shade', 'Side shading', 0, 1, 'How dark the sides are.')}
+        </div>
+      );
+    case 'offset':
+      return (
+        <div className="effect-body">
+          {slider('amount', 'Grow by', -0.3, 0.3, 'How much bigger (or, below 0%, smaller) the shape gets, as a share of the band width.')}
+        </div>
+      );
     case 'wear':
       return (
         <div className="effect-body">
@@ -286,6 +348,7 @@ function EffectControls({ effect: e, disabled, advanced, onChange }: { effect: E
           {slider('polish', 'Rubbed edges', 0, 1, 'How bright the edges are rubbed, as on old metal.')}
           {slider('grime', 'Grime', 0, 1, 'How much dirt and tarnish gathers in patches.')}
           <ColorField label="Grime colour" hint="The colour of the grime: brown dirt, green verdigris, black soot…" value={e.grimeColor} disabled={disabled} onChange={(grimeColor, t) => onChange({ grimeColor }, t)} />
+          {slider('scratches', 'Scratches', 0, 1, 'Fine scratches across it, bright with a dark edge.')}
           {slider('scale', 'Wear size', 0.03, 1.5, 'How big the chips and patches are, as a share of the band width.')}
           {shuffle}
         </div>

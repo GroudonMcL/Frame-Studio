@@ -11,6 +11,16 @@ import {
   SCHEMA_VERSION,
   DEFAULT_LIGHT,
   type BandFillLayer,
+  type ContoursLayer,
+  type ExtraLight,
+  type CellsLayer,
+  type ChainLayer,
+  type FractureLayer,
+  type GearsLayer,
+  type GrowthKind,
+  type GrowthLayer,
+  type KnotworkLayer,
+  type TextLayer,
   type Effect,
   type EditableLayerType,
   type FrameProject,
@@ -29,6 +39,12 @@ import {
   type TextureLayer,
 } from './types';
 
+/** The lighting rig switched off (version 9). */
+export const NO_RIG = { lights: [] as ExtraLight[], ambient: '#203050', ambientStrength: 0, bloom: 0, bleed: 0 };
+
+/** A new extra light: a cool rim light from opposite the main light. */
+export const newLight = (main: number): ExtraLight => ({ angle: (main + 180) % 360, color: '#9fd0ff', strength: 0.8, height: 20 });
+
 export const DEFAULT_STAGE: StageSettings = {
   shape: 'circle',
   // token-maker's default frame on a Medium token.
@@ -37,6 +53,7 @@ export const DEFAULT_STAGE: StageSettings = {
   showArt: true,
   backingColor: '#1d1f27',
   light: DEFAULT_LIGHT,
+  ...NO_RIG,
 };
 
 let counter = 0;
@@ -46,7 +63,10 @@ export function newId(): string {
   return `L${Date.now().toString(36)}${counter.toString(36)}${Math.floor(Math.random() * 0x10000).toString(36)}`;
 }
 
-const base = (name: string) => ({ id: newId(), name, visible: true, locked: false, opacity: 1, blend: 'source-over' as const, clip: 'none' as const, effects: [] as Effect[] });
+const base = (name: string) => ({ id: newId(), name, visible: true, locked: false, opacity: 1, blend: 'source-over' as const, clip: 'none' as const, effects: [] as Effect[], ...LAYER_PHASE9 });
+
+/** What every layer gets from version 8 on, all off: no mask, not part of a shared height map. */
+export const LAYER_PHASE9 = { mask: null, heightMode: 'none' as const, heightDepth: 1, heightSize: 0.15 };
 
 export function legacyFrameLayer(presetId: string): LegacyFrameLayer {
   const preset = framePresetById(presetId) ?? FRAME_PRESETS[0];
@@ -58,7 +78,7 @@ export function bandFillLayer(): BandFillLayer {
 }
 
 export function lineLayer(): LineLayer {
-  return { ...base('Line'), type: 'line', at: 0.5, width: 0.06, paint: { kind: 'solid', color: '#2a1a0a' }, dash: 'solid', glow: null, waveAmplitude: 0, waves: 12, wavePhase: 0 };
+  return { ...base('Line'), type: 'line', at: 0.5, width: 0.06, paint: { kind: 'solid', color: '#2a1a0a' }, dash: 'solid', glow: null, waveAmplitude: 0, waves: 12, wavePhase: 0, waveFit: 0 };
 }
 
 export function repeatLayer(): RepeatLayer {
@@ -90,8 +110,30 @@ export function repeatLayer(): RepeatLayer {
     alternateSides: 0,
     shaded: true,
     show: [],
+    ...REPEAT_PHASE7,
   };
 }
+
+/** What a repeat gets from version 6 on, all off: on the band, no variation, Phase 6's brilliant cut, no setting. */
+export const REPEAT_PHASE7 = {
+  follow: null,
+  orient: 'along',
+  scaleEnd: 1,
+  jitterSize: 0,
+  jitterAngle: 0,
+  skipChance: 0,
+  gemCut: 'brilliant',
+  gemTable: 0.52,
+  gemCrown: 0.9,
+  gemFacets: 8,
+  gemSparkle: 0,
+  setting: 'none',
+  settingColor: '#d4a838',
+  settingEffects: [] as Effect[],
+} satisfies Partial<RepeatLayer>;
+
+/** A radial array that is off (one copy). */
+export const NO_RADIAL = { radialCount: 1, radialRadius: 0.6, radialStart: 0, radialMirror: false } satisfies Partial<Placement>;
 
 /** A texture over the whole band, as Token Maker draws it. */
 export function textureLayer(kind: TextureKind = 'marble'): TextureLayer {
@@ -139,7 +181,7 @@ export function textureBand(preset: TexturePreset): BandFillLayer {
 }
 
 /** A new shape or path sits at the top of the band, upright, one band width tall. */
-export const DEFAULT_PLACEMENT: Placement = { place: 'band', along: 0, across: 0.5, x: 0, y: -0.8, size: 0.8, stretch: 1, rotation: 0, mirror: 'none' };
+export const DEFAULT_PLACEMENT: Placement = { place: 'band', along: 0, across: 0.5, x: 0, y: -0.8, size: 0.8, stretch: 1, rotation: 0, mirror: 'none', ...NO_RADIAL };
 const DEFAULT_STYLE: PlacedStyle = { fill: '#5fa8d3', shaded: true, outline: '#1a1008', outlineWidth: 0.06, raised: true, glow: null, faceted: false, facetTable: 0.5, facetDepth: 1 };
 
 export function shapeLayer(): ShapeLayer {
@@ -148,11 +190,78 @@ export function shapeLayer(): ShapeLayer {
 
 /** A new path has no points: it is drawn by clicking on the canvas. */
 export function pathLayer(points: PathPoint[] = []): PathLayer {
-  return { ...base('Path'), type: 'path', ...DEFAULT_PLACEMENT, ...DEFAULT_STYLE, size: 1, points, closed: points.length > 2 };
+  return { ...base('Path'), type: 'path', ...DEFAULT_PLACEMENT, ...DEFAULT_STYLE, size: 1, points, closed: points.length > 2, stroke: 0, taperStart: 0, taperEnd: 0 };
+}
+
+/** An inscription round the top of the band. */
+export function textLayer(): TextLayer {
+  return {
+    ...base('Text'),
+    type: 'text',
+    text: 'FORTUNE FAVOURS THE BOLD',
+    font: 'grenze',
+    size: 0.42,
+    spacing: 0.08,
+    at: 0.5,
+    along: 0,
+    align: 'centre',
+    reverse: false,
+    follow: null,
+    fill: '#2a1a0a',
+    outline: null,
+    outlineWidth: 0.06,
+  };
+}
+
+/** Three lines round the band, thinner towards the inside. */
+export function contoursLayer(): ContoursLayer {
+  return { ...base('Contours'), type: 'contours', count: 3, from: 0.12, spacing: 0.12, width: 0.05, taper: 0.4, paint: { kind: 'solid', color: '#2a1a0a' }, altColor: null, dash: 'solid' };
+}
+
+/** Organic growth: a ready-made start for each kind (the Kind menu applies these). */
+export const GROWTH_PRESETS: Record<GrowthKind, Partial<GrowthLayer>> = {
+  vine: { kind: 'vine', count: 1, waveLength: 1.8, amplitude: 0.22, gnarl: 0.1, thickness: 0.08, taper: 0.7, branching: 0.35, branchLength: 0.45, branchAngle: 50, curl: 220, depth: 1, extra: 'leaves', extraSpacing: 0.9, extraSize: 0.6, color: '#3e5a22', extraColor: '#6aa83a' },
+  roots: { kind: 'roots', count: 1, waveLength: 0, amplitude: 0, gnarl: 0.6, thickness: 0.11, taper: 0.9, branching: 0.6, branchLength: 0.7, branchAngle: 65, curl: 40, depth: 3, extra: 'none', extraSpacing: 0.6, extraSize: 0.3, color: '#4a3220', extraColor: '#6a4a2c' },
+  thorns: { kind: 'thorns', count: 1, waveLength: 2.4, amplitude: 0.12, gnarl: 0.2, thickness: 0.07, taper: 0.8, branching: 0, branchLength: 0.4, branchAngle: 45, curl: 0, depth: 1, extra: 'thorns', extraSpacing: 0.35, extraSize: 0.28, color: '#3a2a1a', extraColor: '#3a2a1a' },
+  tendrils: { kind: 'tendrils', count: 2, waveLength: 3, amplitude: 0.25, gnarl: 0.15, thickness: 0.05, taper: 0.9, branching: 0.5, branchLength: 0.7, branchAngle: 40, curl: 420, depth: 1, extra: 'none', extraSpacing: 0.6, extraSize: 0.3, color: '#4a1a66', extraColor: '#7a3aa8' },
+  antlers: { kind: 'antlers', count: 6, waveLength: 0, amplitude: 0, gnarl: 0.25, thickness: 0.14, taper: 0.85, branching: 0.6, branchLength: 0.9, branchAngle: 38, curl: 60, depth: 2, extra: 'none', extraSpacing: 0.6, extraSize: 0.3, color: '#d8c8a8', extraColor: '#b8a888' },
+};
+
+export function growthLayer(kind: GrowthKind = 'vine'): GrowthLayer {
+  return {
+    ...base('Growth'),
+    type: 'growth',
+    follow: null,
+    at: 0.5,
+    seed: 1,
+    ...(GROWTH_PRESETS.vine as Omit<GrowthLayer, keyof ReturnType<typeof base> | 'type' | 'follow' | 'at' | 'seed'>),
+    ...GROWTH_PRESETS[kind],
+    kind,
+  };
+}
+
+export function fractureLayer(): FractureLayer {
+  return { ...base('Cracks'), type: 'fracture', kind: 'cracks', from: 0, to: 1, count: 6, length: 1.6, branching: 0.5, jagged: 0.5, width: 0.05, color: '#1a1208', seed: 1 };
+}
+
+export function cellsLayer(): CellsLayer {
+  return { ...base('Plates'), type: 'cells', pattern: 'voronoi', from: 0, to: 1, size: 0.5, gap: 0.04, jitter: 0.8, rounding: 0.2, missing: 0, vary: 0.3, color: '#8a8478', seed: 1 };
+}
+
+export function knotworkLayer(): KnotworkLayer {
+  return { ...base('Knotwork'), type: 'knotwork', follow: null, at: 0.5, waveLength: 0.9, amplitude: 0.25, width: 0.17, color: '#d4ac52', outline: '#000000', outlineWidth: 0.035, outlineOpacity: 0.6, shine: true, double: false, flip: false };
+}
+
+export function gearsLayer(): GearsLayer {
+  return { ...base('Gears'), type: 'gears', follow: null, at: 0.5, count: 6, snapToCorners: true, size: 0.8, teeth: 10, toothDepth: 0.22, toothShape: 'square', spokes: 4, hub: 0.3, domed: false, altSize: 1, interlock: false, rotation: 0, offset: 0, color: '#b8862e', shaded: true };
+}
+
+export function chainLayer(): ChainLayer {
+  return { ...base('Chain'), type: 'chain', follow: null, at: 0.5, linkLength: 0.5, linkWidth: 0.6, thickness: 0.08, color: '#9aa0aa', shaded: true };
 }
 
 export function groupLayer(children: Layer[] = []): GroupLayer {
-  return { ...base('Group'), type: 'group', children, collapsed: false };
+  return { ...base('Group'), type: 'group', children, collapsed: false, combine: 'normal' };
 }
 
 /** A cut gem, pointing outwards: a ready-made path. */
@@ -172,6 +281,14 @@ export const NEW_LAYER: Record<EditableLayerType, () => Layer> = {
   texture: () => textureLayer(),
   shape: shapeLayer,
   path: () => pathLayer(),
+  text: textLayer,
+  contours: contoursLayer,
+  growth: () => growthLayer(),
+  fracture: fractureLayer,
+  cells: cellsLayer,
+  knotwork: knotworkLayer,
+  gears: gearsLayer,
+  chain: chainLayer,
   group: () => groupLayer(),
 };
 
@@ -184,6 +301,14 @@ export const LAYER_TYPE_NAMES: Record<Layer['type'], string> = {
   texture: 'Texture',
   shape: 'Shape',
   path: 'Path',
+  text: 'Text',
+  contours: 'Contours',
+  growth: 'Growth',
+  fracture: 'Cracks and lightning',
+  cells: 'Plates and cells',
+  knotwork: 'Knotwork',
+  gears: 'Gears',
+  chain: 'Chain',
   group: 'Group',
   unsupported: 'Unsupported layer',
 };
@@ -381,5 +506,76 @@ export const LAYERED_TEMPLATES: LayeredTemplate[] = [
       { ...textureLayer('cracks'), name: 'Burning cracks', color: '#ff6a1a', amount: 0.6, clip: 'band', seed: 0x4e11, effects: [glow({ inner: true, color: '#ffe08a', opacity: 0.6, size: 0.03 }), glow({ color: '#ff3a0a', opacity: 0.8, size: 0.12 })] },
       { ...lineLayer(), name: 'Inner rim', at: 0.96, width: 0.07, paint: { kind: 'solid', color: '#7a7a7a' }, effects: [bevel({ size: 0.5, gloss: 0.4 }), material('iron')] },
     ],
+  },
+  // Phase 7: ornaments anywhere.
+  {
+    id: 'royal-inscription',
+    name: 'Royal inscription',
+    description: 'Gold with an engraved inscription, fine contour lines and rubies in claw settings riding a wave.',
+    make: () => {
+      const wave = { ...lineLayer(), name: 'Gem path', visible: false, at: 0.68, waveAmplitude: 0.13, waves: 8 };
+      return [
+        { ...bandFillLayer(), name: 'Gold band', paint: { kind: 'solid', color: '#909090' }, effects: styleEffects('gold') },
+        { ...contoursLayer(), name: 'Contour lines', count: 2, from: 0.06, spacing: 0.88, width: 0.035, taper: 0, paint: { kind: 'solid', color: '#5a3a10' }, effects: styleEffects('engraved') },
+        { ...textLayer(), name: 'Inscription', text: 'BY CROWN AND OATH · EVER LOYAL ·', size: 0.24, at: 0.24, spacing: 0.12, fill: '#6a4a18', effects: styleEffects('engraved') },
+        wave,
+        {
+          ...repeatLayer(),
+          name: 'Rubies',
+          element: 'gem',
+          follow: wave.id,
+          count: 24,
+          size: 0.3,
+          fill: '#b0182a',
+          raised: false,
+          gemSparkle: 0.6,
+          setting: 'claws4',
+          settingEffects: styleEffects('gold'),
+          effects: [shadow({ distance: 0.03, blur: 0.04, opacity: 0.6 })],
+        },
+      ];
+    },
+  },
+  // Phase 9: a shared height map.
+  {
+    id: 'rune-plates',
+    name: 'Rune-carved plates',
+    description: 'Thick bronze plates with runes carved through them: the plates and the runes are lit as one sculpted surface.',
+    make: () => [
+      { ...bandFillLayer(), name: 'Iron band', paint: { kind: 'solid', color: '#7a7a7a' }, effects: styleEffects('blackened-iron') },
+      {
+        ...groupLayer([
+          { ...repeatLayer(), name: 'Plates', element: 'square', count: 8, snapToCorners: true, size: 0.78, stretch: 1.6, fill: '#9a9a9a', shaded: false, raised: false },
+          { ...textLayer(), name: 'Carved runes', font: 'runes', text: 'ANSUZ RAIDO KAUNAN GEBO WUNJO HAGALAZ NAUDIZ ISAZ JERA EIHWAZ PERTH ALGIZ SOWILO TIWAZ BERKANAN EHWAZ MANNAZ LAGUZ INGWAZ DAGAZ OTHALA FEHU URUZ THURISAZ', size: 0.36, spacing: 0.3, at: 0.5, opacity: 0, heightMode: 'carve', heightDepth: 1.4, heightSize: 0.05 },
+        ]),
+        name: 'Runic plates',
+        effects: [bevel({ size: 0.12, gloss: 0.45, depth: 1.2 }), material('bronze'), { kind: 'extrude', on: true, depth: 0.07, shade: 0.6 }, shadow({ distance: 0.05, blur: 0.06 })],
+      },
+    ],
+  },
+  // Phase 8: made only from generators and styles.
+  {
+    id: 'overgrown-ruin',
+    name: 'Overgrown ruin',
+    description: 'Cracked stone plates with missing pieces, a verdigris knotwork band and roots growing through.',
+    make: () => {
+      const plates = { ...cellsLayer(), name: 'Stone plates', from: 0.2, to: 1, size: 0.42, gap: 0.05, missing: 0.12, vary: 0.45, color: '#8a8478', seed: 7, effects: styleEffects('carved-stone') };
+      return [
+        plates,
+        { ...fractureLayer(), name: 'Cracks', from: 0.2, to: 1, count: 9, length: 1.4, width: 0.035, color: '#14100c', clip: 'below', seed: 3 },
+        { ...knotworkLayer(), name: 'Knotwork band', at: 0.1, width: 0.075, amplitude: 0.075, waveLength: 0.42, color: '#909090', outlineWidth: 0.02, shine: false, effects: styleEffects('verdigris') },
+        {
+          ...growthLayer('roots'),
+          name: 'Roots',
+          at: 0.62,
+          thickness: 0.09,
+          branchLength: 0.6,
+          color: '#5a3c22',
+          seed: 4,
+          effects: [bevel({ size: 0.4, gloss: 0.15, surface: 'grain', surfaceDepth: 0.4 }), shadow({ distance: 0.05, blur: 0.06, opacity: 0.7 })],
+        },
+        { ...growthLayer('vine'), name: 'Creeper', at: 0.45, count: 1, waveLength: 2.6, amplitude: 0.3, thickness: 0.035, branching: 0.2, extraSpacing: 1.1, extraSize: 0.4, color: '#2e4a1c', extraColor: '#5a8a32', seed: 9, effects: [shadow({ distance: 0.04, blur: 0.05, opacity: 0.6 })] },
+      ];
+    },
   },
 ];

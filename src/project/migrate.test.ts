@@ -1,7 +1,7 @@
 import { FRAME_PRESETS } from '../engine/legacy/catalog';
-import { bandFillLayer, createProject, EFFECT_NAMES, NEW_EFFECT, GEM_POINTS, TEXTURES, textureFromPreset, textureLayer, groupLayer, LAYERED_TEMPLATES, NEW_LAYER, pathLayer, projectFromFrame, repeatLayer, shapeLayer } from './defaults';
+import { lineLayer, bandFillLayer, createProject, EFFECT_NAMES, NEW_EFFECT, GEM_POINTS, TEXTURES, textureFromPreset, textureLayer, groupLayer, LAYERED_TEMPLATES, NEW_LAYER, pathLayer, projectFromFrame, repeatLayer, shapeLayer } from './defaults';
 import { parseProject, serializeProject } from './migrate';
-import { EFFECT_KINDS, SCHEMA_VERSION, type FrameProject } from './types';
+import { EFFECT_KINDS, SCHEMA_VERSION, type Effect, type FrameProject, type Layer } from './types';
 
 const roundTrip = (p: FrameProject) => {
   const r = parseProject(serializeProject(p));
@@ -228,7 +228,7 @@ describe('project files', () => {
     expect(r.project.layers[0].type === 'bandFill' && r.project.layers[0].paint.kind).toBe('lit');
   });
 
-  it('a version-4 file opens as version 5 with no effects and smooth shapes, in groups too', () => {
+  it('a version-4 file opens as the current version with no effects and smooth shapes, in groups too', () => {
     const v4 = {
       format: 'frame-studio-project',
       schemaVersion: 4,
@@ -242,7 +242,7 @@ describe('project files', () => {
     const r = parseProject(JSON.stringify(v4));
     if (!r.ok) throw new Error(r.error);
     expect(r.warnings).toEqual([]);
-    expect(r.project.schemaVersion).toBe(5);
+    expect(r.project.schemaVersion).toBe(SCHEMA_VERSION);
     const [band, group] = r.project.layers;
     expect(band.effects).toEqual([]);
     if (group.type !== 'group') throw new Error('not a group');
@@ -281,5 +281,93 @@ describe('project files', () => {
     const r = parseProject(JSON.stringify({ format: 'frame-studio-project', schemaVersion: 5, name: 'New', stage: {}, layers: [future] }));
     if (!r.ok) throw new Error(r.error);
     expect(JSON.parse(serializeProject(r.project)).layers[0]).toEqual(future);
+  });
+
+  it('a version-5 file opens with repeats on the band, the Phase 6 gem, no setting and no radial arrays, in groups too', () => {
+    const v5 = {
+      format: 'frame-studio-project',
+      schemaVersion: 5,
+      name: 'Old',
+      stage: {},
+      layers: [{ id: 'g', type: 'group', effects: [], children: [{ id: 'r', type: 'repeat', element: 'gem', effects: [] }, { id: 's', type: 'shape', effects: [] }] }],
+    };
+    const r = parseProject(JSON.stringify(v5));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.warnings).toEqual([]);
+    const [group] = r.project.layers;
+    if (group.type !== 'group') throw new Error('not a group');
+    expect(group.children[0]).toMatchObject({ follow: null, orient: 'along', scaleEnd: 1, jitterSize: 0, skipChance: 0, gemCut: 'brilliant', gemTable: 0.52, gemCrown: 0.9, gemFacets: 8, setting: 'none', settingEffects: [] });
+    expect(group.children[1]).toMatchObject({ radialCount: 1 });
+  });
+
+  it('version 6: following, variation, gems, settings, radial arrays, text and contours survive a round trip', () => {
+    const path = { ...pathLayer(GEM_POINTS), radialCount: 5, radialRadius: 1.2, radialStart: 30, radialMirror: true };
+    const p = createProject([
+      path,
+      { ...repeatLayer(), element: 'gem', follow: path.id, orient: 'upright', scaleEnd: 1.5, jitterSize: 0.2, jitterAngle: 15, skipChance: 0.1, gemCut: 'emerald', gemTable: 0.4, gemCrown: 1.4, gemFacets: 6, gemSparkle: 0.5, setting: 'claws6', settingColor: '#aabbcc', settingEffects: [NEW_EFFECT.bevel()] },
+      { ...NEW_LAYER.text(), text: 'Ever onward', font: 'runes', reverse: true, align: 'start', follow: path.id, outline: '#000000' } as Layer,
+      { ...NEW_LAYER.contours(), count: 5, taper: -0.3, altColor: '#ff0000', dash: 'dotted' } as Layer,
+    ]);
+    expect(roundTrip(p).project).toEqual(p);
+  });
+
+  it('bad version-6 values fall back or are clamped', () => {
+    const r = parseProject(JSON.stringify({ ...createProject(), layers: [{ type: 'repeat', gemCut: 'pear', setting: 'prongs', gemFacets: 99, follow: 7 }, { type: 'text', font: 'comic', text: 5, size: -1 }] }));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.project.layers[0]).toMatchObject({ gemCut: 'brilliant', setting: 'none', gemFacets: 16, follow: null });
+    expect(r.project.layers[1]).toMatchObject({ font: 'grenze', size: 0.05 });
+  });
+
+  it('a version-6 file opens with lines not fitted to the band and wear without scratches', () => {
+    const v6 = {
+      format: 'frame-studio-project',
+      schemaVersion: 6,
+      name: 'Old',
+      stage: {},
+      layers: [{ id: 'l', type: 'line', waveAmplitude: 0.2, effects: [{ kind: 'wear', chips: 0.2 }] }],
+    };
+    const r = parseProject(JSON.stringify(v6));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.warnings).toEqual([]);
+    expect(r.project.layers[0]).toMatchObject({ waveFit: 0, effects: [{ kind: 'wear', scratches: 0, chips: 0.2 }] });
+  });
+
+  it('version 7: every generator, distortion, scratches and fitted waves survive a round trip', () => {
+    const p = createProject([
+      { ...NEW_LAYER.line(), waveAmplitude: 0.2, waveFit: 1.5 } as Layer,
+      ...(['growth', 'fracture', 'cells', 'knotwork', 'gears', 'chain'] as const).map((t) => NEW_LAYER[t]()),
+      { ...bandFillLayer(), effects: [NEW_EFFECT.distort(), { ...NEW_EFFECT.wear(), scratches: 0.5 } as Effect] },
+      { ...repeatLayer(), element: 'gash' },
+    ]);
+    expect(roundTrip(p).project).toEqual(p);
+  });
+
+  it('a version-7 file opens with no masks, no shared height, groups drawn as before and plain paths', () => {
+    const v7 = { format: 'frame-studio-project', schemaVersion: 7, name: 'Old', stage: {}, layers: [{ id: 'g', type: 'group', children: [{ id: 'p', type: 'path', points: [{ x: 0, y: 0, handle: { x: 1, y: 0 } }] }] }] };
+    const r = parseProject(JSON.stringify(v7));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.warnings).toEqual([]);
+    const [group] = r.project.layers;
+    expect(group).toMatchObject({ mask: null, heightMode: 'none', combine: 'normal' });
+    if (group.type !== 'group') throw new Error('not a group');
+    expect(group.children[0]).toMatchObject({ mask: null, heightMode: 'none', stroke: 0, taperStart: 0, taperEnd: 0 });
+    expect(group.children[0].type === 'path' && group.children[0].points[0].handleIn).toBeUndefined();
+  });
+
+  it('version 8: masks, shared height, combining, strokes, separate handles, sides and grow survive a round trip', () => {
+    const shape = shapeLayer();
+    const p = createProject([
+      shape,
+      { ...bandFillLayer(), mask: { source: shape.id, mode: 'luminance', invert: true }, heightMode: 'carve', heightDepth: 2, heightSize: 0.3, effects: [NEW_EFFECT.extrude(), NEW_EFFECT.offset()] },
+      { ...groupLayer([lineLayer()]), combine: 'subtract' },
+      { ...pathLayer([{ x: 0, y: 0, handle: { x: 1, y: 0 }, handleIn: { x: -0.2, y: 0.5 } }, { x: 1, y: 1, handle: null }]), stroke: 0.4, taperStart: 0.3, taperEnd: 1 },
+    ]);
+    expect(roundTrip(p).project).toEqual(p);
+  });
+
+  it('a version-8 file opens with the lighting rig off', () => {
+    const r = parseProject(JSON.stringify({ format: 'frame-studio-project', schemaVersion: 8, name: 'Old', stage: { light: 100 }, layers: [] }));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.project.stage).toMatchObject({ light: 100, lights: [], ambientStrength: 0, bloom: 0, bleed: 0 });
   });
 });

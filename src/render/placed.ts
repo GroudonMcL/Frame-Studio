@@ -6,7 +6,8 @@
 import { rgba } from '../engine/legacy/color';
 import { noShadow, type FrameGeometry } from '../engine/legacy/frameKit';
 import type { Point } from '../engine/legacy/shapes';
-import type { PathPoint, PlacedLayer, ShapeLayer } from '../project/types';
+import type { PathLayer, PathPoint, PlacedLayer, ShapeLayer } from '../project/types';
+import { ribbon, tracePoly } from './geometry';
 import { bandWidthPx, outlineAt, spacedAlong } from './band';
 import type { Ctx } from './canvas';
 import { shadedFill } from './elements';
@@ -47,7 +48,9 @@ export function placement(layer: PlacedLayer, g: FrameGeometry): Placed | null {
 /**
  * The layer and its mirrored copies. Every token shape is symmetric about
  * both axes, so a mirrored copy lands at the matching place on the band.
- * Mirroring the plane flips the shape and turns it the other way.
+ * Mirroring the plane flips the shape and turns it the other way. A radial
+ * array (version 6) then puts `radialCount` copies of each round its anchor,
+ * each pointing outwards, the first at `radialStart` degrees from "up".
  */
 export function placements(layer: PlacedLayer, g: FrameGeometry): Placed[] {
   const t = placement(layer, g);
@@ -55,16 +58,26 @@ export function placements(layer: PlacedLayer, g: FrameGeometry): Placed[] {
   const leftRight: Placed = { ...t, x: -t.x, angle: -t.angle, sx: -1 };
   const topBottom: Placed = { ...t, y: -t.y, angle: -t.angle, sy: -1 };
   const both: Placed = { ...t, x: -t.x, y: -t.y, angle: t.angle + Math.PI };
-  switch (layer.mirror) {
-    case 'leftRight':
-      return [t, leftRight];
-    case 'topBottom':
-      return [t, topBottom];
-    case 'four':
-      return [t, leftRight, topBottom, both];
-    default:
-      return [t];
-  }
+  const mirrored = layer.mirror === 'leftRight' ? [t, leftRight] : layer.mirror === 'topBottom' ? [t, topBottom] : layer.mirror === 'four' ? [t, leftRight, topBottom, both] : [t];
+  if (!(layer.radialCount > 1)) return mirrored;
+  const r = layer.radialRadius * (layer.place === 'band' ? bandWidthPx(g) : g.R);
+  return mirrored.flatMap((m) => radialCopies(m, layer.radialCount, r, layer.radialStart, layer.radialMirror));
+}
+
+/** `n` copies of a transform round its own origin, `r` pixels out, pointing outwards. */
+export function radialCopies(m: Placed, n: number, r: number, startDeg: number, mirrorEvery: boolean): Placed[] {
+  return Array.from({ length: n }, (_v, k) => {
+    const a = ((startDeg + (k * 360) / n) * Math.PI) / 180;
+    // Out from the anchor along the copy's "up" (local −y), in the flipped and turned frame of `m`.
+    const v = turn({ x: Math.sin(a) * r * m.sx, y: -Math.cos(a) * r * m.sy }, m.angle);
+    const flip = mirrorEvery && k % 2 === 1 ? -1 : 1;
+    return { ...m, x: m.x + v.x, y: m.y + v.y, angle: m.angle + m.sx * m.sy * a, sx: (m.sx * flip) as 1 | -1 };
+  });
+}
+
+/** The copy shown with handles and points: the layer itself, or the first of its radial array. */
+export function primaryPlacement(layer: PlacedLayer, g: FrameGeometry): Placed | null {
+  return placements(layer, g)[0] ?? null;
 }
 
 /** A local point in canvas pixels. */
@@ -150,7 +163,16 @@ function shapePoints(layer: ShapeLayer, w: number, h: number): Point[] {
 
 /** The path's points in pixels for a transform's scale (before turning and moving). */
 function scaled(points: PathPoint[], ux: number, uy: number) {
-  return points.map((p) => ({ x: p.x * ux, y: p.y * uy, hx: (p.handle?.x ?? 0) * ux, hy: (p.handle?.y ?? 0) * uy, curved: !!p.handle }));
+  return points.map((p) => ({
+    x: p.x * ux,
+    y: p.y * uy,
+    hx: (p.handle?.x ?? 0) * ux,
+    hy: (p.handle?.y ?? 0) * uy,
+    // The arriving control point: its own, or the mirror of the leaving one.
+    ix: (p.handleIn ? p.handleIn.x : -(p.handle?.x ?? 0)) * ux,
+    iy: (p.handleIn ? p.handleIn.y : -(p.handle?.y ?? 0)) * uy,
+    curved: !!p.handle,
+  }));
 }
 
 /** Traces a path in pixels around its anchor. Curves use each point's handle (leaving) and its mirror (arriving). */
@@ -163,7 +185,7 @@ export function tracePath(ctx: Ctx, points: PathPoint[], closed: boolean, ux: nu
   for (let i = 0; i < segments; i++) {
     const a = pts[i];
     const b = pts[(i + 1) % pts.length];
-    if (a.curved || b.curved) ctx.bezierCurveTo(a.x + a.hx, a.y + a.hy, b.x - b.hx, b.y - b.hy, b.x, b.y);
+    if (a.curved || b.curved) ctx.bezierCurveTo(a.x + a.hx, a.y + a.hy, b.x + b.ix, b.y + b.iy, b.x, b.y);
     else ctx.lineTo(b.x, b.y);
   }
   if (closed) ctx.closePath();
@@ -175,6 +197,7 @@ export function drawPlaced(ctx: Ctx, layer: PlacedLayer, g: FrameGeometry, light
   if (all.length === 0) return;
   const h = all[0].uy * 2;
   const w = all[0].ux * 2;
+  if (layer.type === 'path' && layer.stroke > 0) return drawStroke(ctx, layer, all, light, g);
   const canFill = layer.fill !== null && (layer.type === 'shape' || (layer.closed && layer.points.length > 2));
   ctx.save();
   if (layer.raised) raisedFrom(ctx, layer.place === 'band' ? bandWidthPx(g) : g.R * 0.14, light);
@@ -232,4 +255,51 @@ export function drawPlaced(ctx: Ctx, layer: PlacedLayer, g: FrameGeometry, light
     ctx.restore();
   }
   ctx.restore();
+}
+
+/**
+ * A path drawn as a filled stroke (version 8): a ribbon round its line,
+ * `stroke` times its height wide, narrowing towards its ends, in its fill
+ * colour (or its outline colour if it has no fill), so effects see a shape.
+ */
+function drawStroke(ctx: Ctx, layer: PathLayer, all: Placed[], light: number, g: FrameGeometry): void {
+  const color = layer.fill ?? layer.outline ?? '#000000';
+  ctx.save();
+  if (layer.raised) raisedFrom(ctx, layer.place === 'band' ? bandWidthPx(g) : g.R * 0.14, light);
+  for (const t of all) {
+    const pts = flattenPath(layer.points, layer.closed, t.ux, t.uy, 12);
+    if (pts.length < 2) continue;
+    if (layer.closed) pts.push(pts[0]);
+    // Lengths along it, for the taper.
+    const at = [0];
+    for (let i = 1; i < pts.length; i++) at.push(at[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+    const L = at[at.length - 1] || 1;
+    const w = layer.stroke * t.uy * 2;
+    const widths = at.map((d) => {
+      const k = d / L;
+      return Math.max(0.3, w * Math.min(1, layer.taperStart > 0 ? k / (layer.taperStart * 0.5) : 1, layer.taperEnd > 0 ? (1 - k) / (layer.taperEnd * 0.5) : 1) ** 0.8);
+    });
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    ctx.rotate(t.angle);
+    ctx.scale(t.sx, t.sy);
+    ctx.beginPath();
+    tracePoly(ctx, ribbon(pts, widths));
+    if (layer.shaded) {
+      const v = turn(lightVector(light), -t.angle);
+      const box = localBounds(layer);
+      shadedFill(ctx, color, Math.max(1, (box.maxX - box.minX) * t.ux), Math.max(1, (box.maxY - box.minY) * t.uy), { x: v.x * t.sx, y: v.y * t.sy });
+    } else {
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+/** A shape layer's outline as path points (for "Turn into a path"), in the path's own units. */
+export function shapeAsPath(layer: ShapeLayer): PathPoint[] {
+  // One unit is half the height across and (with the layer's stretch, which the path keeps) half the width along.
+  return shapePoints(layer, 2, 2).map((p) => ({ x: Math.round(p.x * 1000) / 1000, y: Math.round(p.y * 1000) / 1000, handle: null }));
 }

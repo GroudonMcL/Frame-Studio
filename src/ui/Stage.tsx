@@ -10,11 +10,12 @@ import { useEffect, useRef, useState } from 'react';
 import { SHAPES } from '../engine/legacy/catalog';
 import type { FrameGeometry } from '../engine/legacy/frameKit';
 import type { Point } from '../engine/legacy/shapes';
-import { findLayer, flatten, isLocked, isShown } from '../project/tree';
+import { findLayer, flatten, isLocked, isShown, locate } from '../project/tree';
 import type { FrameProject, Layer, PathLayer, PlacedLayer } from '../project/types';
 import { bandGeometry, outlineAt } from '../render/band';
 import {
   dragLayer,
+  finder,
   movePathPart,
   nudgeLayer,
   pathHandles,
@@ -28,12 +29,19 @@ import {
   transformHandles,
   type PathPart,
 } from '../render/hitTest';
-import { lineOutline, repeatPlacements } from '../render/layers';
+import { contourLines, lineOutline, repeatPlacements } from '../render/layers';
+import { textGlyphs } from '../render/text';
+import { followed, tracksFor, type FindLayer } from '../render/track';
+import { generatorReach } from '../render/generators';
+import { loadFonts } from './fonts';
 import { placements, localBounds, toCanvas } from '../render/placed';
 import { renderStats } from '../render/layerCache';
 import { renderProject } from '../render/renderProject';
-import { commit, finishDrawing, select, setPathEdit, setPathPoints, updateLayer, updateStage, useProject, useUi, type PathEdit } from '../state/projectStore';
-import { ColorField, Segmented, Slider, Toggle } from './controls';
+import { commit, finishDrawing, movableIn, select, setPathEdit, setPathPoints, updateLayer, updateLayers, updateStage, useProject, useUi, type PathEdit } from '../state/projectStore';
+import { ColorField, Segmented, Select, Slider, Toggle } from './controls';
+import { Sun, ZoomIn, ZoomOut } from 'lucide-react';
+import { LightingDialog } from './WorkflowDialogs';
+import type { RenderView } from '../render/effects';
 import { LightDial } from './LightDial';
 import { stageArt } from './stageArt';
 
@@ -47,11 +55,17 @@ function strokeOutline(ctx: CanvasRenderingContext2D, poly: Point[]): void {
   ctx.stroke();
 }
 
+function strokeOpen(ctx: CanvasRenderingContext2D, poly: Point[]): void {
+  ctx.beginPath();
+  poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+  ctx.stroke();
+}
+
 /** The dashed outline showing where a layer is. */
-function outlineLayer(ctx: CanvasRenderingContext2D, layer: Layer, g: FrameGeometry): void {
+function outlineLayer(ctx: CanvasRenderingContext2D, layer: Layer, g: FrameGeometry, find: FindLayer): void {
   switch (layer.type) {
     case 'repeat':
-      for (const { p, h } of repeatPlacements(layer, g)) {
+      for (const { p, h } of repeatPlacements(layer, g, find)) {
         ctx.beginPath();
         ctx.arc(p.x, p.y, (h * Math.max(1, layer.stretch)) / 2 + 3, 0, Math.PI * 2);
         ctx.stroke();
@@ -64,6 +78,35 @@ function outlineLayer(ctx: CanvasRenderingContext2D, layer: Layer, g: FrameGeome
         strokeOutline(ctx, outlineAt(g, layer.at + layer.width / 2));
       }
       break;
+    case 'text': {
+      const { glyphs, height } = textGlyphs(layer, g, find);
+      for (const { p, width } of glyphs) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(height, width) * 0.6, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'contours':
+      for (const l of contourLines(layer)) {
+        strokeOutline(ctx, outlineAt(g, l.at - l.width / 2));
+        strokeOutline(ctx, outlineAt(g, l.at + l.width / 2));
+      }
+      break;
+    case 'growth':
+    case 'knotwork':
+    case 'gears':
+    case 'chain': {
+      const reach = generatorReach(layer);
+      if (followed(layer.follow, find)) for (const t of tracksFor(layer.follow, layer.at, g, find)) (t.closed ? strokeOutline : strokeOpen)(ctx, t.points);
+      else {
+        strokeOutline(ctx, outlineAt(g, layer.at - reach));
+        strokeOutline(ctx, outlineAt(g, layer.at + reach));
+      }
+      break;
+    }
+    case 'fracture':
+    case 'cells':
     case 'bandFill':
     case 'texture':
       strokeOutline(ctx, outlineAt(g, layer.from));
@@ -90,7 +133,7 @@ function outlineLayer(ctx: CanvasRenderingContext2D, layer: Layer, g: FrameGeome
       break;
     }
     case 'group':
-      for (const child of flatten(layer.children)) if (child.visible) outlineLayer(ctx, child, g);
+      for (const child of flatten(layer.children)) if (child.visible) outlineLayer(ctx, child, g, find);
       break;
   }
 }
@@ -106,6 +149,7 @@ function dot(ctx: CanvasRenderingContext2D, p: Point, r: number, fill: string, s
 
 function drawOverlay(ctx: CanvasRenderingContext2D, project: FrameProject, ids: string[], primary: Layer | undefined, edit: PathEdit | null, size: number, zoom: number): void {
   const g = bandGeometry(project.stage, size);
+  const find = finder(project);
   ctx.save();
   ctx.translate(size / 2, size / 2);
   ctx.lineWidth = 1.5 * zoom;
@@ -113,7 +157,7 @@ function drawOverlay(ctx: CanvasRenderingContext2D, project: FrameProject, ids: 
   ctx.strokeStyle = GOLD;
   for (const id of ids) {
     const layer = findLayer(project.layers, id);
-    if (layer && isShown(project.layers, id)) outlineLayer(ctx, layer, g);
+    if (layer && isShown(project.layers, id)) outlineLayer(ctx, layer, g, find);
   }
   ctx.setLineDash([]);
   ctx.strokeStyle = '#1a1208';
@@ -160,7 +204,14 @@ function drawOverlay(ctx: CanvasRenderingContext2D, project: FrameProject, ids: 
 type Drag =
   | { kind: 'move'; layer: Layer; start: Point }
   | { kind: 'scale' | 'rotate'; layer: PlacedLayer; anchor: Point; start: Point }
-  | { kind: 'pathPart'; layer: PathLayer; part: PathPart };
+  | { kind: 'pathPart'; layer: PathLayer; part: PathPart }
+  | { kind: 'group'; layers: Layer[]; start: Point }
+  | { kind: 'pan'; from: { x: number; y: number }; pan: { x: number; y: number } };
+
+const ZOOMS = [1, 1.5, 2, 3, 4, 6, 8];
+/** The biggest picture the zoomed preview is drawn at. */
+const MAX_PX = 4096;
+const VIEW_NAMES: Record<RenderView, string> = { picture: 'The picture', height: 'Height map', normals: 'Normal map' };
 
 export function Stage() {
   const project = useProject();
@@ -172,8 +223,18 @@ export function Stage() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const overlay = useRef<HTMLCanvasElement>(null);
   const [side, setSide] = useState(480);
+  // Zoom (a CSS scale of the canvas, drawn sharper to match) and pan (CSS pixels).
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [view, setView] = useState<RenderView>('picture');
+  const [lighting, setLighting] = useState(false);
   const drag = useRef<Drag | null>(null);
   const selected = findLayer(project.layers, selectedId);
+  // Text layers draw with web fonts: once they are loaded, the preview is drawn again.
+  const [fonts, setFonts] = useState(0);
+  useEffect(() => {
+    void loadFonts().then(() => setFonts((n) => n + 1));
+  }, []);
 
   useEffect(() => {
     const el = wrap.current;
@@ -186,7 +247,7 @@ export function Stage() {
   }, []);
 
   const dpr = Math.min(2, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1);
-  const px = Math.round(side * dpr);
+  const px = Math.min(MAX_PX, Math.round(side * dpr * zoom));
 
   useEffect(() => {
     const el = canvas.current;
@@ -194,7 +255,7 @@ export function Stage() {
     if (!el || !ctx) return;
     const art = project.stage.showArt ? stageArt() : null;
     const full = () => {
-      renderProject(ctx, project, px, { art });
+      renderProject(ctx, project, px, { art, view });
       // How many layers this render had to draw (the rest came from the cache): read by the end-to-end tests.
       el.dataset.drawn = String(renderStats.drawn);
       el.dataset.reused = String(renderStats.reused);
@@ -206,7 +267,7 @@ export function Stage() {
     quick.width = quick.height = side;
     const qctx = quick.getContext('2d');
     if (!qctx) return full();
-    renderProject(qctx, project, side, { art });
+    renderProject(qctx, project, side, { art, view });
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, px, px);
@@ -215,7 +276,7 @@ export function Stage() {
     ctx.restore();
     const id = setTimeout(full, 300);
     return () => clearTimeout(id);
-  }, [project, px, side]);
+  }, [project, px, side, fonts, view]);
 
   useEffect(() => {
     const ctx = overlay.current?.getContext('2d');
@@ -288,6 +349,18 @@ export function Stage() {
     }
 
     const hit = pickLayer(project, px, pt);
+    // A picked group moves as a whole when one of its layers is dragged.
+    if (hit && sel?.type === 'group' && editable(sel) && locate(project.layers, hit.id)?.ancestors.some((a) => a.id === sel.id) && !e.ctrlKey && !e.metaKey) {
+      drag.current = { kind: 'group', layers: movableIn(sel), start: pt };
+      capture();
+      return;
+    }
+    if (!hit && zoom > 1) {
+      // Zoomed in, dragging the empty canvas moves the view.
+      drag.current = { kind: 'pan', from: { x: e.clientX, y: e.clientY }, pan };
+      capture();
+      return;
+    }
     if (!hit || hit.id !== selectedId || e.ctrlKey || e.metaKey) select(hit?.id ?? null);
     if (hit) {
       drag.current = { kind: 'move', layer: hit, start: pt };
@@ -295,23 +368,50 @@ export function Stage() {
     }
   };
 
+  const setZoomAround = (next: number) => {
+    const z = Math.min(8, Math.max(1, next));
+    setZoom(z);
+    if (z === 1) setPan({ x: 0, y: 0 });
+    else setPan((p) => ({ x: (p.x * z) / zoom, y: (p.y * z) / zoom }));
+  };
+  const onWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      setZoomAround(zoom * (e.deltaY < 0 ? 1.25 : 0.8));
+    } else if (zoom > 1) setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
+  };
+
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const d = drag.current;
     if (!d) return;
     const pt = toPoint(e);
     let patch: Partial<Layer> | null = null;
+    if (d.kind === 'pan') {
+      setPan({ x: d.pan.x + e.clientX - d.from.x, y: d.pan.y + e.clientY - d.from.y });
+      return;
+    }
+    if (d.kind === 'group') {
+      updateLayers(
+        d.layers.flatMap((l) => {
+          const q = dragLayer(l, project, px, d.start, pt);
+          return q ? [{ id: l.id, patch: q }] : [];
+        }),
+        { transient: true },
+      );
+      return;
+    }
     if (d.kind === 'move') patch = dragLayer(d.layer, project, px, d.start, pt);
     else if (d.kind === 'scale') patch = scaleBy(d.layer, d.anchor, d.start, pt);
     else if (d.kind === 'rotate') patch = rotateBy(d.layer, d.anchor, d.start, pt, e.shiftKey);
     else if (d.kind === 'pathPart') {
-      const points = movePathPart(d.layer, g, d.part, pt);
+      // Alt makes a smooth point's two handles separate.
+      const points = movePathPart(d.layer, g, d.part, pt, e.altKey);
       if (points) patch = { points } as Partial<Layer>;
     }
     if (patch) updateLayer(d.layer.id, patch, { transient: true });
   };
 
   const endDrag = () => {
-    if (drag.current) commit();
+    if (drag.current && drag.current.kind !== 'pan') commit();
     drag.current = null;
   };
 
@@ -328,7 +428,7 @@ export function Stage() {
   return (
     <section className="stage" aria-label="Canvas">
       <div className="stage-well" ref={wrap}>
-        <div className="stage-canvas" style={{ width: side, height: side }}>
+        <div className="stage-canvas" style={{ width: side, height: side, transform: zoom > 1 ? `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` : undefined }} onWheel={onWheel}>
           <canvas ref={canvas} width={px} height={px} aria-label={`Preview of ${project.name}`} role="img" data-testid="preview" />
           <canvas
             ref={overlay}
@@ -353,12 +453,38 @@ export function Stage() {
             }}
           />
         </div>
+        <div className="stage-tools">
+          <div className="zoom" role="group" aria-label="Zoom">
+            <button type="button" className="icon-btn" aria-label="Zoom out" title="Zoom out (Ctrl + mouse wheel)" disabled={zoom <= 1} onClick={() => setZoomAround(ZOOMS.filter((z) => z < zoom).at(-1) ?? 1)}>
+              <ZoomOut size={16} />
+            </button>
+            <button type="button" className="btn small zoom-level" aria-label={`${Math.round(zoom * 100)}%: fit the whole token`} title="Fit the whole token" onClick={() => setZoomAround(1)}>
+              {Math.round(zoom * 100)}%
+            </button>
+            <button type="button" className="icon-btn" aria-label="Zoom in" title="Zoom in (Ctrl + mouse wheel); drag the empty canvas to move about" disabled={zoom >= 8} onClick={() => setZoomAround(ZOOMS.find((z) => z > zoom) ?? 8)}>
+              <ZoomIn size={16} />
+            </button>
+          </div>
+          <button type="button" className="btn small" onClick={() => setLighting(true)} title="More coloured lights, an ambient colour, bloom and light bleeding">
+            <Sun size={16} aria-hidden="true" /> <span className="tool-label">Lighting…</span>
+          </button>
+          {advanced && (
+            <Select
+              label="Show"
+              hint="The picture, or (to check how surfaces are shaped) every bevel's height map, lighter where higher, or its normal map."
+              value={view}
+              options={(Object.keys(VIEW_NAMES) as RenderView[]).map((v) => ({ value: v, label: VIEW_NAMES[v] }))}
+              onChange={setView}
+            />
+          )}
+        </div>
         {pathEdit?.drawing && (
           <p className="stage-hint" role="status">
             Click to add points{selected?.type === 'path' && selected.points.length >= 3 ? '; click the first point or press Enter to finish' : ''}.
           </p>
         )}
       </div>
+      {lighting && <LightingDialog onClose={() => setLighting(false)} />}
       <div className="stage-bar" aria-label="Preview settings">
         <Segmented label="Token shape" value={project.stage.shape} options={SHAPES.map((s) => ({ value: s.id, label: s.name }))} onChange={(shape) => updateStage({ shape })} />
         <div className="stage-sliders">
@@ -388,6 +514,7 @@ export function Stage() {
             />
           )}
           <LightDial value={project.stage.light} />
+
           <Toggle label="Show sample picture" checked={project.stage.showArt} onChange={(showArt) => updateStage({ showArt })} />
           {advanced && project.stage.showArt && <ColorField label="Backing colour" value={project.stage.backingColor} onChange={(backingColor, t) => updateStage({ backingColor }, { transient: t })} />}
         </div>

@@ -57,6 +57,14 @@ const ADDABLE: { type: EditableLayerType; hint: string }[] = [
   { type: 'repeat', hint: 'One shape repeated round the band: beads, studs, gems, runes, leaves.' },
   { type: 'shape', hint: 'One circle, rectangle, polygon or star, placed on the band.' },
   { type: 'path', hint: 'Draw your own shape by clicking points on the canvas.' },
+  { type: 'text', hint: 'Words or runes running round the band or along a path: inscriptions, names, spells.' },
+  { type: 'contours', hint: 'Several lines round the band at once, one inside the other: a quick ring.' },
+  { type: 'growth', hint: 'Vines, roots, thorns, tendrils or antlers grown round the band or along a path.' },
+  { type: 'cells', hint: 'The band divided into plates: flagstones, honeycomb, bricks, tiles or scales.' },
+  { type: 'fracture', hint: 'Branching cracks across the band, or lightning running round it.' },
+  { type: 'knotwork', hint: 'Two strands woven round the band, over and under.' },
+  { type: 'gears', hint: 'Gears with teeth, spokes and hubs, round the band or along a path.' },
+  { type: 'chain', hint: 'A chain of interlocking links round the band or along a path.' },
   { type: 'group', hint: 'An empty group to keep layers together.' },
 ];
 

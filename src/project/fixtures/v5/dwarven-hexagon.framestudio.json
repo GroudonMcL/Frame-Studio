@@ -1,0 +1,505 @@
+{
+  "format": "frame-studio-project",
+  "schemaVersion": 5,
+  "name": "Dwarven bronze",
+  "stage": {
+    "shape": "hexagon",
+    "thickness": 0.14,
+    "outerSpacing": 0.1,
+    "showArt": false,
+    "backingColor": "#1d1f27",
+    "light": 300
+  },
+  "layers": [
+    {
+      "id": "Lmvn4xbmu11499",
+      "name": "Bronze band",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "bevel",
+          "on": true,
+          "direction": "raised",
+          "profile": "rounded",
+          "size": 0.2,
+          "depth": 1,
+          "soften": 0.02,
+          "highlight": "#ffffff",
+          "highlightOpacity": 0.75,
+          "shadow": "#000000",
+          "shadowOpacity": 0.6,
+          "gloss": 0.45,
+          "lightHeight": 35,
+          "surface": "hammered",
+          "surfaceDepth": 0.7,
+          "surfaceScale": 0.22,
+          "seed": 1
+        },
+        {
+          "kind": "recolour",
+          "on": true,
+          "stops": [
+            {
+              "at": 0,
+              "color": "#1c0e04",
+              "opacity": 1
+            },
+            {
+              "at": 0.25,
+              "color": "#5a3414",
+              "opacity": 1
+            },
+            {
+              "at": 0.5,
+              "color": "#9a6430",
+              "opacity": 1
+            },
+            {
+              "at": 0.75,
+              "color": "#d0a060",
+              "opacity": 1
+            },
+            {
+              "at": 1,
+              "color": "#f6e0b0",
+              "opacity": 1
+            }
+          ],
+          "amount": 1
+        }
+      ],
+      "type": "bandFill",
+      "from": 0,
+      "to": 1,
+      "paint": {
+        "kind": "solid",
+        "color": "#808080"
+      }
+    },
+    {
+      "id": "Lmvn4xbmu2kt",
+      "name": "Forge cracks",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "band",
+      "effects": [
+        {
+          "kind": "glow",
+          "on": true,
+          "inner": false,
+          "color": "#ff6a1a",
+          "opacity": 0.7,
+          "size": 0.12
+        }
+      ],
+      "type": "texture",
+      "kind": "cracks",
+      "from": 0,
+      "to": 1,
+      "color": "#ff9a3a",
+      "color2": null,
+      "amount": 0.5,
+      "scale": 1,
+      "strength": 0.8,
+      "where": "everywhere",
+      "seed": 3386
+    },
+    {
+      "id": "Lmvn4xbmu35id",
+      "name": "Outer rim",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "bevel",
+          "on": true,
+          "direction": "raised",
+          "profile": "rounded",
+          "size": 0.5,
+          "depth": 1,
+          "soften": 0.02,
+          "highlight": "#ffffff",
+          "highlightOpacity": 0.75,
+          "shadow": "#000000",
+          "shadowOpacity": 0.6,
+          "gloss": 0.5,
+          "lightHeight": 35,
+          "surface": "smooth",
+          "surfaceDepth": 0.5,
+          "surfaceScale": 0.25,
+          "seed": 1
+        },
+        {
+          "kind": "recolour",
+          "on": true,
+          "stops": [
+            {
+              "at": 0,
+              "color": "#1c0e04",
+              "opacity": 1
+            },
+            {
+              "at": 0.25,
+              "color": "#5a3414",
+              "opacity": 1
+            },
+            {
+              "at": 0.5,
+              "color": "#9a6430",
+              "opacity": 1
+            },
+            {
+              "at": 0.75,
+              "color": "#d0a060",
+              "opacity": 1
+            },
+            {
+              "at": 1,
+              "color": "#f6e0b0",
+              "opacity": 1
+            }
+          ],
+          "amount": 1
+        },
+        {
+          "kind": "shadow",
+          "on": true,
+          "inner": false,
+          "color": "#000000",
+          "opacity": 0.6,
+          "distance": 0.03,
+          "blur": 0.04
+        }
+      ],
+      "type": "line",
+      "at": 0.035,
+      "width": 0.08,
+      "paint": {
+        "kind": "solid",
+        "color": "#808080"
+      },
+      "dash": "solid",
+      "glow": null,
+      "waveAmplitude": 0,
+      "waves": 12,
+      "wavePhase": 0
+    },
+    {
+      "id": "Lmvn4xbmu4jmg",
+      "name": "Inner rim",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "bevel",
+          "on": true,
+          "direction": "raised",
+          "profile": "rounded",
+          "size": 0.5,
+          "depth": 1,
+          "soften": 0.02,
+          "highlight": "#ffffff",
+          "highlightOpacity": 0.75,
+          "shadow": "#000000",
+          "shadowOpacity": 0.6,
+          "gloss": 0.5,
+          "lightHeight": 35,
+          "surface": "smooth",
+          "surfaceDepth": 0.5,
+          "surfaceScale": 0.25,
+          "seed": 1
+        },
+        {
+          "kind": "recolour",
+          "on": true,
+          "stops": [
+            {
+              "at": 0,
+              "color": "#1c0e04",
+              "opacity": 1
+            },
+            {
+              "at": 0.25,
+              "color": "#5a3414",
+              "opacity": 1
+            },
+            {
+              "at": 0.5,
+              "color": "#9a6430",
+              "opacity": 1
+            },
+            {
+              "at": 0.75,
+              "color": "#d0a060",
+              "opacity": 1
+            },
+            {
+              "at": 1,
+              "color": "#f6e0b0",
+              "opacity": 1
+            }
+          ],
+          "amount": 1
+        },
+        {
+          "kind": "shadow",
+          "on": true,
+          "inner": false,
+          "color": "#000000",
+          "opacity": 0.6,
+          "distance": 0.03,
+          "blur": 0.04
+        }
+      ],
+      "type": "line",
+      "at": 0.965,
+      "width": 0.08,
+      "paint": {
+        "kind": "solid",
+        "color": "#808080"
+      },
+      "dash": "solid",
+      "glow": null,
+      "waveAmplitude": 0,
+      "waves": 12,
+      "wavePhase": 0
+    },
+    {
+      "id": "Lmvn4xbmu51cx3",
+      "name": "Runes",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "bevel",
+          "on": true,
+          "direction": "sunken",
+          "profile": "chisel",
+          "size": 0.05,
+          "depth": 1.5,
+          "soften": 0.02,
+          "highlight": "#ffffff",
+          "highlightOpacity": 0.75,
+          "shadow": "#000000",
+          "shadowOpacity": 0.6,
+          "gloss": 0.1,
+          "lightHeight": 35,
+          "surface": "smooth",
+          "surfaceDepth": 0.5,
+          "surfaceScale": 0.25,
+          "seed": 1
+        },
+        {
+          "kind": "shadow",
+          "on": true,
+          "inner": true,
+          "color": "#000000",
+          "opacity": 0.7,
+          "distance": 0.02,
+          "blur": 0.02
+        }
+      ],
+      "type": "repeat",
+      "element": "rune",
+      "mode": "count",
+      "count": 8,
+      "spacing": 1,
+      "snapToCorners": false,
+      "at": 0.5,
+      "size": 0.44,
+      "stretch": 0.75,
+      "rotation": 0,
+      "offset": 0.5,
+      "fill": "#4a3018",
+      "outline": null,
+      "outlineWidth": 0.14,
+      "raised": false,
+      "glow": null,
+      "accentEvery": 0,
+      "accentScale": 1.6,
+      "accentColor": null,
+      "seed": 7,
+      "altColors": [],
+      "altSizes": [],
+      "skipAroundAccent": 0,
+      "alternateSides": 0,
+      "shaded": true,
+      "show": []
+    },
+    {
+      "id": "Lmvn4xbmu616g7",
+      "name": "Plates",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "wear",
+          "on": true,
+          "chips": 0.15,
+          "polish": 0.4,
+          "grime": 0.35,
+          "grimeColor": "#2a2016",
+          "scale": 0.2,
+          "seed": 1
+        },
+        {
+          "kind": "recolour",
+          "on": true,
+          "stops": [
+            {
+              "at": 0,
+              "color": "#1c0e04",
+              "opacity": 1
+            },
+            {
+              "at": 0.25,
+              "color": "#5a3414",
+              "opacity": 1
+            },
+            {
+              "at": 0.5,
+              "color": "#9a6430",
+              "opacity": 1
+            },
+            {
+              "at": 0.75,
+              "color": "#d0a060",
+              "opacity": 1
+            },
+            {
+              "at": 1,
+              "color": "#f6e0b0",
+              "opacity": 1
+            }
+          ],
+          "amount": 1
+        },
+        {
+          "kind": "shadow",
+          "on": true,
+          "inner": false,
+          "color": "#000000",
+          "opacity": 0.7,
+          "distance": 0.05,
+          "blur": 0.06
+        }
+      ],
+      "type": "repeat",
+      "element": "plate",
+      "mode": "count",
+      "count": 8,
+      "spacing": 1,
+      "snapToCorners": true,
+      "at": 0.5,
+      "size": 0.62,
+      "stretch": 1,
+      "rotation": 0,
+      "offset": 0,
+      "fill": "#9a9a9a",
+      "outline": null,
+      "outlineWidth": 0.08,
+      "raised": false,
+      "glow": null,
+      "accentEvery": 0,
+      "accentScale": 1.6,
+      "accentColor": null,
+      "seed": 1,
+      "altColors": [],
+      "altSizes": [],
+      "skipAroundAccent": 0,
+      "alternateSides": 0,
+      "shaded": true,
+      "show": []
+    },
+    {
+      "id": "Lmvn4xbmv7wol",
+      "name": "Rivets",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [],
+      "type": "repeat",
+      "element": "bead",
+      "mode": "count",
+      "count": 8,
+      "spacing": 1,
+      "snapToCorners": true,
+      "at": 0.17,
+      "size": 0.1,
+      "stretch": 1,
+      "rotation": 0,
+      "offset": 0.5,
+      "fill": "#c89858",
+      "outline": null,
+      "outlineWidth": 0.08,
+      "raised": true,
+      "glow": null,
+      "accentEvery": 0,
+      "accentScale": 1.6,
+      "accentColor": null,
+      "seed": 1,
+      "altColors": [],
+      "altSizes": [],
+      "skipAroundAccent": 0,
+      "alternateSides": 0,
+      "shaded": true,
+      "show": []
+    },
+    {
+      "id": "Lmvn4xbmv81a2h",
+      "name": "Inner rivets",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [],
+      "type": "repeat",
+      "element": "bead",
+      "mode": "count",
+      "count": 8,
+      "spacing": 1,
+      "snapToCorners": true,
+      "at": 0.83,
+      "size": 0.1,
+      "stretch": 1,
+      "rotation": 0,
+      "offset": 0.5,
+      "fill": "#c89858",
+      "outline": null,
+      "outlineWidth": 0.08,
+      "raised": true,
+      "glow": null,
+      "accentEvery": 0,
+      "accentScale": 1.6,
+      "accentColor": null,
+      "seed": 1,
+      "altColors": [],
+      "altSizes": [],
+      "skipAroundAccent": 0,
+      "alternateSides": 0,
+      "shaded": true,
+      "show": []
+    }
+  ]
+}

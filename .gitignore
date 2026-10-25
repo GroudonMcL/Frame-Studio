@@ -8,3 +8,5 @@ test-results
 docs/screenshots/conversions/*
 !docs/screenshots/conversions/minimal.png
 !docs/screenshots/conversions/paladin.png
+scripts/scratch/
+release
