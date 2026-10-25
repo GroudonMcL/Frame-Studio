@@ -1007,6 +1007,38 @@ select {
 }
 .app.narrow .actions {
   margin-left: 0;
+  /* One row that scrolls sideways if it must, so the canvas keeps its room. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 200px;
+}
+/* On a phone the canvas tools are a slim column of icons beside the canvas. */
+.app.narrow .stage-tools {
+  top: var(--space-1);
+  right: var(--space-1);
+  padding: 2px;
+  gap: 2px;
+}
+.app.narrow .stage-tools .zoom {
+  flex-direction: column;
+}
+.app.narrow .stage-tools .zoom-level {
+  min-width: 0;
+  padding: 0 4px;
+  font-size: var(--text-xs);
+}
+.app.narrow .stage-tools .tool-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.app.narrow .actions > * {
+  flex: none;
 }
 .app.narrow .actions .btn {
   min-width: var(--hit);

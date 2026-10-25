@@ -93,7 +93,7 @@ test('save, open and export', async ({ page }, info) => {
   const original = await previewHash(page);
 
   const saving = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   const saved = await saving;
   expect(saved.suggestedFilename()).toBe('Glowing-runes.framestudio.json');
   const path = info.outputPath('saved.json');

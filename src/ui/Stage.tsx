@@ -466,7 +466,7 @@ export function Stage() {
             </button>
           </div>
           <button type="button" className="btn small" onClick={() => setLighting(true)} title="More coloured lights, an ambient colour, bloom and light bleeding">
-            <Sun size={16} /> Lighting…
+            <Sun size={16} aria-hidden="true" /> <span className="tool-label">Lighting…</span>
           </button>
           {advanced && (
             <Select
