@@ -14,7 +14,7 @@
 import type { FrameStyle, ShapeId } from '../engine/legacy/catalog';
 
 export const PROJECT_FORMAT = 'frame-studio-project';
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export interface FrameProject {
   format: typeof PROJECT_FORMAT;
@@ -85,7 +85,27 @@ interface LayerBase {
   clip: ClipMode;
   /** Surface effects applied to the layer's picture, first first (DESIGN.md §5.4). Version 5. */
   effects: Effect[];
+  /** Show the layer only through another layer's shape or brightness (version 8). */
+  mask: LayerMask | null;
+  /** How the layer shapes its group's shared height map (version 8): not at all, raised, or carved in. */
+  heightMode: HeightMode;
+  /** How high it rises or how deep it is carved (0–3). */
+  heightDepth: number;
+  /** How far in from its edge the slope reaches (band widths). */
+  heightSize: number;
 }
+
+/** A mask from any layer (version 8). */
+export interface LayerMask {
+  /** The id of the layer whose picture is the mask. */
+  source: string;
+  /** Its shape (alpha) or its brightness (luminance). */
+  mode: 'alpha' | 'luminance';
+  invert: boolean;
+}
+
+export const HEIGHT_MODES = ['none', 'raise', 'carve'] as const;
+export type HeightMode = (typeof HEIGHT_MODES)[number];
 
 /*
  * Effects (version 5): non-destructive filters on a layer's (or a group's)
@@ -205,8 +225,26 @@ export interface DistortEffect {
   seed: number;
 }
 
-export type Effect = BevelEffect | ShadowEffect | GlowEffect | RecolourEffect | AdjustEffect | WearEffect | DistortEffect;
-export const EFFECT_KINDS = ['bevel', 'shadow', 'glow', 'recolour', 'adjust', 'wear', 'distort'] as const satisfies readonly Effect['kind'][];
+/** Extruded sidewalls: the shape pushed back away from the light, its sides shaded (version 8). */
+export interface ExtrudeEffect {
+  kind: 'extrude';
+  on: boolean;
+  /** How deep (band widths). */
+  depth: number;
+  /** How dark the sides are (0–1). */
+  shade: number;
+}
+
+/** Grows (positive) or shrinks (negative) the picture's shape (version 8). */
+export interface OffsetEffect {
+  kind: 'offset';
+  on: boolean;
+  /** Band widths. */
+  amount: number;
+}
+
+export type Effect = BevelEffect | ShadowEffect | GlowEffect | RecolourEffect | AdjustEffect | WearEffect | DistortEffect | ExtrudeEffect | OffsetEffect;
+export const EFFECT_KINDS = ['bevel', 'shadow', 'glow', 'recolour', 'adjust', 'wear', 'distort', 'extrude', 'offset'] as const satisfies readonly Effect['kind'][];
 export type EffectKind = (typeof EFFECT_KINDS)[number];
 
 export const CLIP_MODES = ['none', 'band', 'below'] as const;
@@ -481,6 +519,8 @@ export interface PathPoint {
   x: number;
   y: number;
   handle: { x: number; y: number } | null;
+  /** The control point arriving at it, relative to it, when it isn't the mirror of `handle` (version 8; left out = mirrored). */
+  handleIn?: { x: number; y: number };
 }
 
 /** A drawn path: points joined by straight lines or curves, open or closed. */
@@ -488,6 +528,11 @@ export interface PathLayer extends LayerBase, Placement, PlacedStyle {
   type: 'path';
   points: PathPoint[];
   closed: boolean;
+  /** Draw the path as a filled stroke this wide (a share of its height), tapering at its ends; 0 = off (version 8). */
+  stroke: number;
+  /** How much it narrows at the start and at the end (0 = not, 1 = to a point). */
+  taperStart: number;
+  taperEnd: number;
 }
 
 export const TEXTURE_KINDS = ['marble', 'hammered', 'wear', 'wood', 'stone', 'scatter', 'rope', 'scales', 'cracks'] as const;
@@ -745,7 +790,12 @@ export interface GroupLayer extends LayerBase {
   children: Layer[];
   /** Folded up in the layer list. */
   collapsed: boolean;
+  /** How its layers' shapes combine (version 8): drawn over each other, or the first with the rest added, cut out, overlapped or excluded. */
+  combine: CombineMode;
 }
+
+export const COMBINE_MODES = ['normal', 'union', 'subtract', 'intersect', 'exclude'] as const;
+export type CombineMode = (typeof COMBINE_MODES)[number];
 
 /**
  * A layer from a newer version of Frame Studio, or one this version can't

@@ -48,14 +48,14 @@ Same as Token Maker, so code and habits carry over: TypeScript, React 19 + Vite,
 
 ## 4. The project format
 
-### 4.1 FrameProject (schema version 7)
+### 4.1 FrameProject (schema version 8)
 
 Defined in `src/project/types.ts`; defaults in `src/project/defaults.ts`; reading and checking in `src/project/migrate.ts`; finding layers anywhere in the tree in `src/project/tree.ts`.
 
 ```ts
 interface FrameProject {
   format: 'frame-studio-project';
-  schemaVersion: 7;
+  schemaVersion: 8;
   name: string;
   stage: { shape; thickness; outerSpacing; showArt; backingColor;     // how it's previewed, not the look
            light };                                                   // where the light comes from (§5.1)
@@ -64,6 +64,8 @@ interface FrameProject {
 // Every layer: id (stable, unique in the whole tree), name, visible, locked, opacity 0–1, blend,
 //              clip: 'none' | 'band' | 'below'                        (§5.2)
 //              effects: Effect[]                                      (§5.4, version 5)
+//              mask: { source; mode: 'alpha' | 'luminance'; invert } | null    (§5.8, version 8)
+//              heightMode: 'none' | 'raise' | 'carve'; heightDepth; heightSize  (shared height, §5.8)
 type Layer =
   | { type: 'legacyFrame'; presetId; style; color; accent | null }     // a Token Maker frame, one composite layer
   | { type: 'bandFill'; from; to; paint }                              // colours part of the band
@@ -81,7 +83,8 @@ type Layer =
       amount; scale; strength; where; seed }
   | { type: 'shape'; ...Placement; ...PlacedStyle;                     // one circle / rectangle / polygon / star
       shape; sides; innerRatio; corner }
-  | { type: 'path'; ...Placement; ...PlacedStyle; points; closed }     // a drawn shape (§4.5)
+  | { type: 'path'; ...Placement; ...PlacedStyle; points; closed;     // a drawn shape (§4.5)
+      stroke; taperStart; taperEnd }                                   // drawn as a tapered filled stroke (Phase 9)
   | { type: 'text'; text; font; size; spacing; at; along; align;      // words or runes on the band or a path (§4.10, Phase 7)
       reverse; follow; fill; outline | null; outlineWidth }
   | { type: 'contours'; count; from; spacing; width; taper; paint;     // nested lines, a quick ring (Phase 7)
@@ -96,7 +99,8 @@ type Layer =
   | { type: 'gears'; follow; at; count; snapToCorners; size; teeth; toothDepth; toothShape;
       spokes; hub; domed; altSize; interlock; rotation; offset; color; shaded }
   | { type: 'chain'; follow; at; linkLength; linkWidth; thickness; color; shaded }
-  | { type: 'group'; children: Layer[]; collapsed }                    // layers kept together (§5.2)
+  | { type: 'group'; children: Layer[]; collapsed;                    // layers kept together (§5.2)
+      combine: 'normal' | 'union' | 'subtract' | 'intersect' | 'exclude' }  // combining shapes (Phase 9)
   | { type: 'unsupported'; originalType; data; reason };               // kept, never drawn (see 4.3)
 type Placement = { place: 'band' | 'free'; along; across; x; y;       // §4.4
                    size; stretch; rotation; mirror: 'none' | 'leftRight' | 'topBottom' | 'four';
@@ -112,6 +116,8 @@ type Effect =                                                         // every o
   | { kind: 'adjust'; hue; saturation; brightness; contrast }
   | { kind: 'wear'; chips; polish; grime; grimeColor; scale; seed; scratches }   // scratches: Phase 8
   | { kind: 'distort'; amount; scale; seed }                           // noise displacement (Phase 8)
+  | { kind: 'extrude'; depth; shade }                                  // sidewalls (Phase 9)
+  | { kind: 'offset'; amount }                                         // grow or shrink (Phase 9)
 type Paint =
   | { kind: 'solid'; color }
   | { kind: 'lit'; color; light; dark; pressed;     // token-maker's metal lighting (litTables), turned to stage.light
@@ -179,6 +185,7 @@ These are the conventions of token-maker's `frameKit.ts` (`alongBand(g, count, a
 - **Version 4 → 5** (`MIGRATIONS[4]`): every layer of a kind this version knows gets `effects: []`, shapes and paths `faceted: false, facetTable: 0.5, facetDepth: 1`, in groups too, so nothing changes; a layer of a kind it doesn't know is left exactly as it was. An effect of a kind this version doesn't know is left out with a warning (a layer that can't be read keeps its effects in its kept data). Version-4 files saved by Phase 5 (Jewelled on a hexagon lit from 300°, and Paladin converted to layers on a thick square) are in `src/project/fixtures/v4/`.
 - **Version 5 → 6** (`MIGRATIONS[5]`): repeats get `follow: null`, no variation, the brilliant cut at Phase 6's numbers and no setting; shapes and paths `radialCount: 1`; in groups too, so nothing changes. Version-5 files saved by Phase 6 (Dwarven bronze on a hexagon lit from 300°, Eldritch crystal on a square with the sample picture, Radiant gold) are in `src/project/fixtures/v5/`. From Phase 7 on, `npm run make-fixtures -- file:template:shape:light:showArt …` writes a version's fixtures before the next phase changes the format.
 - **Version 6 → 7** (`MIGRATIONS[6]`): lines get `waveFit: 0` and wear effects (on layers and on settings) `scratches: 0`, so nothing changes. Version-6 files saved by Phase 7 (the Royal inscription on a square lit from 135° and on a flat hexagon with the sample picture; they have text, so the test loads Frame Studio's fonts) are in `src/project/fixtures/v6/`.
+- **Version 7 → 8** (`MIGRATIONS[7]`): only a version number. Masks, shared height, combining, strokes and separate handles are all off when a file leaves them out (`mask: null`, `heightMode: 'none'`, `combine: 'normal'`, `stroke: 0`, no `handleIn`), which is how earlier files have them. Version-7 files saved by Phase 8 (the Overgrown ruin on a hexagon lit from 300° and on a circle with the sample picture) are in `src/project/fixtures/v7/`. An unsupported layer keeps its own mask and height settings in its kept data.
 - Fixture files must draw as their version drew them (their `.png` beside them). Since Phase 3 every layer is drawn on its own canvas and composited (§5.3), which changes the rounding of a few nearly transparent edge pixels by a few 255ths; the test allows at most 8/255 in any premultiplied channel and a mean under 0.5/255, which is invisible. A single layer on its own (for example a Token Maker frame against `drawFrame`) is still pixel for pixel.
 - Nothing in a file is ever run as code.
 
@@ -195,7 +202,7 @@ The transforms are in `render/placed.ts` (`placement`, `placements`, `toCanvas`,
 
 ### 4.5 Path points
 
-A path's points are in its own units: x along (right), y in (down), where 1 is half the layer's height. A point has an optional `handle`: the curve's control point leaving it, relative to it; the one arriving is its mirror image, so a point is either **sharp** (no handle) or **smooth** (a symmetrical curve). That covers gems, leaves, blades and flourishes while staying easy to edit; separate in/out handles can be added later without breaking files (a second optional field). A path is filled only when `closed`; open paths show their outline.
+A path's points are in its own units: x along (right), y in (down), where 1 is half the layer's height. A point has an optional `handle`: the curve's control point leaving it, relative to it; the one arriving is its mirror image, so a point is either **sharp** (no handle) or **smooth** (a symmetrical curve). Since version 8 a smooth point can also have `handleIn`, its own arriving control point (written only when the handles are separate), for corners between two curves. That covers gems, leaves, blades and flourishes while staying easy to edit; separate in/out handles can be added later without breaking files (a second optional field). A path is filled only when `closed`; open paths show their outline.
 
 ### 4.6 Texture layers (Phase 3)
 
@@ -391,6 +398,18 @@ A **setting** follows the gem's outline (or an oval round any other element): a 
 - **Scratches** (wear): seeded thin bright lines with a dark edge beside them, on painted pixels only.
 - Picking a generator on the canvas: plates and cracks by their part of the band; the others within their reach of their track. The selection outline shows that reach.
 
+### 5.8 Masks, shared height, combining and sides (Phase 9)
+
+`render/renderProject.ts` (`masked`, `sharedHeight`, `combine`), `render/effects.ts` (`extrude`, `offset`, `showMaps`).
+
+- **Masks:** a layer with a `mask` is shown only through another layer's picture (with its effects): its shape (alpha) or its brightness (luminance), inverted or not. The mask layer can be hidden. The mask is applied when the layer is composited, so the layer's cached picture is kept as it is; a layer clipped to the one below can be masked too.
+- **Shared height map:** a layer in a group can **raise** or **carve** (`heightMode`): its own shape, through a rounded slope `heightSize` band widths wide, `heightDepth` high, is added to (or taken from) the height map of every bevel on its group (the bevel's own map is made from the group's whole shape, as in §5.4). So runes carved through a raised plate are lit as one surface: the plate's bevel slopes down into each rune and the edges facing the light are lit, the far ones shaded. A raising or carving layer at 0 % opacity shapes the surface without painting. Heights only matter to a bevel on the group; without one nothing changes.
+- **Views** (`renderProject(…, { view })`): `height` draws every bevel as its height map (grey, lighter higher, mid-grey flat) and `normals` as its normal map (RGB = x, y, z), in place of its lighting; the rest of the picture is drawn as usual. The editor's **Show** menu (Advanced, under the canvas) switches between them; exports always draw the picture.
+- **Sides** (`extrude` effect): the picture is pushed back away from the light a pixel at a time, each step darker, and put behind it, so plates look thick.
+- **Grow or shrink** (`offset` effect): grows the shape by the distance from its edge (new pixels take their neighbours' colours) or shrinks it.
+- **Combining shapes** (`group.combine`): the group draws its first layer, then each layer above added to it (union), cut out of it (subtract), overlapping it (intersect) or excluded from it (exclude), with canvas compositing, so the result is exact at every size; effects on the group follow the combined shape. Pixels rather than polygon booleans: robust for every layer kind (text, generators, Token Maker frames), at the cost of not producing an editable path.
+- **Strokes:** a path with `stroke` > 0 is drawn as a filled ribbon round its line, `stroke` times its height wide, narrowing over `taperStart` and `taperEnd` of its length, in its fill colour, so effects see a shape (brush strokes, blades, tendrils). **Turn into a path** makes a shape layer a path with the same outline.
+
 ## 6. The editor
 
 `src/App.tsx` + `src/ui/`. Desktop layout from 960 px wide (narrower screens: §6.3):
@@ -445,6 +464,16 @@ A **setting** follows the gem's outline (or an oval round any other element): a 
 - **Effects:** Distortion (amount, wobble size, variation); Wear and grime has Scratches. Lines have **Fit the waves to the band** with a wave length.
 - **Templates:** Overgrown ruin (stone plates with missing pieces and cracks, a verdigris knotwork band, roots and a creeper, only generators and styles). Druid, Knotwork, Artificer and Barbarian are now Token Maker frames that convert into editable layers (§4.7).
 
+### 6.7 Precise control (Phase 9)
+
+- **Advanced: layer** has **Mask** (no mask or any other layer), **Mask by** (shape or brightness), **Invert the mask**, and **Shared height** (not part of it, raised, carved in) with its depth and slope.
+- **Groups:** **Combine shapes**; **turn round the token** 15° either way (band positions slide round, free shapes move round the centre; `turnLayer` in `hitTest.ts`); dragging any of a picked group's layers on the canvas moves the whole group (each layer moves as if it were dragged).
+- **Paths:** **Stroke to shape** with tapers; for a smooth point, **Separate handles** / **Join handles**, and holding **Alt** while dragging a handle separates them. **Shapes:** **Turn into a path**.
+- **Effects:** Sides (extrude), Grow or shrink.
+- **Zoom and pan:** zoom buttons under the canvas (100 %–800 %, or Ctrl + mouse wheel); zoomed in, the mouse wheel or dragging the empty canvas moves about. The canvas is scaled and drawn sharper to match (up to 4096 px); picking, handles and drawing keep working, since points are measured on the scaled canvas.
+- **Show** (Advanced): the picture, the height map or the normal map.
+- Template: **Rune-carved plates** (bronze plates with sides, runes carved through them in one height map).
+
 Undo/redo works on the structured project (token-maker's `history.ts`): every edit is one step; a slider, colour-picker, handle or point drag is one step. Loading a project starts a fresh history.
 
 Autosave: the project's JSON is written to IndexedDB (`frame-studio:project`) 0.4 s after each change and restored on the next visit. First visit opens Token Maker's Stamped frame.
@@ -476,7 +505,7 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 | 6 | Surfaces and effects: the 2.5D bevel and surfaces lit by the light, shadows, glows, material colours, colour adjust, wear; faceted shapes and gems; more blend modes and a knockout; the style library; templates made with effects **(done)** |
 | 7 | Ornaments anywhere: repeat along a path, radial arrays, gem cuts and settings, text on a path, contours **(done)** |
 | 8 | Generators: organic growth, cracks and lightning as geometry, plates and cells, knotwork, gears and chains, distortion **(done)** |
-| 9 | Precise control: masks, height compositing, boolean geometry, editing (in/out handles, groups on the canvas, zoom) |
+| 9 | Precise control: masks, height compositing, boolean geometry, editing (in/out handles, groups on the canvas, zoom) **(done)** |
 | 10 | Workflow: randomise, your own styles, a theme colour, a lighting rig, batch export, more shapes with Token Maker |
 
 ## 9. Owner answers and open questions
@@ -548,6 +577,14 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 2. **Knotwork really interlaces**: the under strand stops short at each crossing. Token Maker's Knotwork lays one strand over the other; the conversion is the interlaced version, measured and limited like the others.
 3. **Cells are laid on the band by share of the way round**, so a pattern fits every shape and thickness and wraps without a seam; plates stay convex so the gap is an exact inset.
 4. **Missing fragments are plates left out**, and cracks can be clipped to the plates or cut through the band with the existing knockout, rather than a separate "break" setting.
+
+**Decided while building Phase 9** (sensible defaults within the brief; say if any should change):
+
+1. **Shared height belongs to a group:** layers raise or carve into their group's surface, which the group's bevel lights. A group already is "one sculpted piece" for effects (Phase 6), so this extends it without a new kind of layer.
+2. **Boolean geometry is done with pixels** (a group's combine mode), not polygon clipping: exact, live and robust for every layer kind, and effects follow it. The result isn't an editable path; shapes can be turned into paths, and paths can be stroked into shapes.
+3. **Masks use the source's finished picture** (with its effects), so a glowing layer masks with its glow; a clip to the layer below still ignores the base's effects (Phase 6).
+4. **Moving a group moves each of its layers** in its own terms (round the band, across it, or freely), so the group stays band-relative on every shape; turning a group slides it round the token.
+5. **Zoom scales the canvas** and draws it sharper, rather than drawing part of the picture, so the cache and the one renderer are unchanged.
 
 **Answered before Phase 5:** "looks the same" is good enough for converted frames (they don't have to be exact copies). The limits in §4.7 stay as they are and the originals stay available beside the editable versions.
 

@@ -1,7 +1,7 @@
 // Settings for the selected layer. Each layer type has its own controls; the
 // ones most people need come first and the technical ones sit in Advanced.
 
-import { PenTool, Plus, Shuffle, Trash2 } from 'lucide-react';
+import { PenTool, Plus, RotateCcw, RotateCw, Shuffle, Trash2 } from 'lucide-react';
 import { FRAME_PRESETS } from '../engine/legacy/catalog';
 import { mix, shade } from '../engine/legacy/color';
 import { frameAccent } from '../engine/legacy/frames';
@@ -14,6 +14,8 @@ import {
   DEFAULT_LIGHT,
   ELEMENT_KINDS,
   CELL_PATTERNS,
+  COMBINE_MODES,
+  HEIGHT_MODES,
   GEM_CUTS,
   GEM_SETTINGS,
   GROWTH_EXTRAS,
@@ -25,6 +27,8 @@ import {
   TEXTURE_PLACES,
   type BlendMode,
   type ClipMode,
+  type CombineMode,
+  type HeightMode,
   type ContoursLayer,
   type GemCut,
   type CellsLayer,
@@ -55,8 +59,8 @@ import { bandGeometry } from '../render/band';
 import { litFor } from '../render/paint';
 import { TEXTURE_NAMES } from '../render/textures';
 import { ELEMENT_NAMES } from '../render/elements';
-import { switchPlace, toggleSmooth } from '../render/hitTest';
-import { commit, convertToLayers, finishDrawing, setPathEdit, setPathPoints, ungroup, updateLayer, useProject, useUi } from '../state/projectStore';
+import { switchPlace, toggleSeparate, toggleSmooth } from '../render/hitTest';
+import { commit, convertToLayers, finishDrawing, setPathEdit, setPathPoints, shapeToPath, turnGroup, ungroup, updateLayer, useProject, useUi } from '../state/projectStore';
 import { ColorField, ColorList, Fold, OptionalColor, PatternField, PercentList, Select, Slider, TextField, Toggle } from './controls';
 import { DataView } from './DataView';
 import { EffectStack, EffectsSection } from './EffectsPanel';
@@ -102,6 +106,20 @@ const SHAPE_NAMES: Record<ShapeKind, string> = {
   rectangle: 'Rectangle',
   polygon: 'Polygon',
   star: 'Star',
+};
+
+const COMBINE_NAMES: Record<CombineMode, string> = {
+  normal: 'Drawn over each other',
+  union: 'Added together',
+  subtract: 'Cut out of the bottom one',
+  intersect: 'Only where they overlap',
+  exclude: 'All but the overlaps',
+};
+
+const HEIGHT_NAMES: Record<HeightMode, string> = {
+  none: 'Not part of it',
+  raise: 'Raised',
+  carve: 'Carved in',
 };
 
 const CUT_NAMES: Record<GemCut, string> = {
@@ -207,6 +225,8 @@ export function PropertiesPanel() {
                 onChange={(clip) => updateLayer(layer.id, { clip })}
               />
               <AdvancedControls layer={layer} />
+              <MaskControls layer={inLockedGroup ? ({ ...layer, locked: true } as Layer) : layer} />
+              <HeightControls layer={inLockedGroup ? ({ ...layer, locked: true } as Layer) : layer} />
             </Fold>
           )}
         </div>
@@ -355,6 +375,23 @@ function LayerControls({ layer, light }: { layer: Layer; light: number }) {
               : `Holds ${layer.children.length} layer${layer.children.length === 1 ? '' : 's'}. Hiding, locking or fading the group does the same to all of them.`}
           </p>
           {num(layer, setterFor(layer), 'opacity', 'Opacity', 0, 1, pct)}
+          <Select
+            label="Combine shapes"
+            hint="Draw its layers over each other, or combine their shapes: the bottom one with the others added, cut out of it, overlapping it, or everything but the overlaps. Effects on the group follow the result."
+            value={layer.combine}
+            disabled={disabled}
+            options={COMBINE_MODES.map((c) => ({ value: c, label: COMBINE_NAMES[c] }))}
+            onChange={(combine) => setterFor(layer)({ combine })}
+          />
+          <div className="row wrap" role="group" aria-label="Turn round the token">
+            <button type="button" className="btn small" disabled={disabled} onClick={() => turnGroup(layer.id, -15)} title="Turn everything in it 15° anticlockwise round the token">
+              <RotateCcw size={16} /> 15°
+            </button>
+            <button type="button" className="btn small" disabled={disabled} onClick={() => turnGroup(layer.id, 15)} title="Turn everything in it 15° clockwise round the token">
+              <RotateCw size={16} /> 15°
+            </button>
+          </div>
+          <p className="note">Drag any of its layers on the canvas to move the whole group.</p>
           <button type="button" className="btn small" disabled={disabled} onClick={() => ungroup(layer.id)}>
             Ungroup
           </button>
@@ -728,9 +765,17 @@ function PlacedControls({ layer }: { layer: PlacedLayer }) {
           {(layer.shape === 'polygon' || layer.shape === 'star') && num(layer, set, 'sides', layer.shape === 'star' ? 'Points' : 'Sides', 3, 16, { step: 1 })}
           {layer.shape === 'star' && num(layer, set, 'innerRatio', 'Inner points', 0.1, 0.95, pct)}
           {layer.shape === 'rectangle' && num(layer, set, 'corner', 'Round the corners', 0, 1, pct)}
+          <button type="button" className="btn small" disabled={disabled} onClick={() => shapeToPath(layer.id)} title="Make it a path with the same outline, so its points can be moved one by one">
+            <PenTool size={16} /> Turn into a path
+          </button>
         </>
       ) : (
-        <PathPoints layer={layer} editing={pathEdit} />
+        <>
+          <PathPoints layer={layer} editing={pathEdit} />
+          {num(layer, set, 'stroke', 'Stroke to shape', 0, 1, { ...pct, hint: 'Draws the line itself as a filled shape this wide (a share of its height), for brush strokes, tendrils and blades; 0% is off.' })}
+          {layer.stroke > 0 && num(layer, set, 'taperStart', 'Taper at the start', 0, 1, { ...pct, hint: 'How far from its start it narrows to a point.' })}
+          {layer.stroke > 0 && num(layer, set, 'taperEnd', 'Taper at the end', 0, 1, { ...pct, hint: 'How far from its end it narrows to a point.' })}
+        </>
       )}
       <OptionalColor label="Fill" value={layer.fill} fallback="#5fa8d3" disabled={disabled} onChange={(fill, t) => set({ fill }, t)} />
       {layer.fill !== null && (
@@ -848,6 +893,11 @@ function PathPoints({ layer, editing }: { layer: PathLayer; editing: { drawing: 
           <button type="button" className="btn small" disabled={disabled} onClick={() => setPathPoints(layer.id, toggleSmooth(layer.points, point, layer.closed))}>
             {layer.points[point].handle ? 'Make point sharp' : 'Make point smooth'}
           </button>
+          {layer.points[point].handle && (
+            <button type="button" className="btn small" disabled={disabled} title="Separate handles move on their own (or hold Alt while dragging one)" onClick={() => setPathPoints(layer.id, toggleSeparate(layer.points, point))}>
+              {layer.points[point].handleIn ? 'Join handles' : 'Separate handles'}
+            </button>
+          )}
           <button
             type="button"
             className="btn small"
@@ -1204,6 +1254,64 @@ function ChainControls({ layer }: { layer: ChainLayer }) {
       {num(layer, set, 'linkWidth', 'Link width', 0.2, 1.5, { ...pct, hint: 'How wide a link is compared with its length.' })}
       {num(layer, set, 'thickness', 'Metal thickness', 0.01, 0.4, { ...pct, hint: 'How thick the metal of each link is.' })}
       <Toggle label="Shaded by the light" checked={layer.shaded} disabled={disabled} onChange={(shaded) => set({ shaded })} />
+    </>
+  );
+}
+
+/** A mask from another layer (Advanced). */
+function MaskControls({ layer }: { layer: Layer }) {
+  const project = useProject();
+  if (layer.type === 'unsupported') return null;
+  const inside = layer.type === 'group' ? new Set(flatten(layer.children).map((l) => l.id)) : new Set<string>();
+  const sources = flatten(project.layers).filter((l) => l.id !== layer.id && !inside.has(l.id) && l.type !== 'unsupported');
+  const set = (mask: Layer['mask']) => updateLayer(layer.id, { mask });
+  const value = layer.mask && sources.some((l) => l.id === layer.mask!.source) ? layer.mask.source : '';
+  return (
+    <>
+      <Select
+        label="Mask"
+        hint="Show this layer only through another layer's shape (or its brightness). The mask layer can be hidden and still masks."
+        value={value}
+        disabled={layer.locked}
+        options={[{ value: '', label: 'No mask' }, ...sources.map((l) => ({ value: l.id, label: l.name }))]}
+        onChange={(source) => set(source ? { source, mode: layer.mask?.mode ?? 'alpha', invert: layer.mask?.invert ?? false } : null)}
+      />
+      {layer.mask && value && (
+        <>
+          <Select
+            label="Mask by"
+            hint="Its shape (where it has paint) or its brightness (light shows, dark hides)."
+            value={layer.mask.mode}
+            disabled={layer.locked}
+            options={[
+              { value: 'alpha', label: 'Its shape' },
+              { value: 'luminance', label: 'Its brightness' },
+            ]}
+            onChange={(mode) => set({ ...layer.mask!, mode })}
+          />
+          <Toggle label="Invert the mask" hint="Shows this layer where the mask isn't, instead of where it is." checked={layer.mask.invert} disabled={layer.locked} onChange={(invert) => set({ ...layer.mask!, invert })} />
+        </>
+      )}
+    </>
+  );
+}
+
+/** How a layer shapes its group's shared height map (Advanced). */
+function HeightControls({ layer }: { layer: Layer }) {
+  if (layer.type === 'unsupported' || layer.type === 'group') return null;
+  const set = setterFor(layer);
+  return (
+    <>
+      <Select
+        label="Shared height"
+        hint="Raise it out of, or carve it into, the surface of its group: a bevel on the group then lights everything as one sculpted surface. At 0% opacity it only shapes the surface."
+        value={layer.heightMode}
+        disabled={layer.locked}
+        options={HEIGHT_MODES.map((h) => ({ value: h, label: HEIGHT_NAMES[h] }))}
+        onChange={(heightMode) => set({ heightMode })}
+      />
+      {layer.heightMode !== 'none' && num(layer, set, 'heightDepth', 'Height depth', 0, 3, { step: 0.05, scale: 100, unit: '%', hint: 'How high it rises or how deep it is carved.' })}
+      {layer.heightMode !== 'none' && num(layer, set, 'heightSize', 'Height slope', 0.01, 1, { ...pct, hint: 'How far in from its edge the slope reaches, as a share of the band width.' })}
     </>
   );
 }

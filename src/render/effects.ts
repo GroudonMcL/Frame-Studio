@@ -10,7 +10,7 @@
 // plain arithmetic on the pixels (no canvas filters), so the preview, the
 // export and the tests (node) draw exactly the same picture.
 
-import type { AdjustEffect, BevelEffect, BevelProfile, DistortEffect, Effect, GlowEffect, GradientStop, RecolourEffect, ShadowEffect, Surface, WearEffect } from '../project/types';
+import type { AdjustEffect, BevelEffect, BevelProfile, DistortEffect, Effect, ExtrudeEffect, OffsetEffect, GlowEffect, GradientStop, RecolourEffect, ShadowEffect, Surface, WearEffect } from '../project/types';
 import type { Ctx } from './canvas';
 import { lightVector } from './light';
 
@@ -19,7 +19,13 @@ export interface EffectEnv {
   bw: number;
   /** The stage's light, in degrees. */
   light: number;
+  /** Height (pixels, raised positive) other layers add to a bevel's own: a group's shared height map (version 8). */
+  height?: Float32Array;
+  /** Draw bevels as their height map or normal map instead of lit (the editor's views, version 8). */
+  view?: RenderView;
 }
+
+export type RenderView = 'picture' | 'height' | 'normals';
 
 /** Effects that are switched on. */
 export const activeEffects = (effects: Effect[] | undefined) => (effects ?? []).filter((e) => e.on);
@@ -56,6 +62,12 @@ export function applyEffects(ctx: Ctx, size: number, effects: Effect[], env: Eff
         break;
       case 'distort':
         distort(px, size, e, env);
+        break;
+      case 'extrude':
+        extrude(px, size, e, env);
+        break;
+      case 'offset':
+        offset(px, size, e, env);
         break;
     }
   }
@@ -363,6 +375,8 @@ export function bevelHeight(alpha: Float32Array, size: number, e: BevelEffect, e
 function bevel(px: Uint8ClampedArray, size: number, e: BevelEffect, env: EffectEnv): void {
   const alpha = alphaOf(px);
   const H = bevelHeight(alpha, size, e, env);
+  if (env.height) for (let i = 0; i < H.length; i++) H[i] += env.height[i];
+  if (env.view === 'height' || env.view === 'normals') return showMaps(px, alpha, H, size, env, env.view);
   const [lx, ly, lz] = light3d(env.light, e.lightHeight);
   // Half-way between the light and the viewer, for the shine.
   const hl = Math.hypot(lx, ly, lz + 1);
@@ -701,4 +715,129 @@ function wear(px: Uint8ClampedArray, size: number, e: WearEffect, env: EffectEnv
       px[p + 2] = b;
     }
   if (e.scratches > 0) scratch(px, size, e, cell);
+}
+
+// ---------------------------------------------------------------- views, sides and offset (version 8)
+
+/** Writes a bevel's height map (grey: mid-grey flat, lighter higher) or its normal map (RGB = x, y, z) over the picture. */
+function showMaps(px: Uint8ClampedArray, alpha: Float32Array, H: Float32Array, size: number, env: EffectEnv, view: 'height' | 'normals'): void {
+  const unit = Math.max(1, env.bw * 0.25);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const i = y * size + x;
+      if (alpha[i] <= 0) continue;
+      const p = i * 4;
+      if (view === 'height') {
+        const v = clamp01(0.5 + H[i] / unit / 2) * 255;
+        px[p] = px[p + 1] = px[p + 2] = v;
+        continue;
+      }
+      const gx = (H[x < size - 1 ? i + 1 : i] - H[x > 0 ? i - 1 : i]) / 2;
+      const gy = (H[y < size - 1 ? i + size : i] - H[y > 0 ? i - size : i]) / 2;
+      const nl = Math.hypot(gx, gy, 1);
+      px[p] = (0.5 - gx / nl / 2) * 255;
+      px[p + 1] = (0.5 - gy / nl / 2) * 255;
+      px[p + 2] = (0.5 + 1 / nl / 2) * 255;
+    }
+}
+
+/** A shape height map for a layer in a shared height map: its distance from its own edge through a rounded profile, `depth` high. */
+export function heightContribution(alpha: Float32Array, size: number, sizeBw: number, depth: number, bw: number): Float32Array {
+  const dist = insideDistance(alpha, size);
+  const S = Math.max(1, sizeBw * bw);
+  const H = new Float32Array(alpha.length);
+  for (let i = 0; i < H.length; i++) if (alpha[i] > 0) H[i] = profile('rounded', clamp01(dist[i] / S)) * S * depth * Math.min(1, alpha[i] * 2);
+  return H;
+}
+
+/**
+ * Sides: the picture pushed back away from the light a pixel at a time,
+ * each step darker, put behind it, so it looks like a thick plate.
+ */
+function extrude(px: Uint8ClampedArray, size: number, e: ExtrudeEffect, env: EffectEnv): void {
+  const n = Math.round(e.depth * env.bw);
+  if (n < 1) return;
+  const v = lightVector(env.light);
+  const back = new Float32Array(px.length);
+  for (let k = n; k >= 1; k--) {
+    const dx = Math.round(-v.x * k);
+    const dy = Math.round(-v.y * k);
+    const dark = 1 - e.shade * (0.55 + 0.45 * (k / n));
+    for (let y = 0; y < size; y++) {
+      const sy = y - dy;
+      if (sy < 0 || sy >= size) continue;
+      for (let x = 0; x < size; x++) {
+        const sx = x - dx;
+        if (sx < 0 || sx >= size) continue;
+        const q = (sy * size + sx) * 4;
+        const a = px[q + 3] / 255;
+        if (a <= 0) continue;
+        const p = (y * size + x) * 4;
+        // Over what is already behind (premultiplied).
+        back[p] = px[q] * dark * a + back[p] * (1 - a);
+        back[p + 1] = px[q + 1] * dark * a + back[p + 1] * (1 - a);
+        back[p + 2] = px[q + 2] * dark * a + back[p + 2] * (1 - a);
+        back[p + 3] = a + back[p + 3] * (1 - a);
+      }
+    }
+  }
+  for (let p = 0; p < px.length; p += 4) {
+    const a = px[p + 3] / 255;
+    const b = back[p + 3] * (1 - a);
+    const out = a + b;
+    if (out <= 0 || a >= 1) continue;
+    for (let c = 0; c < 3; c++) px[p + c] = (px[p + c] * a + back[p + c] * (1 - a)) / out;
+    px[p + 3] = out * 255;
+  }
+}
+
+/** Grows the shape by `amount` band widths (new pixels take their neighbours' colour) or shrinks it. */
+function offset(px: Uint8ClampedArray, size: number, e: OffsetEffect, env: EffectEnv): void {
+  const d = e.amount * env.bw;
+  if (Math.abs(d) < 0.25) return;
+  const alpha = alphaOf(px);
+  if (d < 0) {
+    const inside = insideDistance(alpha, size);
+    for (let i = 0; i < alpha.length; i++) if (alpha[i] > 0) px[i * 4 + 3] = alpha[i] * clamp01(inside[i] + d + 0.5) * 255;
+    return;
+  }
+  const outside = insideDistance(alpha.map((a) => 1 - a), size, true);
+  // Spread the colours outwards a ring at a time, so a new pixel takes the colour of the painted ones beside it.
+  const colour = new Float32Array(px.length);
+  const known = new Uint8Array(alpha.length);
+  for (let i = 0; i < alpha.length; i++)
+    if (alpha[i] > 0) {
+      known[i] = 1;
+      for (let c = 0; c < 3; c++) colour[i * 4 + c] = px[i * 4 + c];
+    }
+  for (let step = 0; step < Math.ceil(d) + 1; step++) {
+    const add: number[] = [];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        if (known[i] || outside[i] > d + 1) continue;
+        let n = 0;
+        const sum = [0, 0, 0];
+        for (const j of [i - 1, i + 1, i - size, i + size]) {
+          if (j < 0 || j >= known.length || !known[j] || Math.abs((j % size) - x) > 1) continue;
+          n++;
+          for (let c = 0; c < 3; c++) sum[c] += colour[j * 4 + c];
+        }
+        if (n) {
+          add.push(i);
+          for (let c = 0; c < 3; c++) colour[i * 4 + c] = sum[c] / n;
+        }
+      }
+    if (!add.length) break;
+    for (const i of add) known[i] = 1;
+  }
+  for (let i = 0; i < alpha.length; i++) {
+    if (alpha[i] >= 1 || !known[i]) continue;
+    const grown = clamp01(d - outside[i] + 0.5);
+    const a = Math.max(alpha[i], grown);
+    if (a <= alpha[i]) continue;
+    const p = i * 4;
+    for (let c = 0; c < 3; c++) px[p + c] = alpha[i] > 0 ? px[p + c] : colour[p + c];
+    px[p + 3] = a * 255;
+  }
 }

@@ -12,7 +12,8 @@ import { textGlyphs } from './text';
 import { tracksFor, type FindLayer } from './track';
 import { distanceToTrack, generatorReach } from './generators';
 
-const round3 = (v: number) => Math.round(v * 1000) / 1000;
+// (+ 0 turns −0 into 0.)
+const round3 = (v: number) => Math.round(v * 1000) / 1000 + 0;
 
 /** Distance from a point to a closed outline, in pixels. */
 function distanceToOutline(points: Point[], pt: Point): number {
@@ -240,7 +241,7 @@ export function pathHandles(layer: PlacedLayer & { points: PathPoint[] }, g: Fra
   return layer.points.map((p) => ({
     at: toCanvas(t, p),
     out: p.handle ? toCanvas(t, { x: p.x + p.handle.x, y: p.y + p.handle.y }) : null,
-    in: p.handle ? toCanvas(t, { x: p.x - p.handle.x, y: p.y - p.handle.y }) : null,
+    in: p.handle ? toCanvas(t, p.handleIn ? { x: p.x + p.handleIn.x, y: p.y + p.handleIn.y } : { x: p.x - p.handle.x, y: p.y - p.handle.y }) : null,
   }));
 }
 
@@ -265,23 +266,69 @@ export function pathLocal(layer: PlacedLayer, g: FrameGeometry, pt: Point): Poin
   return { x: round3(l.x), y: round3(l.y) };
 }
 
-/** The points after dragging a point or handle to `pt`. */
-export function movePathPart(layer: PlacedLayer & { points: PathPoint[] }, g: FrameGeometry, part: PathPart, pt: Point): PathPoint[] | null {
+/**
+ * The points after dragging a point or handle to `pt`. A point's two
+ * handles move together (mirrored) unless they are separate, or `separate`
+ * (Alt held) makes them so: then each handle moves on its own.
+ */
+export function movePathPart(layer: PlacedLayer & { points: PathPoint[] }, g: FrameGeometry, part: PathPart, pt: Point, separate = false): PathPoint[] | null {
   const l = pathLocal(layer, g, pt);
   if (!l) return null;
   return layer.points.map((p, i) => {
     if (i !== part.point) return p;
     if (part.part === 'point') return { ...p, x: l.x, y: l.y };
+    const to = { x: round3(l.x - p.x), y: round3(l.y - p.y) };
+    if (p.handleIn || separate) {
+      const handleIn = p.handleIn ?? (p.handle ? { x: -p.handle.x, y: -p.handle.y } : to);
+      return part.part === 'out' ? { ...p, handle: to, handleIn } : { ...p, handleIn: to };
+    }
     const sign = part.part === 'out' ? 1 : -1;
-    return { ...p, handle: { x: round3((l.x - p.x) * sign), y: round3((l.y - p.y) * sign) } };
+    return { ...p, handle: { x: to.x * sign, y: to.y * sign } };
   });
+}
+
+/** A smooth point's handles made separate (each moves on its own) or joined again (the arriving one mirrors the leaving one). */
+export function toggleSeparate(points: PathPoint[], i: number): PathPoint[] {
+  return points.map((p, k) => {
+    if (k !== i || !p.handle) return p;
+    if (p.handleIn) return { x: p.x, y: p.y, handle: p.handle };
+    return { ...p, handleIn: { x: 0 - p.handle.x, y: 0 - p.handle.y } };
+  });
+}
+
+/**
+ * Turns a layer round the token's centre by `degrees` (clockwise): band
+ * positions slide round, free shapes move round the centre and turn. Used
+ * to turn a whole group (version 8). Layers whose look doesn't depend on
+ * where round the token they are (bands, lines, textures) are unchanged.
+ */
+export function turnLayer(layer: Layer, degrees: number, n: number): Partial<Layer> | null {
+  const k = degrees / 360;
+  const wrap = (v: number) => round3(((v % 1) + 1) % 1);
+  switch (layer.type) {
+    case 'shape':
+    case 'path': {
+      if (layer.place === 'band') return { along: wrap(layer.along + k) };
+      const a = (degrees * Math.PI) / 180;
+      return { x: round3(layer.x * Math.cos(a) - layer.y * Math.sin(a)), y: round3(layer.x * Math.sin(a) + layer.y * Math.cos(a)), rotation: Math.round((layer.rotation + degrees) * 10) / 10 };
+    }
+    case 'repeat':
+    case 'gears':
+      return layer.follow ? null : { offset: wrap(layer.offset + k * n) };
+    case 'text':
+      return layer.follow ? null : { along: wrap(layer.along + k) };
+    case 'line':
+      return layer.waveAmplitude > 0 ? { wavePhase: wrap(layer.wavePhase + k * layer.waves) } : null;
+    default:
+      return null;
+  }
 }
 
 /** Turns a sharp point into a smooth one (a handle along its neighbours) or back. */
 export function toggleSmooth(points: PathPoint[], i: number, closed: boolean): PathPoint[] {
   return points.map((p, k) => {
     if (k !== i) return p;
-    if (p.handle) return { ...p, handle: null };
+    if (p.handle) return { x: p.x, y: p.y, handle: null };
     const n = points.length;
     const prev = points[i > 0 ? i - 1 : closed ? n - 1 : i];
     const next = points[i < n - 1 ? i + 1 : closed ? 0 : i];

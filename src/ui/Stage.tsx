@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { SHAPES } from '../engine/legacy/catalog';
 import type { FrameGeometry } from '../engine/legacy/frameKit';
 import type { Point } from '../engine/legacy/shapes';
-import { findLayer, flatten, isLocked, isShown } from '../project/tree';
+import { findLayer, flatten, isLocked, isShown, locate } from '../project/tree';
 import type { FrameProject, Layer, PathLayer, PlacedLayer } from '../project/types';
 import { bandGeometry, outlineAt } from '../render/band';
 import {
@@ -37,8 +37,10 @@ import { loadFonts } from './fonts';
 import { placements, localBounds, toCanvas } from '../render/placed';
 import { renderStats } from '../render/layerCache';
 import { renderProject } from '../render/renderProject';
-import { commit, finishDrawing, select, setPathEdit, setPathPoints, updateLayer, updateStage, useProject, useUi, type PathEdit } from '../state/projectStore';
-import { ColorField, Segmented, Slider, Toggle } from './controls';
+import { commit, finishDrawing, movableIn, select, setPathEdit, setPathPoints, updateLayer, updateLayers, updateStage, useProject, useUi, type PathEdit } from '../state/projectStore';
+import { ColorField, Segmented, Select, Slider, Toggle } from './controls';
+import { ZoomIn, ZoomOut } from 'lucide-react';
+import type { RenderView } from '../render/effects';
 import { LightDial } from './LightDial';
 import { stageArt } from './stageArt';
 
@@ -201,7 +203,14 @@ function drawOverlay(ctx: CanvasRenderingContext2D, project: FrameProject, ids: 
 type Drag =
   | { kind: 'move'; layer: Layer; start: Point }
   | { kind: 'scale' | 'rotate'; layer: PlacedLayer; anchor: Point; start: Point }
-  | { kind: 'pathPart'; layer: PathLayer; part: PathPart };
+  | { kind: 'pathPart'; layer: PathLayer; part: PathPart }
+  | { kind: 'group'; layers: Layer[]; start: Point }
+  | { kind: 'pan'; from: { x: number; y: number }; pan: { x: number; y: number } };
+
+const ZOOMS = [1, 1.5, 2, 3, 4, 6, 8];
+/** The biggest picture the zoomed preview is drawn at. */
+const MAX_PX = 4096;
+const VIEW_NAMES: Record<RenderView, string> = { picture: 'The picture', height: 'Height map', normals: 'Normal map' };
 
 export function Stage() {
   const project = useProject();
@@ -213,6 +222,10 @@ export function Stage() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const overlay = useRef<HTMLCanvasElement>(null);
   const [side, setSide] = useState(480);
+  // Zoom (a CSS scale of the canvas, drawn sharper to match) and pan (CSS pixels).
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [view, setView] = useState<RenderView>('picture');
   const drag = useRef<Drag | null>(null);
   const selected = findLayer(project.layers, selectedId);
   // Text layers draw with web fonts: once they are loaded, the preview is drawn again.
@@ -232,7 +245,7 @@ export function Stage() {
   }, []);
 
   const dpr = Math.min(2, typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1);
-  const px = Math.round(side * dpr);
+  const px = Math.min(MAX_PX, Math.round(side * dpr * zoom));
 
   useEffect(() => {
     const el = canvas.current;
@@ -240,7 +253,7 @@ export function Stage() {
     if (!el || !ctx) return;
     const art = project.stage.showArt ? stageArt() : null;
     const full = () => {
-      renderProject(ctx, project, px, { art });
+      renderProject(ctx, project, px, { art, view });
       // How many layers this render had to draw (the rest came from the cache): read by the end-to-end tests.
       el.dataset.drawn = String(renderStats.drawn);
       el.dataset.reused = String(renderStats.reused);
@@ -252,7 +265,7 @@ export function Stage() {
     quick.width = quick.height = side;
     const qctx = quick.getContext('2d');
     if (!qctx) return full();
-    renderProject(qctx, project, side, { art });
+    renderProject(qctx, project, side, { art, view });
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, px, px);
@@ -261,7 +274,7 @@ export function Stage() {
     ctx.restore();
     const id = setTimeout(full, 300);
     return () => clearTimeout(id);
-  }, [project, px, side, fonts]);
+  }, [project, px, side, fonts, view]);
 
   useEffect(() => {
     const ctx = overlay.current?.getContext('2d');
@@ -334,6 +347,18 @@ export function Stage() {
     }
 
     const hit = pickLayer(project, px, pt);
+    // A picked group moves as a whole when one of its layers is dragged.
+    if (hit && sel?.type === 'group' && editable(sel) && locate(project.layers, hit.id)?.ancestors.some((a) => a.id === sel.id) && !e.ctrlKey && !e.metaKey) {
+      drag.current = { kind: 'group', layers: movableIn(sel), start: pt };
+      capture();
+      return;
+    }
+    if (!hit && zoom > 1) {
+      // Zoomed in, dragging the empty canvas moves the view.
+      drag.current = { kind: 'pan', from: { x: e.clientX, y: e.clientY }, pan };
+      capture();
+      return;
+    }
     if (!hit || hit.id !== selectedId || e.ctrlKey || e.metaKey) select(hit?.id ?? null);
     if (hit) {
       drag.current = { kind: 'move', layer: hit, start: pt };
@@ -341,23 +366,50 @@ export function Stage() {
     }
   };
 
+  const setZoomAround = (next: number) => {
+    const z = Math.min(8, Math.max(1, next));
+    setZoom(z);
+    if (z === 1) setPan({ x: 0, y: 0 });
+    else setPan((p) => ({ x: (p.x * z) / zoom, y: (p.y * z) / zoom }));
+  };
+  const onWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      setZoomAround(zoom * (e.deltaY < 0 ? 1.25 : 0.8));
+    } else if (zoom > 1) setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
+  };
+
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const d = drag.current;
     if (!d) return;
     const pt = toPoint(e);
     let patch: Partial<Layer> | null = null;
+    if (d.kind === 'pan') {
+      setPan({ x: d.pan.x + e.clientX - d.from.x, y: d.pan.y + e.clientY - d.from.y });
+      return;
+    }
+    if (d.kind === 'group') {
+      updateLayers(
+        d.layers.flatMap((l) => {
+          const q = dragLayer(l, project, px, d.start, pt);
+          return q ? [{ id: l.id, patch: q }] : [];
+        }),
+        { transient: true },
+      );
+      return;
+    }
     if (d.kind === 'move') patch = dragLayer(d.layer, project, px, d.start, pt);
     else if (d.kind === 'scale') patch = scaleBy(d.layer, d.anchor, d.start, pt);
     else if (d.kind === 'rotate') patch = rotateBy(d.layer, d.anchor, d.start, pt, e.shiftKey);
     else if (d.kind === 'pathPart') {
-      const points = movePathPart(d.layer, g, d.part, pt);
+      // Alt makes a smooth point's two handles separate.
+      const points = movePathPart(d.layer, g, d.part, pt, e.altKey);
       if (points) patch = { points } as Partial<Layer>;
     }
     if (patch) updateLayer(d.layer.id, patch, { transient: true });
   };
 
   const endDrag = () => {
-    if (drag.current) commit();
+    if (drag.current && drag.current.kind !== 'pan') commit();
     drag.current = null;
   };
 
@@ -374,7 +426,7 @@ export function Stage() {
   return (
     <section className="stage" aria-label="Canvas">
       <div className="stage-well" ref={wrap}>
-        <div className="stage-canvas" style={{ width: side, height: side }}>
+        <div className="stage-canvas" style={{ width: side, height: side, transform: zoom > 1 ? `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` : undefined }} onWheel={onWheel}>
           <canvas ref={canvas} width={px} height={px} aria-label={`Preview of ${project.name}`} role="img" data-testid="preview" />
           <canvas
             ref={overlay}
@@ -434,6 +486,26 @@ export function Stage() {
             />
           )}
           <LightDial value={project.stage.light} />
+          <div className="zoom" role="group" aria-label="Zoom">
+            <button type="button" className="icon-btn" aria-label="Zoom out" title="Zoom out (Ctrl + mouse wheel)" disabled={zoom <= 1} onClick={() => setZoomAround(ZOOMS.filter((z) => z < zoom).at(-1) ?? 1)}>
+              <ZoomOut size={16} />
+            </button>
+            <button type="button" className="btn small zoom-level" aria-label="Fit the whole token" title="Fit the whole token" onClick={() => setZoomAround(1)}>
+              {Math.round(zoom * 100)}%
+            </button>
+            <button type="button" className="icon-btn" aria-label="Zoom in" title="Zoom in (Ctrl + mouse wheel); drag the empty canvas to move about" disabled={zoom >= 8} onClick={() => setZoomAround(ZOOMS.find((z) => z > zoom) ?? 8)}>
+              <ZoomIn size={16} />
+            </button>
+          </div>
+          {advanced && (
+            <Select
+              label="Show"
+              hint="The picture, or (to check how surfaces are shaped) every bevel's height map, lighter where higher, or its normal map."
+              value={view}
+              options={(Object.keys(VIEW_NAMES) as RenderView[]).map((v) => ({ value: v, label: VIEW_NAMES[v] }))}
+              onChange={setView}
+            />
+          )}
           <Toggle label="Show sample picture" checked={project.stage.showArt} onChange={(showArt) => updateStage({ showArt })} />
           {advanced && project.stage.showArt && <ColorField label="Backing colour" value={project.stage.backingColor} onChange={(backingColor, t) => updateStage({ backingColor }, { transient: t })} />}
         </div>

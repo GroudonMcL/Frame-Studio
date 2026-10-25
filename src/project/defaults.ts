@@ -55,7 +55,10 @@ export function newId(): string {
   return `L${Date.now().toString(36)}${counter.toString(36)}${Math.floor(Math.random() * 0x10000).toString(36)}`;
 }
 
-const base = (name: string) => ({ id: newId(), name, visible: true, locked: false, opacity: 1, blend: 'source-over' as const, clip: 'none' as const, effects: [] as Effect[] });
+const base = (name: string) => ({ id: newId(), name, visible: true, locked: false, opacity: 1, blend: 'source-over' as const, clip: 'none' as const, effects: [] as Effect[], ...LAYER_PHASE9 });
+
+/** What every layer gets from version 8 on, all off: no mask, not part of a shared height map. */
+export const LAYER_PHASE9 = { mask: null, heightMode: 'none' as const, heightDepth: 1, heightSize: 0.15 };
 
 export function legacyFrameLayer(presetId: string): LegacyFrameLayer {
   const preset = framePresetById(presetId) ?? FRAME_PRESETS[0];
@@ -179,7 +182,7 @@ export function shapeLayer(): ShapeLayer {
 
 /** A new path has no points: it is drawn by clicking on the canvas. */
 export function pathLayer(points: PathPoint[] = []): PathLayer {
-  return { ...base('Path'), type: 'path', ...DEFAULT_PLACEMENT, ...DEFAULT_STYLE, size: 1, points, closed: points.length > 2 };
+  return { ...base('Path'), type: 'path', ...DEFAULT_PLACEMENT, ...DEFAULT_STYLE, size: 1, points, closed: points.length > 2, stroke: 0, taperStart: 0, taperEnd: 0 };
 }
 
 /** An inscription round the top of the band. */
@@ -250,7 +253,7 @@ export function chainLayer(): ChainLayer {
 }
 
 export function groupLayer(children: Layer[] = []): GroupLayer {
-  return { ...base('Group'), type: 'group', children, collapsed: false };
+  return { ...base('Group'), type: 'group', children, collapsed: false, combine: 'normal' };
 }
 
 /** A cut gem, pointing outwards: a ready-made path. */
@@ -524,6 +527,23 @@ export const LAYERED_TEMPLATES: LayeredTemplate[] = [
         },
       ];
     },
+  },
+  // Phase 9: a shared height map.
+  {
+    id: 'rune-plates',
+    name: 'Rune-carved plates',
+    description: 'Thick bronze plates with runes carved through them: the plates and the runes are lit as one sculpted surface.',
+    make: () => [
+      { ...bandFillLayer(), name: 'Iron band', paint: { kind: 'solid', color: '#7a7a7a' }, effects: styleEffects('blackened-iron') },
+      {
+        ...groupLayer([
+          { ...repeatLayer(), name: 'Plates', element: 'square', count: 8, snapToCorners: true, size: 0.78, stretch: 1.6, fill: '#9a9a9a', shaded: false, raised: false },
+          { ...textLayer(), name: 'Carved runes', font: 'runes', text: 'ANSUZ RAIDO KAUNAN GEBO WUNJO HAGALAZ NAUDIZ ISAZ JERA EIHWAZ PERTH ALGIZ SOWILO TIWAZ BERKANAN EHWAZ MANNAZ LAGUZ INGWAZ DAGAZ OTHALA FEHU URUZ THURISAZ', size: 0.36, spacing: 0.3, at: 0.5, opacity: 0, heightMode: 'carve', heightDepth: 1.4, heightSize: 0.05 },
+        ]),
+        name: 'Runic plates',
+        effects: [bevel({ size: 0.12, gloss: 0.45, depth: 1.2 }), material('bronze'), { kind: 'extrude', on: true, depth: 0.07, shade: 0.6 }, shadow({ distance: 0.05, blur: 0.06 })],
+      },
+    ],
   },
   // Phase 8: made only from generators and styles.
   {

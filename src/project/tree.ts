@@ -100,12 +100,15 @@ export function isShown(layers: Layer[], id: string): boolean {
 
 /** The ids of other layers a layer refers to (the path a repeat or text follows). */
 export function referencesOf(layer: Layer): string[] {
-  return 'follow' in layer && layer.follow ? [layer.follow] : [];
+  const out = 'follow' in layer && layer.follow ? [layer.follow] : [];
+  if (layer.mask) out.push(layer.mask.source);
+  return out;
 }
 
 /** Points a layer's references at new ids (those not in `ids` are kept). */
 function remap(layer: Layer, ids: Map<string, string>): void {
   if ('follow' in layer && layer.follow && ids.has(layer.follow)) layer.follow = ids.get(layer.follow)!;
+  if (layer.mask && ids.has(layer.mask.source)) layer.mask = { ...layer.mask, source: ids.get(layer.mask.source)! };
 }
 
 /**

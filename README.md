@@ -4,7 +4,15 @@ A visual editor for code-drawn token frames. Start from one of [Token Maker](htt
 
 ![The Dwarven bronze template: hammered bronze, faceted plates, engraved runes and glowing cracks, all made with effects](docs/screenshots/24-dwarven-bronze.png)
 
-## What works now (Phase 8)
+## What works now (Phase 9)
+
+- **Masks:** show a layer only through another layer's shape or brightness, inverted or not (Advanced → Mask).
+- **One sculpted surface:** layers in a group can be **raised** out of or **carved** into its surface (Advanced → Shared height); a bevel on the group lights them all as one, so runes cut through a plate slope and catch the light. **Show → Height map / Normal map** (Advanced, under the canvas) shows how it is shaped.
+- **Sides** (extrude) and **Grow or shrink** effects; a group can **combine** its shapes (added, cut out, overlapping, all but the overlaps); a path can be drawn as a **tapered stroke**; a shape can be **turned into a path**.
+- **Editing:** separate curve handles on a point (or Alt while dragging), drag a group by any of its layers, turn a group round the token, **zoom** (to 800 %) and pan.
+- **New template:** Rune-carved plates.
+
+## Also there from Phase 8
 
 - **Generators:** Add layer → **Growth** (vines, roots, thorny stems, curling tendrils, antlers, with leaves, thorns or berries), **Plates and cells** (flagstones, honeycomb, bricks, tiles, scales, with missing pieces), **Cracks and lightning**, **Knotwork** (strands that really weave over and under), **Gears** and **Chain**. Each is made from a few settings and a variation number, runs round the band or along a path, and takes styles and effects like any layer (a bevel on plates bevels each plate).
 - **Distortion** effect (wobbly edges, irregular stone) and **scratches** on Wear and grime; wavy lines can **fit their waves to the band**.
@@ -27,7 +35,7 @@ A visual editor for code-drawn token frames. Start from one of [Token Maker](htt
 - **Facets:** cut a shape or drawn path into flat faces lit by the light (gems, star badges, plates, crystals); repeated shapes can be cut gems, hexagonal plates or crystal shards.
 - **More blend modes** (hard light, dodge, burn, darken, lighten, difference, exclusion, hue, saturation, luminosity) and **Cut a hole in the layers below** (in Advanced).
 - **New templates made with effects:** Dwarven bronze, Eldritch crystal, Radiant gold and Hellforged iron.
-- **What comes next** (Phases 9–10) is planned in [`docs/ROADMAP.md`](docs/ROADMAP.md): ornaments along any path and round any point, gem settings, generators (vines, roots, cracks, plates, knotwork, gears), masks and combined height, and workflow tools.
+- **What comes next** (Phase 10) is planned in [`docs/ROADMAP.md`](docs/ROADMAP.md): ornaments along any path and round any point, gem settings, generators (vines, roots, cracks, plates, knotwork, gears), masks and combined height, and workflow tools.
 - *Token Maker:* designs saved now (format 5) open in Token Maker once its copy of Frame Studio's code is updated with `npm run share:export` (below).
 
 ![The style library: the selected layer shown in every style](docs/screenshots/22-style-library.png)

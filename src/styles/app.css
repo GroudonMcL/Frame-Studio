@@ -339,6 +339,7 @@ textarea {
 }
 .stage-canvas {
   position: relative;
+  transform-origin: center;
   background: repeating-conic-gradient(var(--checker-a) 0 25%, var(--checker-b) 0 50%) 0 0 / 20px 20px;
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
@@ -1145,4 +1146,15 @@ select {
   height: 14px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-strong);
+}
+
+/* Zoom buttons under the canvas (Phase 9). */
+.zoom {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.zoom-level {
+  min-width: 4.2em;
+  justify-content: center;
 }

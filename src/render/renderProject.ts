@@ -9,7 +9,7 @@ import type { FrameProject, Layer } from '../project/types';
 import { bandGeometry } from './band';
 import { context2d, newCanvas, type CanvasLike, type Ctx } from './canvas';
 import { bandWidthPx } from './band';
-import { activeEffects, applyEffects } from './effects';
+import { activeEffects, applyEffects, heightContribution, type RenderView } from './effects';
 import { cachedLayer, effectsKey, layerKey, lookOf, MAX_CACHED_SIZE, renderStats } from './layerCache';
 import { flatten, referencesOf } from '../project/tree';
 import { drawLayer, type RenderEnv } from './layers';
@@ -27,10 +27,13 @@ export interface RenderOptions {
   band?: Pick<FrameGeometry, 'shape' | 'outer' | 'inner'>;
   /** Clear the area first (default). Off: draw over what is already there. */
   clear?: boolean;
+  /** Show bevels as their height map or normal map (the editor's views); the picture is the default. */
+  view?: RenderView;
 }
 
 interface StackEnv extends RenderEnv {
   cache: boolean;
+  view: RenderView;
 }
 
 /** Paints the project into a `size`×`size` area starting at the context's origin. */
@@ -68,7 +71,7 @@ export function renderProject(ctx: Ctx, project: FrameProject, size: number, opt
   renderStats.reused = 0;
   const cache = options.cache !== false && size <= MAX_CACHED_SIZE;
   const byId = new Map(flatten(project.layers).map((l) => [l.id, l]));
-  drawStack(ctx, project.layers, { g, light: project.stage.light, size, cache, find: (id) => byId.get(id) });
+  drawStack(ctx, project.layers, { g, light: project.stage.light, size, cache, find: (id) => byId.get(id), view: options.view ?? 'picture' });
   ctx.restore();
 }
 
@@ -105,7 +108,7 @@ function picture(layer: Layer, env: StackEnv, raw = false): CanvasLike {
       put(own.ctx, picture(layer, env, true), env.size);
       own.ctx.save();
       own.ctx.setTransform(1, 0, 0, 1, 0, 0);
-      applyEffects(own.ctx, env.size, layer.effects, { bw: bandWidthPx(env.g), light: env.light });
+      applyEffects(own.ctx, env.size, layer.effects, { bw: bandWidthPx(env.g), light: env.light, view: env.view, height: layer.type === 'group' ? sharedHeight(layer, env) : undefined });
       own.ctx.restore();
       if (layer.clip === 'band') {
         const cut = scratch(env.size);
@@ -116,13 +119,79 @@ function picture(layer: Layer, env: StackEnv, raw = false): CanvasLike {
       return own.canvas;
     }
     if (layer.clip === 'band') clipToBand(own.ctx, env.g);
-    if (layer.type === 'group') drawStack(own.ctx, layer.children, env);
+    if (layer.type === 'group' && layer.combine !== 'normal') combine(own.ctx, layer, env);
+    else if (layer.type === 'group') drawStack(own.ctx, layer.children, env);
     else drawLayer(own.ctx, layer, env);
     return own.canvas;
   };
   if (!env.cache || (layer.type === 'group' && !effects)) return draw();
   const key = layerKey(layer, env.g, env.light, env.size, depsKey(layer, env));
-  return effects ? cachedLayer(`${env.size}|${layer.id}|fx`, effectsKey(layer, key), env.size, draw) : cachedLayer(`${env.size}|${layer.id}`, key, env.size, draw);
+  return effects ? cachedLayer(`${env.size}|${layer.id}|fx`, `${effectsKey(layer, key)}|${env.view}`, env.size, draw) : cachedLayer(`${env.size}|${layer.id}`, key, env.size, draw);
+}
+
+/**
+ * How a group's layers' shapes combine (version 8): the bottom one, then
+ * each one above added to it, cut out of it, overlapped with it or
+ * excluded from it. Each layer keeps its own colours where it shows.
+ */
+function combine(ctx: Ctx, group: Extract<Layer, { type: 'group' }>, env: StackEnv): void {
+  const OPS = { union: 'source-over', subtract: 'destination-out', intersect: 'destination-in', exclude: 'xor', normal: 'source-over' } as const;
+  let first = true;
+  for (const child of group.children) {
+    if (!child.visible || child.opacity <= 0) continue;
+    ctx.save();
+    ctx.globalAlpha = child.opacity;
+    ctx.globalCompositeOperation = first ? 'source-over' : OPS[group.combine];
+    put(ctx, picture(child, env), env.size);
+    ctx.restore();
+    first = false;
+  }
+}
+
+/**
+ * A group's shared height map (version 8): every layer in it that raises or
+ * carves adds (or takes away) a rounded slope up from its own edge, so the
+ * group's bevel lights runes cut into a plate, or a boss standing on it, as
+ * one sculpted surface.
+ */
+function sharedHeight(group: Extract<Layer, { type: 'group' }>, env: StackEnv): Float32Array | undefined {
+  const parts = flatten(group.children).filter((l) => l.type !== 'group' && l.visible && l.heightMode !== 'none');
+  if (parts.length === 0) return undefined;
+  const size = env.size;
+  const total = new Float32Array(size * size);
+  const bw = bandWidthPx(env.g);
+  for (const l of parts) {
+    const ctx = context2d(picture(l, env, true));
+    const data = ctx.getImageData(0, 0, size, size).data;
+    const alpha = new Float32Array(size * size);
+    for (let i = 0; i < alpha.length; i++) alpha[i] = data[i * 4 + 3] / 255;
+    const h = heightContribution(alpha, size, l.heightSize, l.heightDepth, bw);
+    const sign = l.heightMode === 'carve' ? -1 : 1;
+    for (let i = 0; i < total.length; i++) total[i] += sign * h[i];
+  }
+  return total;
+}
+
+/** Applies a layer's mask to a copy of its picture: another layer's shape or brightness, inverted or not. */
+function masked(canvas: CanvasLike, layer: Layer, env: StackEnv): CanvasLike {
+  const source = layer.mask && env.find?.(layer.mask.source);
+  if (!layer.mask || !source || source.id === layer.id) return canvas;
+  const own = scratch(env.size);
+  put(own.ctx, canvas, env.size);
+  own.ctx.save();
+  own.ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const image = own.ctx.getImageData(0, 0, env.size, env.size);
+  const m = context2d(picture(source, env)).getImageData(0, 0, env.size, env.size).data;
+  const px = image.data;
+  for (let p = 0; p < px.length; p += 4) {
+    let k = m[p + 3] / 255;
+    if (layer.mask.mode === 'luminance') k *= (0.2126 * m[p] + 0.7152 * m[p + 1] + 0.0722 * m[p + 2]) / 255;
+    if (layer.mask.invert) k = 1 - k;
+    px[p + 3] *= k;
+  }
+  own.ctx.putImageData(image, 0, 0);
+  own.ctx.restore();
+  return own.canvas;
 }
 
 /** The settings of the layers this one (or anything in it) follows, so its picture is drawn again when they change. */
@@ -153,17 +222,17 @@ function drawStack(ctx: Ctx, layers: Layer[], env: StackEnv): void {
     ctx.save();
     ctx.globalAlpha = layer.opacity;
     ctx.globalCompositeOperation = layer.blend;
-    if (!mask && layer.type === 'group' && layer.opacity >= 1 && layer.blend === 'source-over' && !hasEffects(layer)) {
+    if (!mask && !layer.mask && layer.type === 'group' && layer.opacity >= 1 && layer.blend === 'source-over' && layer.combine === 'normal' && !hasEffects(layer)) {
       if (layer.clip === 'band') clipToBand(ctx, env.g);
       drawStack(ctx, layer.children, env);
     } else if (mask) {
       // A copy, so the cached picture itself isn't cut.
       const own = scratch(env.size);
-      put(own.ctx, picture(layer, env), env.size);
+      put(own.ctx, masked(picture(layer, env), layer, env), env.size);
       own.ctx.globalCompositeOperation = 'destination-in';
       put(own.ctx, picture(mask, env, true), env.size);
       put(ctx, own.canvas, env.size);
-    } else put(ctx, picture(layer, env), env.size);
+    } else put(ctx, masked(picture(layer, env), layer, env), env.size);
     ctx.restore();
   }
 }

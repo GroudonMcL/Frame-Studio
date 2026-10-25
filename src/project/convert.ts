@@ -399,7 +399,7 @@ export function convertLegacyLayer(layer: LegacyFrameLayer): GroupLayer | null {
   const children = convertFrame(layer.style, { color: layer.color, accent: layer.accent });
   if (!children) return null;
   const { id: _id, type: _t, presetId: _p, style: _s, color: _c, accent: _a, ...common } = layer;
-  return { ...common, id: newId(), type: 'group', children, collapsed: false };
+  return { ...common, id: newId(), type: 'group', children, collapsed: false, combine: 'normal' };
 }
 
 /** The editable layers of a Token Maker frame preset in its own colours (for the template picker). */

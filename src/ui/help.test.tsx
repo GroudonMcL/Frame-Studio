@@ -39,6 +39,9 @@ const LAYERS: [string, Layer][] = [
   ['contours', { ...contoursLayer(), altColor: '#ff0000' }],
   ...(['growth', 'fracture', 'cells', 'knotwork', 'gears', 'chain'] as const).map((t): [string, Layer] => [t, NEW_LAYER[t]()]),
   ['wavy line fitted to the band', { ...lineLayer(), waveAmplitude: 0.2, waveFit: 1 }],
+  ['masked layer carving a shared height', { ...lineLayer(), mask: { source: 'x', mode: 'alpha', invert: false }, heightMode: 'carve' }],
+  ['combining group', { ...groupLayer([lineLayer()]), combine: 'subtract' }],
+  ['tapered stroke', { ...pathLayer(GEM_POINTS), stroke: 0.3 }],
 ];
 
 /** Every control in `root` with no help tip, by its label. */

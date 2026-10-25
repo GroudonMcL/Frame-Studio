@@ -68,7 +68,7 @@ export function flattenPath(points: PathPoint[], closed: boolean, ux: number, uy
       const ax = a.x * ux, ay = a.y * uy;
       const bx = b.x * ux, by = b.y * uy;
       const c1x = ax + (a.handle?.x ?? 0) * ux, c1y = ay + (a.handle?.y ?? 0) * uy;
-      const c2x = bx - (b.handle?.x ?? 0) * ux, c2y = by - (b.handle?.y ?? 0) * uy;
+      const c2x = bx + (b.handleIn ? b.handleIn.x : -(b.handle?.x ?? 0)) * ux, c2y = by + (b.handleIn ? b.handleIn.y : -(b.handle?.y ?? 0)) * uy;
       for (let k = 1; k <= samples; k++) {
         const t = k / samples;
         const m = 1 - t;

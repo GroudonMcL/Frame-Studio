@@ -1,5 +1,5 @@
 import { FRAME_PRESETS } from '../engine/legacy/catalog';
-import { bandFillLayer, createProject, EFFECT_NAMES, NEW_EFFECT, GEM_POINTS, TEXTURES, textureFromPreset, textureLayer, groupLayer, LAYERED_TEMPLATES, NEW_LAYER, pathLayer, projectFromFrame, repeatLayer, shapeLayer } from './defaults';
+import { lineLayer, bandFillLayer, createProject, EFFECT_NAMES, NEW_EFFECT, GEM_POINTS, TEXTURES, textureFromPreset, textureLayer, groupLayer, LAYERED_TEMPLATES, NEW_LAYER, pathLayer, projectFromFrame, repeatLayer, shapeLayer } from './defaults';
 import { parseProject, serializeProject } from './migrate';
 import { EFFECT_KINDS, SCHEMA_VERSION, type Effect, type FrameProject, type Layer } from './types';
 
@@ -338,6 +338,29 @@ describe('project files', () => {
       ...(['growth', 'fracture', 'cells', 'knotwork', 'gears', 'chain'] as const).map((t) => NEW_LAYER[t]()),
       { ...bandFillLayer(), effects: [NEW_EFFECT.distort(), { ...NEW_EFFECT.wear(), scratches: 0.5 } as Effect] },
       { ...repeatLayer(), element: 'gash' },
+    ]);
+    expect(roundTrip(p).project).toEqual(p);
+  });
+
+  it('a version-7 file opens with no masks, no shared height, groups drawn as before and plain paths', () => {
+    const v7 = { format: 'frame-studio-project', schemaVersion: 7, name: 'Old', stage: {}, layers: [{ id: 'g', type: 'group', children: [{ id: 'p', type: 'path', points: [{ x: 0, y: 0, handle: { x: 1, y: 0 } }] }] }] };
+    const r = parseProject(JSON.stringify(v7));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.warnings).toEqual([]);
+    const [group] = r.project.layers;
+    expect(group).toMatchObject({ mask: null, heightMode: 'none', combine: 'normal' });
+    if (group.type !== 'group') throw new Error('not a group');
+    expect(group.children[0]).toMatchObject({ mask: null, heightMode: 'none', stroke: 0, taperStart: 0, taperEnd: 0 });
+    expect(group.children[0].type === 'path' && group.children[0].points[0].handleIn).toBeUndefined();
+  });
+
+  it('version 8: masks, shared height, combining, strokes, separate handles, sides and grow survive a round trip', () => {
+    const shape = shapeLayer();
+    const p = createProject([
+      shape,
+      { ...bandFillLayer(), mask: { source: shape.id, mode: 'luminance', invert: true }, heightMode: 'carve', heightDepth: 2, heightSize: 0.3, effects: [NEW_EFFECT.extrude(), NEW_EFFECT.offset()] },
+      { ...groupLayer([lineLayer()]), combine: 'subtract' },
+      { ...pathLayer([{ x: 0, y: 0, handle: { x: 1, y: 0 }, handleIn: { x: -0.2, y: 0.5 } }, { x: 1, y: 1, handle: null }]), stroke: 0.4, taperStart: 0.3, taperEnd: 1 },
     ]);
     expect(roundTrip(p).project).toEqual(p);
   });

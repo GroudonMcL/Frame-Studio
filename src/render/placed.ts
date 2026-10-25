@@ -6,7 +6,8 @@
 import { rgba } from '../engine/legacy/color';
 import { noShadow, type FrameGeometry } from '../engine/legacy/frameKit';
 import type { Point } from '../engine/legacy/shapes';
-import type { PathPoint, PlacedLayer, ShapeLayer } from '../project/types';
+import type { PathLayer, PathPoint, PlacedLayer, ShapeLayer } from '../project/types';
+import { ribbon, tracePoly } from './geometry';
 import { bandWidthPx, outlineAt, spacedAlong } from './band';
 import type { Ctx } from './canvas';
 import { shadedFill } from './elements';
@@ -162,7 +163,16 @@ function shapePoints(layer: ShapeLayer, w: number, h: number): Point[] {
 
 /** The path's points in pixels for a transform's scale (before turning and moving). */
 function scaled(points: PathPoint[], ux: number, uy: number) {
-  return points.map((p) => ({ x: p.x * ux, y: p.y * uy, hx: (p.handle?.x ?? 0) * ux, hy: (p.handle?.y ?? 0) * uy, curved: !!p.handle }));
+  return points.map((p) => ({
+    x: p.x * ux,
+    y: p.y * uy,
+    hx: (p.handle?.x ?? 0) * ux,
+    hy: (p.handle?.y ?? 0) * uy,
+    // The arriving control point: its own, or the mirror of the leaving one.
+    ix: (p.handleIn ? p.handleIn.x : -(p.handle?.x ?? 0)) * ux,
+    iy: (p.handleIn ? p.handleIn.y : -(p.handle?.y ?? 0)) * uy,
+    curved: !!p.handle,
+  }));
 }
 
 /** Traces a path in pixels around its anchor. Curves use each point's handle (leaving) and its mirror (arriving). */
@@ -175,7 +185,7 @@ export function tracePath(ctx: Ctx, points: PathPoint[], closed: boolean, ux: nu
   for (let i = 0; i < segments; i++) {
     const a = pts[i];
     const b = pts[(i + 1) % pts.length];
-    if (a.curved || b.curved) ctx.bezierCurveTo(a.x + a.hx, a.y + a.hy, b.x - b.hx, b.y - b.hy, b.x, b.y);
+    if (a.curved || b.curved) ctx.bezierCurveTo(a.x + a.hx, a.y + a.hy, b.x + b.ix, b.y + b.iy, b.x, b.y);
     else ctx.lineTo(b.x, b.y);
   }
   if (closed) ctx.closePath();
@@ -187,6 +197,7 @@ export function drawPlaced(ctx: Ctx, layer: PlacedLayer, g: FrameGeometry, light
   if (all.length === 0) return;
   const h = all[0].uy * 2;
   const w = all[0].ux * 2;
+  if (layer.type === 'path' && layer.stroke > 0) return drawStroke(ctx, layer, all, light, g);
   const canFill = layer.fill !== null && (layer.type === 'shape' || (layer.closed && layer.points.length > 2));
   ctx.save();
   if (layer.raised) raisedFrom(ctx, layer.place === 'band' ? bandWidthPx(g) : g.R * 0.14, light);
@@ -244,4 +255,51 @@ export function drawPlaced(ctx: Ctx, layer: PlacedLayer, g: FrameGeometry, light
     ctx.restore();
   }
   ctx.restore();
+}
+
+/**
+ * A path drawn as a filled stroke (version 8): a ribbon round its line,
+ * `stroke` times its height wide, narrowing towards its ends, in its fill
+ * colour (or its outline colour if it has no fill), so effects see a shape.
+ */
+function drawStroke(ctx: Ctx, layer: PathLayer, all: Placed[], light: number, g: FrameGeometry): void {
+  const color = layer.fill ?? layer.outline ?? '#000000';
+  ctx.save();
+  if (layer.raised) raisedFrom(ctx, layer.place === 'band' ? bandWidthPx(g) : g.R * 0.14, light);
+  for (const t of all) {
+    const pts = flattenPath(layer.points, layer.closed, t.ux, t.uy, 12);
+    if (pts.length < 2) continue;
+    if (layer.closed) pts.push(pts[0]);
+    // Lengths along it, for the taper.
+    const at = [0];
+    for (let i = 1; i < pts.length; i++) at.push(at[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+    const L = at[at.length - 1] || 1;
+    const w = layer.stroke * t.uy * 2;
+    const widths = at.map((d) => {
+      const k = d / L;
+      return Math.max(0.3, w * Math.min(1, layer.taperStart > 0 ? k / (layer.taperStart * 0.5) : 1, layer.taperEnd > 0 ? (1 - k) / (layer.taperEnd * 0.5) : 1) ** 0.8);
+    });
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    ctx.rotate(t.angle);
+    ctx.scale(t.sx, t.sy);
+    ctx.beginPath();
+    tracePoly(ctx, ribbon(pts, widths));
+    if (layer.shaded) {
+      const v = turn(lightVector(light), -t.angle);
+      const box = localBounds(layer);
+      shadedFill(ctx, color, Math.max(1, (box.maxX - box.minX) * t.ux), Math.max(1, (box.maxY - box.minY) * t.uy), { x: v.x * t.sx, y: v.y * t.sy });
+    } else {
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+/** A shape layer's outline as path points (for "Turn into a path"), in the path's own units. */
+export function shapeAsPath(layer: ShapeLayer): PathPoint[] {
+  // One unit is half the height across and (with the layer's stretch, which the path keeps) half the width along.
+  return shapePoints(layer, 2, 2).map((p) => ({ x: Math.round(p.x * 1000) / 1000, y: Math.round(p.y * 1000) / 1000, handle: null }));
 }

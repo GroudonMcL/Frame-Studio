@@ -5,7 +5,7 @@
 
 import { FRAME_STYLES, SHAPES } from '../engine/legacy/catalog';
 import { isValidHex } from '../engine/legacy/color';
-import { cellsLayer, chainLayer, DEFAULT_STAGE, fractureLayer, gearsLayer, growthLayer, knotworkLayer, NEW_EFFECT, NEW_LAYER, NO_RADIAL, REPEAT_PHASE7, newId, textureLayer } from './defaults';
+import { cellsLayer, chainLayer, LAYER_PHASE9, DEFAULT_STAGE, fractureLayer, gearsLayer, growthLayer, knotworkLayer, NEW_EFFECT, NEW_LAYER, NO_RADIAL, REPEAT_PHASE7, newId, textureLayer } from './defaults';
 import {
   BEVEL_PROFILES,
   BLEND_MODES,
@@ -15,6 +15,8 @@ import {
   DEFAULT_LIGHT,
   ELEMENT_KINDS,
   CELL_PATTERNS,
+  COMBINE_MODES,
+  HEIGHT_MODES,
   FRACTURE_KINDS,
   GEM_CUTS,
   GROWTH_EXTRAS,
@@ -32,6 +34,7 @@ import {
   type FrameProject,
   type GradientStop,
   type Layer,
+  type LayerMask,
   type Paint,
   type PathPoint,
   type Placement,
@@ -135,6 +138,9 @@ const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
   4: (p) => ({ ...p, schemaVersion: 5, layers: Array.isArray(p.layers) ? p.layers.map(addPhase6Fields) : p.layers }),
   5: (p) => ({ ...p, schemaVersion: 6, layers: Array.isArray(p.layers) ? p.layers.map(addPhase7Fields) : p.layers }),
   6: (p) => ({ ...p, schemaVersion: 7, layers: Array.isArray(p.layers) ? p.layers.map(addPhase8Fields) : p.layers }),
+  // Version 7 → 8 (Phase 9): masks, shared height, combining groups, tapered strokes and separate handles are all
+  // off when left out, which is how earlier files have them, so nothing changes.
+  7: (p) => ({ ...p, schemaVersion: 8 }),
 };
 
 export function parseProject(input: unknown): ParseResult {
@@ -270,6 +276,11 @@ function checkPlacement(o: Obj, d: Placement): Placement {
 }
 
 const idOrNull = (v: unknown) => (typeof v === 'string' && v ? v : null);
+
+function checkMask(v: unknown): LayerMask | null {
+  if (!isObj(v) || typeof v.source !== 'string' || !v.source) return null;
+  return { source: v.source, mode: oneOf(v.mode, ['alpha', 'luminance'] as const, 'alpha'), invert: bool(v.invert, false) };
+}
 const DASHES = ['solid', 'dashed', 'dotted'] as const;
 
 /** Effects: up to 12; an effect of an unknown kind is left out with a warning. */
@@ -340,6 +351,12 @@ function checkEffects(v: unknown, name: string, warnings: string[]): Effect[] {
       case 'distort':
         out.push({ kind: 'distort', on, amount: num(e.amount, d.amount, 0, 0.5), scale: num(e.scale, d.scale, 0.02, 3), seed: Math.round(num(e.seed, d.seed, 0, 99999)) });
         break;
+      case 'extrude':
+        out.push({ kind: 'extrude', on, depth: num(e.depth, d.depth, 0, 0.6), shade: num(e.shade, d.shade, 0, 1) });
+        break;
+      case 'offset':
+        out.push({ kind: 'offset', on, amount: num(e.amount, d.amount, -0.5, 0.5) });
+        break;
     }
   }
   return out;
@@ -370,6 +387,7 @@ function checkPoints(v: unknown): PathPoint[] {
       x: num(p.x, 0, -50, 50),
       y: num(p.y, 0, -50, 50),
       handle: isObj(p.handle) ? { x: num(p.handle.x, 0, -50, 50), y: num(p.handle.y, 0, -50, 50) } : null,
+      ...(isObj(p.handleIn) && isObj(p.handle) ? { handleIn: { x: num(p.handleIn.x, 0, -50, 50), y: num(p.handleIn.y, 0, -50, 50) } } : {}),
     }));
 }
 
@@ -385,6 +403,10 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
     blend: oneOf(o.blend, BLEND_MODES, 'source-over'),
     clip: oneOf(o.clip, CLIP_MODES, 'none'),
     effects: [] as Effect[],
+    mask: checkMask(o.mask),
+    heightMode: oneOf(o.heightMode, HEIGHT_MODES, 'none'),
+    heightDepth: num(o.heightDepth, LAYER_PHASE9.heightDepth, 0, 3),
+    heightSize: num(o.heightSize, LAYER_PHASE9.heightSize, 0.01, 2),
   };
   if (!(type in NEW_LAYER) || (type === 'group' && depth >= MAX_DEPTH)) {
     warnings.push(`Layer "${common.name}" is a kind this version can't draw (${type}); it is kept but hidden from the picture.`);
@@ -445,7 +467,17 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
     case 'path': {
       const d = NEW_LAYER.path();
       if (d.type !== 'path') throw new Error('unreachable');
-      return { ...common, type, ...checkPlacement(o, d), ...checkStyle(o, d), points: checkPoints(o.points), closed: bool(o.closed, d.closed) };
+      return {
+        ...common,
+        type,
+        ...checkPlacement(o, d),
+        ...checkStyle(o, d),
+        points: checkPoints(o.points),
+        closed: bool(o.closed, d.closed),
+        stroke: num(o.stroke, d.stroke, 0, 2),
+        taperStart: num(o.taperStart, d.taperStart, 0, 1),
+        taperEnd: num(o.taperEnd, d.taperEnd, 0, 1),
+      };
     }
     case 'text': {
       const d = NEW_LAYER.text();
@@ -604,7 +636,7 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
       };
     }
     case 'group':
-      return { ...common, type, children: checkLayers(o.children, warnings, ids, depth + 1), collapsed: bool(o.collapsed, false) };
+      return { ...common, type, children: checkLayers(o.children, warnings, ids, depth + 1), collapsed: bool(o.collapsed, false), combine: oneOf(o.combine, COMBINE_MODES, 'normal') };
     case 'texture': {
       const kind = oneOf(o.kind, TEXTURE_KINDS, 'marble');
       const d = textureLayer(kind);
@@ -683,7 +715,7 @@ export function serializeProject(project: FrameProject, extra: { preview?: strin
     if (l.type === 'group') return { ...l, children: l.children.map(write) };
     if (l.type !== 'unsupported') return l;
     // Its clip setting (and any effects) stay in `data` exactly as the file had them.
-    const { originalType, data, reason: _r, type: _t, clip: _c, effects: _e, ...common } = l;
+    const { originalType, data, reason: _r, type: _t, clip: _c, effects: _e, mask: _m, heightMode: _h, heightDepth: _d, heightSize: _s, ...common } = l;
     return { ...data, ...common, type: originalType };
   };
   return JSON.stringify({ ...project, layers: project.layers.map(write), ...extra }, null, 2) + '\n';

@@ -109,6 +109,8 @@ const EFFECT_HINTS: Record<EffectKind, string> = {
   adjust: 'Changes its hue, how vivid it is, its brightness and its contrast.',
   wear: 'Makes it look old: chipped edges, edges rubbed bright, scratches and patches of grime.',
   distort: 'Warps it with smooth wobbles: uneven edges, irregular stone, a subtle shimmer.',
+  extrude: 'Gives it sides: pushed back away from the light, as if it were a thick raised plate.',
+  offset: 'Makes its shape fatter or thinner all round.',
 };
 
 function AddEffect({ disabled, onAdd, label }: { disabled: boolean; onAdd: (k: EffectKind) => void; label: string }) {
@@ -296,6 +298,19 @@ function EffectControls({ effect: e, disabled, advanced, onChange }: { effect: E
           {slider('amount', 'Amount', 0, 0.3, 'How far it is pushed about, as a share of the band width.')}
           {slider('scale', 'Wobble size', 0.03, 2, 'How big the wobbles are, as a share of the band width.')}
           {shuffle}
+        </div>
+      );
+    case 'extrude':
+      return (
+        <div className="effect-body">
+          {slider('depth', 'Side depth', 0, 0.4, 'How deep the sides are, as a share of the band width.')}
+          {slider('shade', 'Side shading', 0, 1, 'How dark the sides are.')}
+        </div>
+      );
+    case 'offset':
+      return (
+        <div className="effect-body">
+          {slider('amount', 'Grow by', -0.3, 0.3, 'How much bigger (or, below 0%, smaller) the shape gets, as a share of the band width.')}
         </div>
       );
     case 'wear':

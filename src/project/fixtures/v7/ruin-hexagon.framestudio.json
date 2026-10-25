@@ -1,0 +1,308 @@
+{
+  "format": "frame-studio-project",
+  "schemaVersion": 7,
+  "name": "Overgrown ruin",
+  "stage": {
+    "shape": "hexagon",
+    "thickness": 0.14,
+    "outerSpacing": 0.1,
+    "showArt": false,
+    "backingColor": "#1d1f27",
+    "light": 300
+  },
+  "layers": [
+    {
+      "id": "Lmvn6hxij1yna",
+      "name": "Stone plates",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "wear",
+          "on": true,
+          "chips": 0.4,
+          "polish": 0,
+          "grime": 0.3,
+          "grimeColor": "#1a1814",
+          "scale": 0.3,
+          "seed": 1,
+          "scratches": 0
+        },
+        {
+          "kind": "bevel",
+          "on": true,
+          "direction": "raised",
+          "profile": "chisel",
+          "size": 0.1,
+          "depth": 1,
+          "soften": 0.02,
+          "highlight": "#ffffff",
+          "highlightOpacity": 0.75,
+          "shadow": "#000000",
+          "shadowOpacity": 0.6,
+          "gloss": 0,
+          "lightHeight": 35,
+          "surface": "grain",
+          "surfaceDepth": 0.6,
+          "surfaceScale": 0.25,
+          "seed": 1
+        },
+        {
+          "kind": "recolour",
+          "on": true,
+          "stops": [
+            {
+              "at": 0,
+              "color": "#1a1918",
+              "opacity": 1
+            },
+            {
+              "at": 0.25,
+              "color": "#45423e",
+              "opacity": 1
+            },
+            {
+              "at": 0.5,
+              "color": "#77736c",
+              "opacity": 1
+            },
+            {
+              "at": 0.75,
+              "color": "#a9a49b",
+              "opacity": 1
+            },
+            {
+              "at": 1,
+              "color": "#d8d4cc",
+              "opacity": 1
+            }
+          ],
+          "amount": 1
+        }
+      ],
+      "type": "cells",
+      "pattern": "voronoi",
+      "from": 0.2,
+      "to": 1,
+      "size": 0.42,
+      "gap": 0.05,
+      "jitter": 0.8,
+      "rounding": 0.2,
+      "missing": 0.12,
+      "vary": 0.45,
+      "color": "#8a8478",
+      "seed": 7
+    },
+    {
+      "id": "Lmvn6hxij2bcf",
+      "name": "Cracks",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "below",
+      "effects": [],
+      "type": "fracture",
+      "kind": "cracks",
+      "from": 0.2,
+      "to": 1,
+      "count": 9,
+      "length": 1.4,
+      "branching": 0.5,
+      "jagged": 0.5,
+      "width": 0.035,
+      "color": "#14100c",
+      "seed": 3
+    },
+    {
+      "id": "Lmvn6hxij317pt",
+      "name": "Knotwork band",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "bevel",
+          "on": true,
+          "direction": "raised",
+          "profile": "rounded",
+          "size": 0.2,
+          "depth": 1,
+          "soften": 0.02,
+          "highlight": "#ffffff",
+          "highlightOpacity": 0.75,
+          "shadow": "#000000",
+          "shadowOpacity": 0.6,
+          "gloss": 0.4,
+          "lightHeight": 35,
+          "surface": "grain",
+          "surfaceDepth": 0.25,
+          "surfaceScale": 0.25,
+          "seed": 1
+        },
+        {
+          "kind": "recolour",
+          "on": true,
+          "stops": [
+            {
+              "at": 0,
+              "color": "#1e0804",
+              "opacity": 1
+            },
+            {
+              "at": 0.25,
+              "color": "#6a2810",
+              "opacity": 1
+            },
+            {
+              "at": 0.5,
+              "color": "#b8602e",
+              "opacity": 1
+            },
+            {
+              "at": 0.75,
+              "color": "#eea070",
+              "opacity": 1
+            },
+            {
+              "at": 1,
+              "color": "#ffe4cc",
+              "opacity": 1
+            }
+          ],
+          "amount": 1
+        },
+        {
+          "kind": "wear",
+          "on": true,
+          "chips": 0,
+          "polish": 0.25,
+          "grime": 0.55,
+          "grimeColor": "#3f8f7a",
+          "scale": 0.3,
+          "seed": 1,
+          "scratches": 0
+        }
+      ],
+      "type": "knotwork",
+      "follow": null,
+      "at": 0.1,
+      "waveLength": 0.42,
+      "amplitude": 0.075,
+      "width": 0.075,
+      "color": "#909090",
+      "outline": "#000000",
+      "outlineWidth": 0.02,
+      "outlineOpacity": 0.6,
+      "shine": false,
+      "double": false,
+      "flip": false
+    },
+    {
+      "id": "Lmvn6hxij41xt",
+      "name": "Roots",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "bevel",
+          "on": true,
+          "direction": "raised",
+          "profile": "rounded",
+          "size": 0.4,
+          "depth": 1,
+          "soften": 0.02,
+          "highlight": "#ffffff",
+          "highlightOpacity": 0.75,
+          "shadow": "#000000",
+          "shadowOpacity": 0.6,
+          "gloss": 0.15,
+          "lightHeight": 35,
+          "surface": "grain",
+          "surfaceDepth": 0.4,
+          "surfaceScale": 0.25,
+          "seed": 1
+        },
+        {
+          "kind": "shadow",
+          "on": true,
+          "inner": false,
+          "color": "#000000",
+          "opacity": 0.7,
+          "distance": 0.05,
+          "blur": 0.06
+        }
+      ],
+      "type": "growth",
+      "follow": null,
+      "at": 0.62,
+      "seed": 4,
+      "kind": "roots",
+      "count": 1,
+      "waveLength": 0,
+      "amplitude": 0,
+      "gnarl": 0.6,
+      "thickness": 0.09,
+      "taper": 0.9,
+      "branching": 0.6,
+      "branchLength": 0.6,
+      "branchAngle": 65,
+      "curl": 40,
+      "depth": 3,
+      "extra": "none",
+      "extraSpacing": 0.6,
+      "extraSize": 0.3,
+      "color": "#5a3c22",
+      "extraColor": "#6a4a2c"
+    },
+    {
+      "id": "Lmvn6hxij514p7",
+      "name": "Creeper",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "shadow",
+          "on": true,
+          "inner": false,
+          "color": "#000000",
+          "opacity": 0.6,
+          "distance": 0.04,
+          "blur": 0.05
+        }
+      ],
+      "type": "growth",
+      "follow": null,
+      "at": 0.45,
+      "seed": 9,
+      "kind": "vine",
+      "count": 1,
+      "waveLength": 2.6,
+      "amplitude": 0.3,
+      "gnarl": 0.1,
+      "thickness": 0.035,
+      "taper": 0.7,
+      "branching": 0.2,
+      "branchLength": 0.45,
+      "branchAngle": 50,
+      "curl": 220,
+      "depth": 1,
+      "extra": "leaves",
+      "extraSpacing": 1.1,
+      "extraSize": 0.4,
+      "color": "#2e4a1c",
+      "extraColor": "#5a8a32"
+    }
+  ]
+}

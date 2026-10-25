@@ -119,14 +119,22 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Schema version 7 with a migration from version 6; version-6 fixture files saved by Phase 7 open and draw as before (versions 1–5 too)
   - [x] Tests: every generator repeatable, seeded, on every shape, growing with the band, pickable and with effects; growth (waves, leaves, branches from the stem, taper, depth, antlers, following a path), cracks staying in their part, lightning running round, cells inside their part, missing and varied, bevelled plates, knotwork arcs and swapping, gears' sizes and meshing, chains' even links, distortion, scratches, fitted waves, the template, the migration and v6 fixtures, help tips, the four conversions' limits; Playwright: the "done when" flow (template, changes, every shape, export matches the renderer) and adding every generator, the four conversions and axe
   - **Done when:** an "Overgrown ruin" template (cracked stone plates with missing fragments, roots growing through, a knotwork band) is built only from generators and styles ✔ (Playwright "done when" test)
-- [ ] **Phase 9 — Precise control** (masks, height compositing, boolean geometry, in/out handles, groups on the canvas, zoom)
+- [x] **Phase 9 — Precise control**
+  - [x] Masks from any layer: its shape or its brightness, inverted or not; the mask layer can be hidden
+  - [x] Shared height map: layers raise or carve into their group's surface, lit by the group's bevel as one surface; height and normal map views (Advanced → Show); extruded sides
+  - [x] Combining a group's shapes (union, subtract, intersect, exclude), grow and shrink, paths stroked into tapered shapes, shapes turned into paths
+  - [x] Separate in/out handles (a button, or Alt while dragging); moving a group by dragging any of its layers; turning a group round the token; zoom (to 800 %) and pan
+  - [x] Template: Rune-carved plates
+  - [x] Schema version 8 with a migration from version 7; version-7 fixture files saved by Phase 8 open and draw as before (versions 1–6 too)
+  - [x] Tests: masks (shape, brightness, inverted, missing), carving and raising in a shared height map, height-only layers, no bevel no change, the views, the template on every shape, sides, grow and shrink, every combine mode and a bevel on it, strokes and tapers, separate and joined handles, a shape as a path, turning layers, the migration and v7 fixtures, help tips; Playwright: the "done when" flow (height-map view with and without the carving, normal map, export matches the renderer and shows the carving) and a mask, combining, turning and dragging a group, zoom
+  - **Done when:** runes cut through a raised plate share one height map with it (the plate's bevel follows the cut edges), seen in the height-map view and in the export ✔ (Playwright "done when" test)
 - [ ] **Phase 10 — Workflow** (randomise, your own styles, a theme colour, a lighting rig, batch export, more shapes with Token Maker)
 
 ## Known limitations after Phase 6
 
 - **Token Maker can't open version-5 designs yet:** its copy of the reader and renderer is from Phase 5. Run `npm run share:export -- ..\token-maker` (then Token Maker's tests) to give it effects; until then, keep version-4 copies of designs meant for Token Maker.
 - Effects are work on every pixel: a design with many effects takes a second or two to open at a large preview, and very large exports (4096 px) take a while and need a lot of memory.
-- Height doesn't combine between separate layers yet (a bevel sees only its own layer, or its group as one shape); overlapping layers are lit one by one (Phase 9).
+- Height doesn't combine between separate layers yet (a bevel sees only its own layer, or its group as one shape); overlapping layers are lit one by one (Phase 9 adds a group's shared height map).
 - One light: its height is set per bevel; no coloured or second lights, bloom or light bleeding onto neighbouring layers (Phase 10).
 - Facets are drawn from the centre of the shape's corners, so a very uneven drawn path can get odd faces.
 - Styles can't be saved as your own yet (copy and paste effects in the meantime; a layer with effects can go in your library).

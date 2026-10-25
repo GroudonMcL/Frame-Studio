@@ -19,7 +19,7 @@ Each phase keeps the project's rules (DESIGN.md §7): one renderer, sizes measur
 | Brief | Idea | Phase |
 |---|---|---|
 | 1 Materials | Embossing, bevels and relief: inner bevels, width, depth, softness, profile, raised/recessed, highlight and shadow colours, shared light | **6 (done)** |
-| | Height maps combined between layers | 6 on groups (a group's effects see its layers as one shape); full height compositing in 9 |
+| | Height maps combined between layers | **9 (done)**: a group's shared height map |
 | | Material presets: gold, silver, copper, bronze, blackened iron, hammered metal, marble/granite/slate/obsidian, bone, ivory, crystal, glass, ice | **6 (done)**: 26 styles, 14 material ramps |
 | | Damascus steel, chainmail, wood, leather, parchment, porcelain, enamel, lacquer, chitin, corrupted flesh | 6 has the systems (surfaces + ramps); more presets in 10 |
 | | Wear: scratches, chips, worn edges, rust/verdigris, dirt, edge-dependent wear | **6 (done)**: chips, rubbed edges, grime; scratches and missing fragments in 8 |
@@ -30,18 +30,18 @@ Each phase keeps the project's rules (DESIGN.md §7): one renderer, sizes measur
 | 2 Compositing | Multiply, Screen, Overlay, Soft/Hard Light, Difference/Exclusion, Darken/Lighten, Add, colour dodge/burn, hue/saturation/luminosity | **6 (done)** |
 | | Knockout (cut holes) | **6 (done)**, kept apart from colour blending in the interface |
 | | Clipping group | Phases 2 and 6 (clip to the layer below, clip to the band) |
-| | Alpha and luminance masks from any layer, matte extraction | 9 |
+| | Alpha and luminance masks from any layer, matte extraction | **9 (done)** |
 | 3 2.5D | Height → normals → lighting, profiles, normal strength and smoothing | **6 (done)** |
-| | Preview the height and normal maps | 9 |
+| | Preview the height and normal maps | **9 (done)** |
 | | Procedural faceted shapes with calculated face orientations | **6 (done)**: facets for shapes and paths; gem, plate and shard elements |
 | | Gemstone generator: cuts (brilliant, rose, emerald, cabochon, rough), settings, claws and bezels | **7 (done)** |
 | | A global lighting rig with a handle | Phase 2's light dial drives everything; elevation per bevel in 6; several coloured lights and rim light in 10 |
-| | Extrusion and sidewalls | 9 (needs height compositing) |
+| | Extrusion and sidewalls | **9 (done)** |
 | 4 Geometry | Parametric ring builder (nested bands, contours, each its own material) | **7 (done)**: the contours layer |
 | | Polygon border generator | The five token shapes come from Token Maker; more shapes need Token Maker too, so later (10) |
-| | Bézier paths | Phase 2; separate in/out handles in 9 |
+| | Bézier paths | Phase 2; separate in/out handles **9 (done)** |
 | | Path-following objects | **7 (done)** |
-| | Boolean geometry, offset, stroke to shape | 9 |
+| | Boolean geometry, offset, stroke to shape | **9 (done)**: combining groups, grow/shrink, tapered strokes |
 | | Organic generators (branches, roots, tendrils, thorns, antlers, coral, veins) | **8 (done)** |
 | | Text on a path, variable-width strokes, symmetry tools | **7 (done)** |
 | 5 Procedural | Radial array, mandala | **7 (done)** |
@@ -91,7 +91,9 @@ Intricate geometry from a few numbers, all seeded so preview and export match, a
 
 Done when: an "Overgrown ruin" template (cracked stone plates with missing fragments, roots growing through, knotwork band) is built only from generators and styles, and the four unconverted Token Maker frames that needed these (Druid, Knotwork, Artificer, Barbarian) convert.
 
-## Phase 9 — Precise control
+## Phase 9 — Precise control (done)
+
+Built: masks from any layer (shape or brightness, inverted), a shared height map per group (layers raise or carve into it, lit by the group's bevel), height and normal map views, extruded sides, grow and shrink, combining a group's shapes (union, subtract, intersect, exclude), tapered strokes, separate in/out handles, moving and turning groups on the canvas, zoom and pan, and the Rune-carved plates template. Details in DESIGN.md §5.8 and §6.7. The plan as it was:
 
 1. **Masks:** show a layer through any other layer's shape or brightness (alpha and luminance masks, inverted or not), not only the layer below.
 2. **Height compositing:** layers can add to (or cut into) a shared height map, so a bevel sees overlapping runes, plates and bands as one sculpted surface; extruded sidewalls for raised plates. A view of the height and normal maps.
