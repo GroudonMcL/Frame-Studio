@@ -28,8 +28,14 @@ export const renderStats = { drawn: 0, reused: 0 };
 
 /** Everything that changes how a layer looks, but not how it is composited: its settings, the band, the light and the size. */
 export function layerKey(layer: Layer, g: Pick<FrameGeometry, 'shape' | 'outer' | 'inner'>, light: number, size: number): string {
-  const { id: _i, name: _n, visible: _v, locked: _l, opacity: _o, blend: _b, clip, ...look } = layer;
+  // Effects aren't in the layer's own picture: its picture with effects has a key of its own (effectsKey).
+  const { id: _i, name: _n, visible: _v, locked: _l, opacity: _o, blend: _b, clip, effects: _e, ...look } = layer;
   return `${size}|${g.shape}|${g.outer}|${g.inner}|${light}|${clip === 'band' ? 'band' : ''}|${JSON.stringify(look)}`;
+}
+
+/** The key of a layer's picture with its effects: its own picture's key and the effects that are on. */
+export function effectsKey(layer: Layer, key: string): string {
+  return `fx|${key}|${JSON.stringify(layer.effects.filter((e) => e.on))}`;
 }
 
 function drop(key: string): void {

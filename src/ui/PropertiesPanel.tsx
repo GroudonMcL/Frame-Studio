@@ -47,6 +47,17 @@ const BLEND_NAMES: Record<BlendMode, string> = {
   'soft-light': 'Soft light',
   lighter: 'Add (glow)',
   color: 'Colour',
+  'hard-light': 'Hard light',
+  'color-dodge': 'Colour dodge (bright)',
+  'color-burn': 'Colour burn (dark)',
+  darken: 'Darken',
+  lighten: 'Lighten',
+  difference: 'Difference',
+  exclusion: 'Exclusion',
+  hue: 'Hue',
+  saturation: 'Saturation',
+  luminosity: 'Luminosity',
+  'destination-out': 'Cut a hole (knockout)',
 };
 
 const CLIP_NAMES: Record<ClipMode, string> = {

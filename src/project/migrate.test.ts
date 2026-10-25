@@ -1,7 +1,7 @@
 import { FRAME_PRESETS } from '../engine/legacy/catalog';
-import { bandFillLayer, createProject, GEM_POINTS, TEXTURES, textureFromPreset, textureLayer, groupLayer, LAYERED_TEMPLATES, NEW_LAYER, pathLayer, projectFromFrame, repeatLayer, shapeLayer } from './defaults';
+import { bandFillLayer, createProject, EFFECT_NAMES, NEW_EFFECT, GEM_POINTS, TEXTURES, textureFromPreset, textureLayer, groupLayer, LAYERED_TEMPLATES, NEW_LAYER, pathLayer, projectFromFrame, repeatLayer, shapeLayer } from './defaults';
 import { parseProject, serializeProject } from './migrate';
-import { SCHEMA_VERSION, type FrameProject } from './types';
+import { EFFECT_KINDS, SCHEMA_VERSION, type FrameProject } from './types';
 
 const roundTrip = (p: FrameProject) => {
   const r = parseProject(serializeProject(p));
@@ -226,5 +226,60 @@ describe('project files', () => {
     const r = parseProject(p);
     if (!r.ok) throw new Error(r.error);
     expect(r.project.layers[0].type === 'bandFill' && r.project.layers[0].paint.kind).toBe('lit');
+  });
+
+  it('a version-4 file opens as version 5 with no effects and smooth shapes, in groups too', () => {
+    const v4 = {
+      format: 'frame-studio-project',
+      schemaVersion: 4,
+      name: 'Old',
+      stage: {},
+      layers: [
+        { id: 'a', type: 'bandFill' },
+        { id: 'g', type: 'group', children: [{ id: 's', type: 'shape' }, { id: 'p', type: 'path', points: [] }] },
+      ],
+    };
+    const r = parseProject(JSON.stringify(v4));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.warnings).toEqual([]);
+    expect(r.project.schemaVersion).toBe(5);
+    const [band, group] = r.project.layers;
+    expect(band.effects).toEqual([]);
+    if (group.type !== 'group') throw new Error('not a group');
+    expect(group.effects).toEqual([]);
+    for (const l of group.children) expect(l).toMatchObject({ effects: [], faceted: false, facetTable: 0.5, facetDepth: 1 });
+  });
+
+  it('version 5: every effect, facets and the new blend modes survive a round trip', () => {
+    const p = createProject([
+      { ...bandFillLayer(), blend: 'color-dodge', effects: EFFECT_KINDS.map((k) => NEW_EFFECT[k]()) },
+      { ...shapeLayer(), faceted: true, facetTable: 0, facetDepth: 2, blend: 'destination-out' },
+      { ...groupLayer([repeatLayer()]), effects: [{ ...NEW_EFFECT.glow(), on: false }] },
+    ]);
+    expect(roundTrip(p).project).toEqual(p);
+    expect(Object.keys(EFFECT_NAMES).sort()).toEqual([...EFFECT_KINDS].sort());
+  });
+
+  it('bad effect values fall back or are kept in range; an unknown effect is left out with a warning', () => {
+    const raw = JSON.parse(serializeProject(createProject([bandFillLayer()])));
+    raw.layers[0].effects = [
+      { kind: 'bevel', size: 99, depth: -1, profile: 'wobbly', surface: 'lumpy', highlight: 'bright', on: 'yes' },
+      { kind: 'sparkle', amount: 3 },
+      { kind: 'adjust', hue: 999 },
+      'nonsense',
+    ];
+    const r = parseProject(raw);
+    if (!r.ok) throw new Error(r.error);
+    expect(r.project.layers[0].effects).toHaveLength(2);
+    expect(r.project.layers[0].effects[0]).toMatchObject({ kind: 'bevel', size: 2, depth: 0, profile: 'rounded', surface: 'smooth', highlight: '#ffffff', on: true });
+    expect(r.project.layers[0].effects[1]).toMatchObject({ kind: 'adjust', hue: 180 });
+    expect(r.warnings).toHaveLength(2);
+  });
+
+  it('an unknown layer keeps its effects exactly as they came', () => {
+    const future = { id: 'f', name: 'Future', type: 'glimmer', visible: true, locked: false, opacity: 1, blend: 'source-over', clip: 'none', effects: [{ kind: 'sparkle' }] };
+    const r = parseProject(JSON.stringify({ format: 'frame-studio-project', schemaVersion: 5, name: 'New', stage: {}, layers: [future] }));
+    if (!r.ok) throw new Error(r.error);
+    expect(JSON.parse(serializeProject(r.project)).layers[0]).toEqual(future);
   });
 });

@@ -14,7 +14,7 @@
 import type { FrameStyle, ShapeId } from '../engine/legacy/catalog';
 
 export const PROJECT_FORMAT = 'frame-studio-project';
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export interface FrameProject {
   format: typeof PROJECT_FORMAT;
@@ -43,8 +43,32 @@ export interface StageSettings {
 /** token-maker's light: from the top left. */
 export const DEFAULT_LIGHT = 225;
 
-/** Blend modes offered in Advanced (all work in Canvas 2D everywhere). */
-export const BLEND_MODES = ['source-over', 'multiply', 'screen', 'overlay', 'soft-light', 'lighter', 'color'] as const;
+/**
+ * Blend modes offered in Advanced (all work in Canvas 2D everywhere). The
+ * last one, 'destination-out', isn't a colour blend: it cuts a hole through
+ * the layers below (a knockout), so the editor offers it as its own switch.
+ */
+export const BLEND_MODES = [
+  'source-over',
+  'multiply',
+  'screen',
+  'overlay',
+  'soft-light',
+  'lighter',
+  'color',
+  // Version 5:
+  'hard-light',
+  'color-dodge',
+  'color-burn',
+  'darken',
+  'lighten',
+  'difference',
+  'exclusion',
+  'hue',
+  'saturation',
+  'luminosity',
+  'destination-out',
+] as const;
 export type BlendMode = (typeof BLEND_MODES)[number];
 
 interface LayerBase {
@@ -59,7 +83,118 @@ interface LayerBase {
   blend: BlendMode;
   /** Only show the layer inside the band, or inside the layer below it (like a clipping mask). */
   clip: ClipMode;
+  /** Surface effects applied to the layer's picture, first first (DESIGN.md §5.4). Version 5. */
+  effects: Effect[];
 }
+
+/*
+ * Effects (version 5): non-destructive filters on a layer's (or a group's)
+ * picture, before it is composited. Sizes are in band widths, so they fit
+ * every token size and thickness; everything lit follows stage.light.
+ */
+export const BEVEL_PROFILES = ['rounded', 'chisel', 'cove', 'ridge', 'stepped'] as const;
+export type BevelProfile = (typeof BEVEL_PROFILES)[number];
+export const SURFACES = ['smooth', 'hammered', 'grain', 'brushed', 'cracked', 'scales'] as const;
+export type Surface = (typeof SURFACES)[number];
+
+/**
+ * A 2.5D surface: a height map made from the picture's shape (how far each
+ * pixel is from its edge, through a profile) plus a surface texture, turned
+ * into normals and lit by the stage's light. Raised or sunk into the band.
+ */
+export interface BevelEffect {
+  kind: 'bevel';
+  on: boolean;
+  direction: 'raised' | 'sunken';
+  profile: BevelProfile;
+  /** How far in from the edge the slope reaches (band widths). */
+  size: number;
+  /** How steep it looks (0–4). */
+  depth: number;
+  /** Smooths the height map (band widths). */
+  soften: number;
+  highlight: string;
+  highlightOpacity: number;
+  shadow: string;
+  shadowOpacity: number;
+  /** Shiny highlights (0 matt – 1 polished). */
+  gloss: number;
+  /** How high the light is, in degrees above the band (10–90). */
+  lightHeight: number;
+  surface: Surface;
+  /** How deep the surface texture is (0–2). */
+  surfaceDepth: number;
+  /** How big its marks are (band widths). */
+  surfaceScale: number;
+  seed: number;
+}
+
+/** A soft shadow cast away from the light (or, inside, from the edge facing it). */
+export interface ShadowEffect {
+  kind: 'shadow';
+  on: boolean;
+  inner: boolean;
+  color: string;
+  opacity: number;
+  /** Band widths. */
+  distance: number;
+  /** Band widths. */
+  blur: number;
+}
+
+/** A soft glow round the picture's edge, outside or inside it. */
+export interface GlowEffect {
+  kind: 'glow';
+  on: boolean;
+  inner: boolean;
+  color: string;
+  opacity: number;
+  /** Band widths. */
+  size: number;
+}
+
+/** Maps how light each pixel is to a colour gradient (a gradient map): turns anything gold, bronze, bone… */
+export interface RecolourEffect {
+  kind: 'recolour';
+  on: boolean;
+  /** Dark (at 0) to light (at 1). */
+  stops: GradientStop[];
+  /** 0–1: how much of the new colour. */
+  amount: number;
+}
+
+export interface AdjustEffect {
+  kind: 'adjust';
+  on: boolean;
+  /** Degrees round the colour wheel. */
+  hue: number;
+  /** −1 grey … 1 twice as vivid. */
+  saturation: number;
+  /** −1 … 1 */
+  brightness: number;
+  /** −1 … 1 */
+  contrast: number;
+}
+
+/** Age: chipped edges, edges rubbed bright, and grime in blotches. */
+export interface WearEffect {
+  kind: 'wear';
+  on: boolean;
+  /** 0–1: how much of the edge is chipped away. */
+  chips: number;
+  /** 0–1: how bright the edges are rubbed. */
+  polish: number;
+  /** 0–1: how much grime. */
+  grime: number;
+  grimeColor: string;
+  /** How big the marks are (band widths). */
+  scale: number;
+  seed: number;
+}
+
+export type Effect = BevelEffect | ShadowEffect | GlowEffect | RecolourEffect | AdjustEffect | WearEffect;
+export const EFFECT_KINDS = ['bevel', 'shadow', 'glow', 'recolour', 'adjust', 'wear'] as const satisfies readonly Effect['kind'][];
+export type EffectKind = (typeof EFFECT_KINDS)[number];
 
 export const CLIP_MODES = ['none', 'band', 'below'] as const;
 export type ClipMode = (typeof CLIP_MODES)[number];
@@ -164,6 +299,10 @@ export const ELEMENT_KINDS = [
   'eye',
   'note',
   'claw',
+  // Version 5, faceted and lit by the light:
+  'gem',
+  'plate',
+  'shard',
 ] as const;
 export type ElementKind = (typeof ELEMENT_KINDS)[number];
 
@@ -251,6 +390,12 @@ export interface PlacedStyle {
   outlineWidth: number;
   raised: boolean;
   glow: string | null;
+  /** Cut into flat faces, each lit by the light (gems, plates, crystals). Version 5. */
+  faceted: boolean;
+  /** The flat top as a share of the shape (0 = a point, like a pyramid). */
+  facetTable: number;
+  /** How steep the faces are (0.2–3). */
+  facetDepth: number;
 }
 
 export const SHAPE_KINDS = ['circle', 'rectangle', 'polygon', 'star'] as const;

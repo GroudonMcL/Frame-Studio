@@ -6,6 +6,7 @@ import { shade } from '../engine/legacy/color';
 import { seededRandom, sphere } from '../engine/legacy/frameKit';
 import type { ElementKind } from '../project/types';
 import type { Ctx } from './canvas';
+import { drawFacets } from './facets';
 
 export const ELEMENT_NAMES: Record<ElementKind, string> = {
   bead: 'Bead (shaded)',
@@ -24,7 +25,37 @@ export const ELEMENT_NAMES: Record<ElementKind, string> = {
   eye: 'Eye',
   note: 'Music note',
   claw: 'Claw marks',
+  gem: 'Cut gem (faceted)',
+  plate: 'Hexagonal plate (faceted)',
+  shard: 'Crystal shard (faceted)',
 };
+
+/** The outline of a faceted element, pointing outwards, and how it is cut. */
+function facetedOutline(kind: ElementKind, w: number, h: number): { pts: { x: number; y: number }[]; table: number; depth: number } | null {
+  const x = w / 2;
+  const y = h / 2;
+  const ring = (n: number, turn: number) => Array.from({ length: n }, (_v, i) => ({ x: Math.cos(turn + (i * Math.PI * 2) / n) * x, y: Math.sin(turn + (i * Math.PI * 2) / n) * y }));
+  switch (kind) {
+    case 'gem':
+      return { pts: ring(8, Math.PI / 8), table: 0.52, depth: 0.9 };
+    case 'plate':
+      return { pts: ring(6, 0), table: 0.68, depth: 0.55 };
+    case 'shard':
+      return {
+        pts: [
+          { x: 0, y: -y },
+          { x: x * 0.62, y: -y * 0.45 },
+          { x: x * 0.5, y: y },
+          { x: -x * 0.5, y: y },
+          { x: -x * 0.62, y: -y * 0.45 },
+        ],
+        table: 0,
+        depth: 1.1,
+      };
+    default:
+      return null;
+  }
+}
 
 /** Little glyphs drawn as strokes (x and y from -1 to 1), in the style of token-maker's Arcane runes. */
 const RUNES: number[][][] = [
@@ -131,6 +162,11 @@ function trace(ctx: Ctx, kind: ElementKind, w: number, h: number): void {
         ctx.quadraticCurveTo(cx - x * 0.06, 0, cx - x * 0.26, -y);
         ctx.closePath();
       }
+      break;
+    case 'gem':
+    case 'plate':
+    case 'shard':
+      facetedOutline(kind, w, h)!.pts.forEach((p) => ctx.lineTo(p.x, p.y));
       break;
     case 'note':
     case 'rune':
@@ -240,6 +276,16 @@ export function drawElement(ctx: Ctx, kind: ElementKind, h: number, stretch: num
     ctx.ellipse(0, h * 0.08, r * 0.38, r * 0.55, 0, 0, Math.PI * 2);
     ctx.fillStyle = '#0d0a08';
     ctx.fill();
+    ctx.restore();
+  } else if (facetedOutline(kind, w, h) && style.shaded !== false) {
+    const f = facetedOutline(kind, w, h)!;
+    // The outline first (it casts any shadow), then the faces over it.
+    trace(ctx, kind, w, h);
+    ctx.fillStyle = style.fill;
+    ctx.fill();
+    ctx.save();
+    ctx.shadowColor = 'transparent';
+    drawFacets(ctx, f.pts, style.fill, style.light, f.table, f.depth);
     ctx.restore();
   } else {
     trace(ctx, kind, w, h);

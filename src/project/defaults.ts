@@ -8,6 +8,8 @@ import {
   SCHEMA_VERSION,
   DEFAULT_LIGHT,
   type BandFillLayer,
+  type Effect,
+  type EffectKind,
   type EditableLayerType,
   type FrameProject,
   type GroupLayer,
@@ -42,7 +44,7 @@ export function newId(): string {
   return `L${Date.now().toString(36)}${counter.toString(36)}${Math.floor(Math.random() * 0x10000).toString(36)}`;
 }
 
-const base = (name: string) => ({ id: newId(), name, visible: true, locked: false, opacity: 1, blend: 'source-over' as const, clip: 'none' as const });
+const base = (name: string) => ({ id: newId(), name, visible: true, locked: false, opacity: 1, blend: 'source-over' as const, clip: 'none' as const, effects: [] as Effect[] });
 
 export function legacyFrameLayer(presetId: string): LegacyFrameLayer {
   const preset = framePresetById(presetId) ?? FRAME_PRESETS[0];
@@ -136,7 +138,7 @@ export function textureBand(preset: TexturePreset): BandFillLayer {
 
 /** A new shape or path sits at the top of the band, upright, one band width tall. */
 export const DEFAULT_PLACEMENT: Placement = { place: 'band', along: 0, across: 0.5, x: 0, y: -0.8, size: 0.8, stretch: 1, rotation: 0, mirror: 'none' };
-const DEFAULT_STYLE: PlacedStyle = { fill: '#5fa8d3', shaded: true, outline: '#1a1008', outlineWidth: 0.06, raised: true, glow: null };
+const DEFAULT_STYLE: PlacedStyle = { fill: '#5fa8d3', shaded: true, outline: '#1a1008', outlineWidth: 0.06, raised: true, glow: null, faceted: false, facetTable: 0.5, facetDepth: 1 };
 
 export function shapeLayer(): ShapeLayer {
   return { ...base('Shape'), type: 'shape', ...DEFAULT_PLACEMENT, ...DEFAULT_STYLE, shape: 'polygon', sides: 6, innerRatio: 0.45, corner: 0 };
@@ -159,6 +161,54 @@ export const GEM_POINTS: PathPoint[] = [
   { x: 0, y: 1, handle: null },
   { x: -0.9, y: -0.3, handle: null },
 ];
+
+/** A new effect of each kind, set up to look good straight away (DESIGN.md §5.4). */
+export const NEW_EFFECT: Record<EffectKind, () => Effect> = {
+  bevel: () => ({
+    kind: 'bevel',
+    on: true,
+    direction: 'raised',
+    profile: 'rounded',
+    size: 0.18,
+    depth: 1,
+    soften: 0.02,
+    highlight: '#ffffff',
+    highlightOpacity: 0.75,
+    shadow: '#000000',
+    shadowOpacity: 0.6,
+    gloss: 0.3,
+    lightHeight: 35,
+    surface: 'smooth',
+    surfaceDepth: 0.5,
+    surfaceScale: 0.25,
+    seed: 1,
+  }),
+  shadow: () => ({ kind: 'shadow', on: true, inner: false, color: '#000000', opacity: 0.6, distance: 0.06, blur: 0.08 }),
+  glow: () => ({ kind: 'glow', on: true, inner: false, color: '#ffb84a', opacity: 0.8, size: 0.2 }),
+  recolour: () => ({
+    kind: 'recolour',
+    on: true,
+    stops: [
+      { at: 0, color: '#2a1404', opacity: 1 },
+      { at: 0.45, color: '#a8701e', opacity: 1 },
+      { at: 0.75, color: '#f0c860', opacity: 1 },
+      { at: 1, color: '#fff8dc', opacity: 1 },
+    ],
+    amount: 1,
+  }),
+  adjust: () => ({ kind: 'adjust', on: true, hue: 0, saturation: 0, brightness: 0, contrast: 0 }),
+  wear: () => ({ kind: 'wear', on: true, chips: 0.35, polish: 0.4, grime: 0.4, grimeColor: '#2a2016', scale: 0.3, seed: 1 }),
+};
+
+/** What each effect is called in the interface. */
+export const EFFECT_NAMES: Record<EffectKind, string> = {
+  bevel: 'Bevel and surface',
+  shadow: 'Shadow',
+  glow: 'Glow',
+  recolour: 'Material colour',
+  adjust: 'Colour adjust',
+  wear: 'Wear and grime',
+};
 
 export const NEW_LAYER: Record<EditableLayerType, () => Layer> = {
   legacyFrame: () => legacyFrameLayer('stamped'),
