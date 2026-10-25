@@ -80,6 +80,20 @@ New → **Themed borders** offers 21 ready-made borders in the styles people buy
 
 See [`docs/PROGRESS.md`](docs/PROGRESS.md) for what's next and the known limitations.
 
+## Installing it on Windows
+
+Frame Studio can be installed like any other Windows program, with a Start menu entry and a desktop shortcut. No Node.js needed.
+
+1. Get **`Frame-Studio-Setup-<version>.exe`**: from the repository's **Releases** page, or from the **Actions** tab → **Windows installer** → the latest run → **Artifacts** (it downloads as a zip; the installer is inside). To make a new one, open **Actions → Windows installer → Run workflow**, or push a tag such as `v0.10.0` to also put it on a release.
+2. Run it. Windows may say *"Windows protected your PC"* because the installer isn't signed: press **More info**, then **Run anyway**.
+3. Choose where to install (the default needs no administrator rights) and press **Install**.
+
+To remove it, use **Settings → Apps → Installed apps → Frame Studio → Uninstall**.
+
+The installed app is the same editor as `npm run dev`, in its own window. Your work is autosaved inside the app (separately from any browser copy), **Save** and **Export** ask where to put the file, and links open in your normal browser.
+
+To build the installer yourself (with Node.js, below): `npm run installer` makes `release\Frame-Studio-Setup-<version>.exe`, and `npm run desktop` opens the desktop app without installing it. The desktop shell is `desktop\main.cjs`; the installer settings are under `"build"` in `package.json` (the version in the installer's name is `package.json`'s `"version"`).
+
 ## Running it on Windows
 
 You need [Node.js](https://nodejs.org/) 22 or newer. In PowerShell:
