@@ -364,4 +364,10 @@ describe('project files', () => {
     ]);
     expect(roundTrip(p).project).toEqual(p);
   });
+
+  it('a version-8 file opens with the lighting rig off', () => {
+    const r = parseProject(JSON.stringify({ format: 'frame-studio-project', schemaVersion: 8, name: 'Old', stage: { light: 100 }, layers: [] }));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.project.stage).toMatchObject({ light: 100, lights: [], ambientStrength: 0, bloom: 0, bleed: 0 });
+  });
 });

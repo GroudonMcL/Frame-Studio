@@ -24,7 +24,7 @@ Each phase keeps the project's rules (DESIGN.md §7): one renderer, sizes measur
 | | Damascus steel, chainmail, wood, leather, parchment, porcelain, enamel, lacquer, chitin, corrupted flesh | 6 has the systems (surfaces + ramps); more presets in 10 |
 | | Wear: scratches, chips, worn edges, rust/verdigris, dirt, edge-dependent wear | **6 (done)**: chips, rubbed edges, grime; scratches and missing fragments in 8 |
 | | Lighting and glow: inner/outer glow, soft shadows, emissive cracks and runes | **6 (done)** |
-| | Bloom, coloured light bleeding onto neighbours, scattering through crystal | 10 (light rig) |
+| | Bloom, coloured light bleeding onto neighbours, scattering through crystal | **10 (done)**: the lighting rig |
 | | Filters: hue, saturation, brightness, contrast, gradient map, duotone | **6 (done)** |
 | | Posterise, threshold, noise, blur, sharpen, chromatic aberration, distortion, halftone, stippling | 8 (distortion) and 10 (the rest, as more effects) |
 | 2 Compositing | Multiply, Screen, Overlay, Soft/Hard Light, Difference/Exclusion, Darken/Lighten, Add, colour dodge/burn, hue/saturation/luminosity | **6 (done)** |
@@ -35,10 +35,10 @@ Each phase keeps the project's rules (DESIGN.md §7): one renderer, sizes measur
 | | Preview the height and normal maps | **9 (done)** |
 | | Procedural faceted shapes with calculated face orientations | **6 (done)**: facets for shapes and paths; gem, plate and shard elements |
 | | Gemstone generator: cuts (brilliant, rose, emerald, cabochon, rough), settings, claws and bezels | **7 (done)** |
-| | A global lighting rig with a handle | Phase 2's light dial drives everything; elevation per bevel in 6; several coloured lights and rim light in 10 |
+| | A global lighting rig with a handle | Phase 2's light dial; elevation per bevel in 6; several coloured lights and rim light **10 (done)** |
 | | Extrusion and sidewalls | **9 (done)** |
 | 4 Geometry | Parametric ring builder (nested bands, contours, each its own material) | **7 (done)**: the contours layer |
-| | Polygon border generator | The five token shapes come from Token Maker; more shapes need Token Maker too, so later (10) |
+| | Polygon border generator | The five token shapes come from Token Maker; more shapes need Token Maker too (waiting on the owner, DESIGN.md §9) |
 | | Bézier paths | Phase 2; separate in/out handles **9 (done)** |
 | | Path-following objects | **7 (done)** |
 | | Boolean geometry, offset, stroke to shape | **9 (done)**: combining groups, grow/shrink, tapered strokes |
@@ -100,7 +100,9 @@ Built: masks from any layer (shape or brightness, inverted), a shared height map
 3. **Boolean geometry:** union, subtract and intersect shapes and paths; offset (grow and shrink); turn a stroke into a filled shape with taper.
 4. **Editing:** separate in/out handles for path points, move and turn a group on the canvas, zoom and pan.
 
-## Phase 10 — Workflow
+## Phase 10 — Workflow (done, except more shapes)
+
+Built: variations with locks, varying one style, your own styles (in the library and library files), a theme colour (and an accent) for a whole design, a lighting rig (more coloured lights, ambient colour, bloom, light bleeding), and token packs (every shape and size in one ZIP). Details in DESIGN.md §5.9 and §6.8. **Not built: more shapes** (item 6), which needs the shapes added to Token Maker's engine first; see DESIGN.md §9. The plan as it was:
 
 1. **Randomise:** a dice button on a style or a whole design that varies seeds, colours and sizes within sensible limits; lock what shouldn't change.
 2. **Your own styles:** save a layer's effects as a style in your library (and in library files), next to the built-in ones.
@@ -111,4 +113,4 @@ Built: masks from any layer (shape or brightness, inverted), a shared height map
 
 ## Token Maker
 
-Token Maker draws Frame Studio designs with a copy of Frame Studio's reader and renderer (DESIGN.md §10). Its copy reads designs up to schema version 4, so it refuses version-5 files (those saved since Phase 6) with "made with a newer Frame Studio". Running `npm run share:export -- ..\token-maker` copies the new reader and renderer (effects included) across; that should be done, and Token Maker's tests run, before sharing new designs. It wasn't done in Phase 6 because the token-maker repository wasn't available to this build.
+Token Maker draws Frame Studio designs with a copy of Frame Studio's reader and renderer (DESIGN.md §10). Its copy reads designs up to schema version 4, so it refuses files saved since Phase 6 (now version 9) with "made with a newer Frame Studio". Running `npm run share:export -- ..\token-maker` copies the new reader and renderer (effects included) across; that should be done, and Token Maker's tests run, before sharing new designs. It wasn't done in Phases 6–10 because changing the token-maker repository was outside these builds (the same change would add the new token shapes).

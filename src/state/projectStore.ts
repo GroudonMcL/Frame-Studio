@@ -352,3 +352,10 @@ export function shapeToPath(id: string): void {
   const path: Layer = { ...rest, type: 'path', points: shapeAsPath(layer), closed: true, stroke: 0, taperStart: 0, taperEnd: 0 };
   update(withLayers((layers) => mapLayer(layers, id, () => path)));
 }
+
+/** Puts a whole new set of layers in place of the project's (a variation or a recolouring), as one undo step, keeping the selection where it can. */
+export function replaceLayers(layers: Layer[]): void {
+  update(withLayers(() => layers));
+  const sel = ui.getState().selectedId;
+  if (sel && !findLayer(layers, sel)) select(null);
+}

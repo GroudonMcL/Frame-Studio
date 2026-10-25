@@ -128,7 +128,25 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Schema version 8 with a migration from version 7; version-7 fixture files saved by Phase 8 open and draw as before (versions 1–6 too)
   - [x] Tests: masks (shape, brightness, inverted, missing), carving and raising in a shared height map, height-only layers, no bevel no change, the views, the template on every shape, sides, grow and shrink, every combine mode and a bevel on it, strokes and tapers, separate and joined handles, a shape as a path, turning layers, the migration and v7 fixtures, help tips; Playwright: the "done when" flow (height-map view with and without the carving, normal map, export matches the renderer and shows the carving) and a mask, combining, turning and dragging a group, zoom
   - **Done when:** runes cut through a raised plate share one height map with it (the plate's bevel follows the cut edges), seen in the height-map view and in the export ✔ (Playwright "done when" test)
-- [ ] **Phase 10 — Workflow** (randomise, your own styles, a theme colour, a lighting rig, batch export, more shapes with Token Maker)
+- [x] **Phase 10 — Workflow** (all but more shapes)
+  - [x] Variations: six at a time, varying patterns, colours (turned together round the colour wheel) and sizes within "How different"; locked layers stay; one undo step; "Vary the style" in Effects
+  - [x] Your own styles: saved from Effects, shown first in the style library, removable, carried by library files
+  - [x] A theme colour (and an accent colour) recolouring the whole design, Token Maker frames and converted frames included, keeping lightness
+  - [x] A lighting rig: up to three more coloured lights on bevels, an ambient colour, bloom and light bleeding
+  - [x] Token packs: one ZIP with every shape at chosen sizes, see-through and with the sample picture, and the project file
+  - [ ] More shapes (octagon, triangle, shield) with Token Maker: needs token-maker's engine changed first (DESIGN.md §9, an open question)
+  - [x] Schema version 9 with a migration from version 8; version-8 fixture files saved by Phase 9 open and draw as before (versions 1–7 too)
+  - [x] Tests: colours, variations (repeatable, per option, harmony, locks, styles), themes (hue, lightness, greys, Token Maker frames, accents, locks), the rig (each part, a coloured rim, a round trip), styles in library files and the styles store, the zip, the migration and v8 fixtures, help tips on every new control; Playwright: the "done when" flow (three variations, each themed and exported as a pack checked file by file) and your own style, varying a style, the rig and axe
+  - **Done when:** a design is randomised into three variations, each recoloured from a theme colour and exported as a pack on every shape ✔ (Playwright "done when" test)
+
+## Known limitations after Phase 10
+
+- **Token Maker can't open designs saved since Phase 6** (now version 9) until its copy of Frame Studio's code is updated (`npm run share:export -- ..\token-maker`, then its tests); that change is in the token-maker repository, as are **more token shapes** (octagon, triangle, shield). Both wait on the owner (DESIGN.md §9).
+- Extra lights and the ambient colour light bevels only; paints, facets and element shading follow the main light.
+- Boolean geometry is by pixels (a group's combine mode): the result can't be edited as a path.
+- Effects, masks, shared height and the light pass work on every pixel: large designs with many of them take a while at big sizes (zoomed previews up to 4096 px, packs at 1024 px on five shapes).
+- Text is limited to Frame Studio's fonts (runes, Grenze, Atkinson).
+- Still from earlier phases: the library, your styles and the paste copy are per browser; four Token Maker frames can't be converted (Stamped, Ranger, Bard, Warlock).
 
 ## Known limitations after Phase 6
 

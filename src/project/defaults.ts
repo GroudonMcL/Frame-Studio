@@ -12,6 +12,7 @@ import {
   DEFAULT_LIGHT,
   type BandFillLayer,
   type ContoursLayer,
+  type ExtraLight,
   type CellsLayer,
   type ChainLayer,
   type FractureLayer,
@@ -38,6 +39,12 @@ import {
   type TextureLayer,
 } from './types';
 
+/** The lighting rig switched off (version 9). */
+export const NO_RIG = { lights: [] as ExtraLight[], ambient: '#203050', ambientStrength: 0, bloom: 0, bleed: 0 };
+
+/** A new extra light: a cool rim light from opposite the main light. */
+export const newLight = (main: number): ExtraLight => ({ angle: (main + 180) % 360, color: '#9fd0ff', strength: 0.8, height: 20 });
+
 export const DEFAULT_STAGE: StageSettings = {
   shape: 'circle',
   // token-maker's default frame on a Medium token.
@@ -46,6 +53,7 @@ export const DEFAULT_STAGE: StageSettings = {
   showArt: true,
   backingColor: '#1d1f27',
   light: DEFAULT_LIGHT,
+  ...NO_RIG,
 };
 
 let counter = 0;

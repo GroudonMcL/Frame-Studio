@@ -39,7 +39,8 @@ import { renderStats } from '../render/layerCache';
 import { renderProject } from '../render/renderProject';
 import { commit, finishDrawing, movableIn, select, setPathEdit, setPathPoints, updateLayer, updateLayers, updateStage, useProject, useUi, type PathEdit } from '../state/projectStore';
 import { ColorField, Segmented, Select, Slider, Toggle } from './controls';
-import { ZoomIn, ZoomOut } from 'lucide-react';
+import { Sun, ZoomIn, ZoomOut } from 'lucide-react';
+import { LightingDialog } from './WorkflowDialogs';
 import type { RenderView } from '../render/effects';
 import { LightDial } from './LightDial';
 import { stageArt } from './stageArt';
@@ -226,6 +227,7 @@ export function Stage() {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [view, setView] = useState<RenderView>('picture');
+  const [lighting, setLighting] = useState(false);
   const drag = useRef<Drag | null>(null);
   const selected = findLayer(project.layers, selectedId);
   // Text layers draw with web fonts: once they are loaded, the preview is drawn again.
@@ -463,6 +465,9 @@ export function Stage() {
               <ZoomIn size={16} />
             </button>
           </div>
+          <button type="button" className="btn small" onClick={() => setLighting(true)} title="More coloured lights, an ambient colour, bloom and light bleeding">
+            <Sun size={16} /> Lighting…
+          </button>
           {advanced && (
             <Select
               label="Show"
@@ -479,6 +484,7 @@ export function Stage() {
           </p>
         )}
       </div>
+      {lighting && <LightingDialog onClose={() => setLighting(false)} />}
       <div className="stage-bar" aria-label="Preview settings">
         <Segmented label="Token shape" value={project.stage.shape} options={SHAPES.map((s) => ({ value: s.id, label: s.name }))} onChange={(shape) => updateStage({ shape })} />
         <div className="stage-sliders">

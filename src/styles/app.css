@@ -1175,3 +1175,25 @@ select {
   min-width: 4.2em;
   justify-content: center;
 }
+
+/* Workflow dialogs (Phase 10). */
+.small-dialog {
+  width: min(520px, calc(100vw - 32px));
+}
+.light-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.own-style {
+  position: relative;
+}
+.own-style > .icon-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}

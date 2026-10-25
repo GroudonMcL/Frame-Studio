@@ -4,7 +4,10 @@
 // most people need come first; the rest are in Advanced.
 
 import { useId, useState } from 'react';
-import { ArrowDown, ArrowUp, ClipboardCopy, ClipboardPaste, Palette, Plus, Shuffle, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, BookmarkPlus, ClipboardCopy, ClipboardPaste, Dices, Palette, Plus, Shuffle, Trash2 } from 'lucide-react';
+import { DEFAULT_RANDOMISE, randomiseEffects } from '../project/variation';
+import { saveUserStyle } from '../state/styles';
+import { showMessage } from '../state/messages';
 import { EFFECT_NAMES, NEW_EFFECT } from '../project/defaults';
 import { MATERIALS } from '../project/styles';
 import { BEVEL_PROFILES, EFFECT_KINDS, SURFACES, type BevelProfile, type Effect, type EffectKind, type Layer, type Surface } from '../project/types';
@@ -37,6 +40,8 @@ export function EffectsSection({ layer }: { layer: Layer }) {
   const copied = useUi((s) => s.copiedEffects);
   const picked = useUi((s) => s.selectedIds.length);
   const [styles, setStyles] = useState(false);
+  const [naming, setNaming] = useState<string | null>(null);
+  const nameId = useId();
   const disabled = layer.locked;
   const effects = layer.effects;
   const set = (next: Effect[], transient?: boolean) => setEffects(layer.id, next, { transient });
@@ -59,7 +64,30 @@ export function EffectsSection({ layer }: { layer: Layer }) {
         <button type="button" className="btn small" disabled={disabled || !copied} onClick={pasteEffects} title="Give the picked layers the copied effects, in place of their own">
           <ClipboardPaste size={16} /> Paste effects
         </button>
+        <button type="button" className="btn small" disabled={disabled || effects.length === 0} onClick={() => set(randomiseEffects(effects, DEFAULT_RANDOMISE, Math.floor(Math.random() * 1e6)))} title="Try a variation of these effects: new patterns, colours and sizes (undo to go back)">
+          <Dices size={16} /> Vary the style
+        </button>
+        <button type="button" className="btn small" disabled={effects.length === 0} onClick={() => setNaming(naming === null ? layer.name : null)} title="Keep these effects as a style of your own, in the style library and library files">
+          <BookmarkPlus size={16} /> Save as a style
+        </button>
       </div>
+      {naming !== null && (
+        <form
+          className="row"
+          onSubmit={(ev) => {
+            ev.preventDefault();
+            void saveUserStyle(naming, effects).then((st) => showMessage(`Saved the style "${st.name}". Find it in Styles… under Your styles.`));
+            setNaming(null);
+          }}
+        >
+          <Field label="Style name" htmlFor={nameId} hint="What your style is called in the style library.">
+            <input id={nameId} className="wide-text" autoFocus value={naming} maxLength={60} aria-describedby={hintId(nameId)} onChange={(ev) => setNaming(ev.target.value)} />
+          </Field>
+          <button type="submit" className="btn small primary">
+            Save the style
+          </button>
+        </form>
+      )}
       <EffectStack effects={effects} disabled={disabled} advanced={advanced} onChange={set} />
       {styles && <StyleDialog layer={layer} onClose={() => setStyles(false)} />}
     </section>

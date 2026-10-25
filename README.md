@@ -4,7 +4,16 @@ A visual editor for code-drawn token frames. Start from one of [Token Maker](htt
 
 ![The Dwarven bronze template: hammered bronze, faceted plates, engraved runes and glowing cracks, all made with effects](docs/screenshots/24-dwarven-bronze.png)
 
-## What works now (Phase 9)
+## What works now (Phase 10)
+
+- **Variations:** the **Variations** button shows six versions of your design (other patterns, colours turned round the colour wheel together, sizes nudged), as different as you like; pick one to use it. Locked layers stay as they are. **Vary the style** in Effects does the same to one layer's effects.
+- **Theme:** recolour the whole design from one colour (and an accent colour), keeping how light or dark each part is; Token Maker frames and converted frames recolour too.
+- **Your own styles:** **Save as a style** in Effects; they appear first in Styles… and travel in library files.
+- **Lighting…** (over the canvas): up to three more coloured lights (a cold rim light, a warm fill), an ambient colour for shaded sides, bloom and light bleeding.
+- **Export → Token pack:** one ZIP with the design on every shape at the sizes you choose, see-through and with the sample picture, plus its project file.
+- *Not yet:* more token shapes (octagon, triangle, shield) need Token Maker's engine changed first; see [`docs/DESIGN.md`](docs/DESIGN.md) §9.
+
+## Also there from Phase 9
 
 - **Masks:** show a layer only through another layer's shape or brightness, inverted or not (Advanced → Mask).
 - **One sculpted surface:** layers in a group can be **raised** out of or **carved** into its surface (Advanced → Shared height); a bevel on the group lights them all as one, so runes cut through a plate slope and catch the light. **Show → Height map / Normal map** (Advanced, under the canvas) shows how it is shaped.
@@ -35,8 +44,8 @@ A visual editor for code-drawn token frames. Start from one of [Token Maker](htt
 - **Facets:** cut a shape or drawn path into flat faces lit by the light (gems, star badges, plates, crystals); repeated shapes can be cut gems, hexagonal plates or crystal shards.
 - **More blend modes** (hard light, dodge, burn, darken, lighten, difference, exclusion, hue, saturation, luminosity) and **Cut a hole in the layers below** (in Advanced).
 - **New templates made with effects:** Dwarven bronze, Eldritch crystal, Radiant gold and Hellforged iron.
-- **What comes next** (Phase 10) is planned in [`docs/ROADMAP.md`](docs/ROADMAP.md): ornaments along any path and round any point, gem settings, generators (vines, roots, cracks, plates, knotwork, gears), masks and combined height, and workflow tools.
-- *Token Maker:* designs saved now (format 5) open in Token Maker once its copy of Frame Studio's code is updated with `npm run share:export` (below).
+- **The plan these phases followed** is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+- *Token Maker:* designs saved now (format 9) open in Token Maker once its copy of Frame Studio's code is updated with `npm run share:export` (below).
 
 ![The style library: the selected layer shown in every style](docs/screenshots/22-style-library.png)
 
@@ -95,6 +104,8 @@ npm run frame-sheet -- sheet.png circle    # every template on one picture (try 
 npm run effects-sheet -- fx.png 240 circle # every style and effects template on one picture
 npm run screenshots                        # with npm run dev running: editor screenshots into docs\screenshots
 npm run compare-conversions                # each editable Token Maker frame beside its original, with the differences
+npm run look -- look.png royal-inscription # templates on every shape (any template ids)
+npm run make-fixtures -- name:template:shape:light:showArt   # fixture files for the current format (before changing it)
 ```
 
 `npm run e2e` also runs the phone tests (a Pixel 7 with touch).

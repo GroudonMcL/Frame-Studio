@@ -14,7 +14,7 @@
 import type { FrameStyle, ShapeId } from '../engine/legacy/catalog';
 
 export const PROJECT_FORMAT = 'frame-studio-project';
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 export interface FrameProject {
   format: typeof PROJECT_FORMAT;
@@ -38,6 +38,26 @@ export interface StageSettings {
   backingColor: string;
   /** Where the light comes from, in degrees: 0 right, 90 below, 225 top left (token-maker's light). */
   light: number;
+  // The lighting rig (version 9), all off by default:
+  /** More lights, each coloured, lighting bevels as well as the main one (a cold rim light, a warm fill). */
+  lights: ExtraLight[];
+  /** The colour shaded sides take on (instead of each bevel's shaded colour), and how much. */
+  ambient: string;
+  ambientStrength: number;
+  /** A soft glow round the brightest parts of the whole design (0–1). */
+  bloom: number;
+  /** Coloured light spilling onto neighbouring parts (0–1). */
+  bleed: number;
+}
+
+export interface ExtraLight {
+  /** Where it comes from, in degrees (as `light`). */
+  angle: number;
+  color: string;
+  /** 0–2 */
+  strength: number;
+  /** Degrees above the band (10–90). */
+  height: number;
 }
 
 /** token-maker's light: from the top left. */

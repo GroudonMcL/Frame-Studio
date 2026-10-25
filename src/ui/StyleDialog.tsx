@@ -4,7 +4,8 @@
 // of their own or after them.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { Trash2, X } from 'lucide-react';
+import { loadUserStyles, removeUserStyle, useUserStyles } from '../state/styles';
 import { mapLayer } from '../project/tree';
 import { STYLE_GROUPS, STYLES, type EffectStyle } from '../project/styles';
 import type { FrameProject, Layer } from '../project/types';
@@ -45,10 +46,19 @@ export function StyleDialog({ layer, onClose }: { layer: Layer; onClose: () => v
     [project, layer.id, add],
   );
 
-  const pick = (style: EffectStyle) => {
+  const pick = (style: Pick<EffectStyle, 'effects'>) => {
     applyEffectsToSelected(style.effects(), add ? 'add' : 'replace');
     onClose();
   };
+  const own = useUserStyles();
+  useEffect(() => {
+    void loadUserStyles();
+  }, []);
+  const styled = (effects: () => Layer['effects']) => (): FrameProject => ({
+    ...project,
+    stage: { ...project.stage, showArt: false, thickness: Math.max(project.stage.thickness, 0.3), outerSpacing: Math.min(project.stage.outerSpacing, 0.06) },
+    layers: mapLayer(project.layers, layer.id, (l) => ({ ...l, effects: [...(add ? l.effects : []), ...effects()] }) as Layer),
+  });
 
   return (
     <dialog ref={ref} className="dialog templates" aria-label="Styles" onClose={onClose} onCancel={onClose}>
@@ -69,6 +79,21 @@ export function StyleDialog({ layer, onClose }: { layer: Layer; onClose: () => v
           checked={add}
           onChange={setAdd}
         />
+        {own.length > 0 && (
+          <section aria-label="Your styles">
+            <h4>Your styles</h4>
+            <div className="tiles">
+              {own.map((st) => (
+                <div className="own-style" key={st.id}>
+                  <Tile id={`own-style:${st.id}|${print}`} name={st.name} description="One of your own styles." make={styled(() => structuredClone(st.effects))} onPick={() => pick({ effects: () => structuredClone(st.effects) })} />
+                  <button type="button" className="icon-btn" aria-label={`Remove ${st.name}`} title="Remove this style from your library" onClick={() => void removeUserStyle(st.id)}>
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
         {STYLE_GROUPS.map((group) => (
           <section key={group} aria-label={group}>
             <h4>{group}</h4>

@@ -141,6 +141,8 @@ const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
   // Version 7 → 8 (Phase 9): masks, shared height, combining groups, tapered strokes and separate handles are all
   // off when left out, which is how earlier files have them, so nothing changes.
   7: (p) => ({ ...p, schemaVersion: 8 }),
+  // Version 8 → 9 (Phase 10): the lighting rig is off when a file leaves it out, so nothing changes.
+  8: (p) => ({ ...p, schemaVersion: 9 }),
 };
 
 export function parseProject(input: unknown): ParseResult {
@@ -190,6 +192,16 @@ function checkStage(s: unknown): StageSettings {
     showArt: typeof o.showArt === 'boolean' ? o.showArt : DEFAULT_STAGE.showArt,
     backingColor: hex(o.backingColor, DEFAULT_STAGE.backingColor),
     light: ((num(o.light, DEFAULT_STAGE.light, -720, 720) % 360) + 360) % 360,
+    lights: Array.isArray(o.lights)
+      ? o.lights
+          .filter(isObj)
+          .slice(0, 4)
+          .map((l) => ({ angle: ((num(l.angle, 45, -720, 720) % 360) + 360) % 360, color: hex(l.color, '#ffffff'), strength: num(l.strength, 0.8, 0, 2), height: num(l.height, 25, 10, 90) }))
+      : [],
+    ambient: hex(o.ambient, DEFAULT_STAGE.ambient),
+    ambientStrength: num(o.ambientStrength, 0, 0, 1),
+    bloom: num(o.bloom, 0, 0, 1),
+    bleed: num(o.bleed, 0, 0, 1),
   };
 }
 
@@ -284,7 +296,7 @@ function checkMask(v: unknown): LayerMask | null {
 const DASHES = ['solid', 'dashed', 'dotted'] as const;
 
 /** Effects: up to 12; an effect of an unknown kind is left out with a warning. */
-function checkEffects(v: unknown, name: string, warnings: string[]): Effect[] {
+export function checkEffects(v: unknown, name: string, warnings: string[]): Effect[] {
   if (!Array.isArray(v)) return [];
   const out: Effect[] = [];
   for (const e of v.slice(0, 12)) {

@@ -10,6 +10,7 @@
 // plain arithmetic on the pixels (no canvas filters), so the preview, the
 // export and the tests (node) draw exactly the same picture.
 
+import type { StageSettings } from '../project/types';
 import type { AdjustEffect, BevelEffect, BevelProfile, DistortEffect, Effect, ExtrudeEffect, OffsetEffect, GlowEffect, GradientStop, RecolourEffect, ShadowEffect, Surface, WearEffect } from '../project/types';
 import type { Ctx } from './canvas';
 import { lightVector } from './light';
@@ -23,6 +24,8 @@ export interface EffectEnv {
   height?: Float32Array;
   /** Draw bevels as their height map or normal map instead of lit (the editor's views, version 8). */
   view?: RenderView;
+  /** The stage's lighting rig (version 9): more coloured lights, and an ambient colour for shaded sides. */
+  rig?: Pick<StageSettings, 'lights' | 'ambient' | 'ambientStrength'>;
 }
 
 export type RenderView = 'picture' | 'height' | 'normals';
@@ -386,7 +389,17 @@ function bevel(px: Uint8ClampedArray, size: number, e: BevelEffect, env: EffectE
   const shin = 8 + e.gloss * e.gloss * 120;
   const flatSpec = Math.pow(hz, shin);
   const [hr, hg, hb] = rgbOf(e.highlight);
-  const [sr, sg, sb] = rgbOf(e.shadow);
+  let [sr, sg, sb] = rgbOf(e.shadow);
+  // The rig: shaded sides take on the ambient colour; more lights add their colour where they fall.
+  if (env.rig && env.rig.ambientStrength > 0) {
+    const [ar, ag, ab] = rgbOf(env.rig.ambient);
+    const k = env.rig.ambientStrength;
+    [sr, sg, sb] = [sr + (ar - sr) * k, sg + (ag - sg) * k, sb + (ab - sb) * k];
+  }
+  const extra = (env.rig?.lights ?? []).map((l) => {
+    const [x, y, z] = light3d(l.angle, l.height);
+    return { x, y, z, rgb: rgbOf(l.color), strength: l.strength };
+  });
   for (let y = 0; y < size; y++)
     for (let x = 0; x < size; x++) {
       const i = y * size + x;
@@ -417,6 +430,15 @@ function bevel(px: Uint8ClampedArray, size: number, e: BevelEffect, env: EffectE
         r += (hr - r) * k;
         g += (hg - g) * k;
         b += (hb - b) * k;
+      }
+      for (const l of extra) {
+        // Only where it lights more than it lights a flat surface: a rim of colour on the edges facing it.
+        const d = nx * l.x + ny * l.y + nz * l.z - l.z;
+        if (d <= 0) continue;
+        const a = clamp01((d / Math.max(0.05, 1 - l.z)) * l.strength);
+        r += (l.rgb[0] - r) * a;
+        g += (l.rgb[1] - g) * a;
+        b += (l.rgb[2] - b) * a;
       }
       px[p] = r;
       px[p + 1] = g;
@@ -840,4 +862,62 @@ function offset(px: Uint8ClampedArray, size: number, e: OffsetEffect, env: Effec
     for (let c = 0; c < 3; c++) px[p + c] = alpha[i] > 0 ? px[p + c] : colour[p + c];
     px[p + 3] = a * 255;
   }
+}
+
+// ---------------------------------------------------------------- bloom and bleed (version 9)
+
+/**
+ * Over the whole design: bloom (a soft glow round its brightest parts) and
+ * bleed (its colours spilling onto their neighbours), both added like light
+ * (screen), sized in band widths.
+ */
+export function lightPass(ctx: Ctx, size: number, bloom: number, bleed: number, bw: number): void {
+  if (bloom <= 0 && bleed <= 0) return;
+  const image = ctx.getImageData(0, 0, size, size);
+  const px = image.data;
+  const n = size * size;
+  const add = [new Float32Array(n), new Float32Array(n), new Float32Array(n)];
+  const pass = (weight: (r: number, g: number, b: number, a: number) => number, radius: number, amount: number) => {
+    const ch = [new Float32Array(n), new Float32Array(n), new Float32Array(n)];
+    for (let i = 0; i < n; i++) {
+      const p = i * 4;
+      const a = px[p + 3] / 255;
+      if (!a) continue;
+      const w = weight(px[p] / 255, px[p + 1] / 255, px[p + 2] / 255, a);
+      for (let c = 0; c < 3; c++) ch[c][i] = (px[p + c] / 255) * w;
+    }
+    for (let c = 0; c < 3; c++) {
+      const blurred = blur(ch[c], size, radius);
+      for (let i = 0; i < n; i++) add[c][i] += blurred[i] * amount;
+    }
+  };
+  if (bloom > 0) pass((r, g, b, a) => clamp01((0.2126 * r + 0.7152 * g + 0.0722 * b - 0.6) / 0.4) * a, Math.max(2, bw * 0.3), bloom * 1.6);
+  if (bleed > 0)
+    pass(
+      (r, g, b, a) => {
+        const mx = Math.max(r, g, b);
+        const mn = Math.min(r, g, b);
+        // Bright, vivid colours spill the most.
+        return (mx - mn) * mx * a;
+      },
+      Math.max(3, bw * 0.6),
+      bleed * 1.2,
+    );
+  for (let i = 0; i < n; i++) {
+    const p = i * 4;
+    const a = px[p + 3] / 255;
+    let lightA = 0;
+    for (let c = 0; c < 3; c++) lightA = Math.max(lightA, clamp01(add[c][i]));
+    if (lightA <= 0) continue;
+    // Screen the added light over the pixel (premultiplied), so it can also shine past the design's edge.
+    const out = a + lightA * (1 - a);
+    for (let c = 0; c < 3; c++) {
+      const base = (px[p + c] / 255) * a;
+      const light = clamp01(add[c][i]);
+      const v = 1 - (1 - base) * (1 - light);
+      px[p + c] = clamp01(v / out) * 255;
+    }
+    px[p + 3] = out * 255;
+  }
+  ctx.putImageData(image, 0, 0);
 }

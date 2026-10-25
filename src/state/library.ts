@@ -10,6 +10,7 @@ import { newId } from '../project/defaults';
 import { parseLayers, parseLibrary, serializeLayers, type LayerSet } from '../project/transfer';
 import { cloneAllWithNewIds } from '../project/tree';
 import { addLayers } from './projectStore';
+import { addUserStyles } from './styles';
 
 export const LIBRARY_KEY = 'frame-studio:library';
 
@@ -74,15 +75,16 @@ export async function renameLibraryItem(id: string, name: string): Promise<void>
   await write(library.getState().items.map((i) => (i.id === id ? { ...i, name: name.trim() || i.name } : i)));
 }
 
-/** Adds the items of a library file (or a layers or project file) to the library. Returns how many, or the reason it couldn't. */
-export async function importLibrary(text: string): Promise<{ ok: true; count: number; warnings: string[] } | { ok: false; error: string }> {
+/** Adds the items (and styles) of a library file (or a layers or project file) to the library. Returns how many, or the reason it couldn't. */
+export async function importLibrary(text: string): Promise<{ ok: true; count: number; styles: number; warnings: string[] } | { ok: false; error: string }> {
   const r = parseLibrary(text);
   if (!r.ok) return r;
   await loadLibrary();
   const now = Date.now();
   const added = r.sets.map((s, k): LibraryItem => ({ ...s, id: newId(), savedAt: now - k }));
-  await write([...added, ...library.getState().items]);
-  return { ok: true, count: added.length, warnings: r.warnings };
+  if (added.length) await write([...added, ...library.getState().items]);
+  if (r.styles.length) await addUserStyles(r.styles);
+  return { ok: true, count: added.length, styles: r.styles.length, warnings: r.warnings };
 }
 
 /** Puts an item's layers into the open project, just above the selected layer, with new ids (one undo step). */

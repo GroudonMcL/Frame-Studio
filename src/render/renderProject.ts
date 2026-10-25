@@ -9,7 +9,7 @@ import type { FrameProject, Layer } from '../project/types';
 import { bandGeometry } from './band';
 import { context2d, newCanvas, type CanvasLike, type Ctx } from './canvas';
 import { bandWidthPx } from './band';
-import { activeEffects, applyEffects, heightContribution, type RenderView } from './effects';
+import { activeEffects, applyEffects, heightContribution, lightPass, type EffectEnv, type RenderView } from './effects';
 import { cachedLayer, effectsKey, layerKey, lookOf, MAX_CACHED_SIZE, renderStats } from './layerCache';
 import { flatten, referencesOf } from '../project/tree';
 import { drawLayer, type RenderEnv } from './layers';
@@ -34,6 +34,9 @@ export interface RenderOptions {
 interface StackEnv extends RenderEnv {
   cache: boolean;
   view: RenderView;
+  rig?: EffectEnv['rig'];
+  /** The rig's settings, for the cache key of pictures with effects. */
+  rigKey: string;
 }
 
 /** Paints the project into a `size`×`size` area starting at the context's origin. */
@@ -71,7 +74,19 @@ export function renderProject(ctx: Ctx, project: FrameProject, size: number, opt
   renderStats.reused = 0;
   const cache = options.cache !== false && size <= MAX_CACHED_SIZE;
   const byId = new Map(flatten(project.layers).map((l) => [l.id, l]));
-  drawStack(ctx, project.layers, { g, light: project.stage.light, size, cache, find: (id) => byId.get(id), view: options.view ?? 'picture' });
+  const { lights, ambient, ambientStrength, bloom, bleed } = project.stage;
+  const rig = lights.length || ambientStrength > 0 ? { lights, ambient, ambientStrength } : undefined;
+  const env: StackEnv = { g, light: project.stage.light, size, cache, find: (id) => byId.get(id), view: options.view ?? 'picture', rig, rigKey: rig ? JSON.stringify(rig) : '' };
+  if (bloom > 0 || bleed > 0) {
+    // Bloom and bleed work on the whole design, so it is drawn on its own canvas first (over the picture inside).
+    const own = scratch(size);
+    drawStack(own.ctx, project.layers, env);
+    own.ctx.save();
+    own.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    lightPass(own.ctx, size, bloom, bleed, bandWidthPx(g));
+    own.ctx.restore();
+    put(ctx, own.canvas, size);
+  } else drawStack(ctx, project.layers, env);
   ctx.restore();
 }
 
@@ -108,7 +123,7 @@ function picture(layer: Layer, env: StackEnv, raw = false): CanvasLike {
       put(own.ctx, picture(layer, env, true), env.size);
       own.ctx.save();
       own.ctx.setTransform(1, 0, 0, 1, 0, 0);
-      applyEffects(own.ctx, env.size, layer.effects, { bw: bandWidthPx(env.g), light: env.light, view: env.view, height: layer.type === 'group' ? sharedHeight(layer, env) : undefined });
+      applyEffects(own.ctx, env.size, layer.effects, { bw: bandWidthPx(env.g), light: env.light, view: env.view, rig: env.rig, height: layer.type === 'group' ? sharedHeight(layer, env) : undefined });
       own.ctx.restore();
       if (layer.clip === 'band') {
         const cut = scratch(env.size);
@@ -126,7 +141,7 @@ function picture(layer: Layer, env: StackEnv, raw = false): CanvasLike {
   };
   if (!env.cache || (layer.type === 'group' && !effects)) return draw();
   const key = layerKey(layer, env.g, env.light, env.size, depsKey(layer, env));
-  return effects ? cachedLayer(`${env.size}|${layer.id}|fx`, `${effectsKey(layer, key)}|${env.view}`, env.size, draw) : cachedLayer(`${env.size}|${layer.id}`, key, env.size, draw);
+  return effects ? cachedLayer(`${env.size}|${layer.id}|fx`, `${effectsKey(layer, key)}|${env.view}|${env.rigKey}`, env.size, draw) : cachedLayer(`${env.size}|${layer.id}`, key, env.size, draw);
 }
 
 /**

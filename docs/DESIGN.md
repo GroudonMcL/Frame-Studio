@@ -48,17 +48,19 @@ Same as Token Maker, so code and habits carry over: TypeScript, React 19 + Vite,
 
 ## 4. The project format
 
-### 4.1 FrameProject (schema version 8)
+### 4.1 FrameProject (schema version 9)
 
 Defined in `src/project/types.ts`; defaults in `src/project/defaults.ts`; reading and checking in `src/project/migrate.ts`; finding layers anywhere in the tree in `src/project/tree.ts`.
 
 ```ts
 interface FrameProject {
   format: 'frame-studio-project';
-  schemaVersion: 8;
+  schemaVersion: 9;
   name: string;
   stage: { shape; thickness; outerSpacing; showArt; backingColor;     // how it's previewed, not the look
-           light };                                                   // where the light comes from (§5.1)
+           light;                                                     // where the light comes from (§5.1)
+           lights: { angle; color; strength; height }[];              // the lighting rig (§5.9, version 9)
+           ambient; ambientStrength; bloom; bleed };
   layers: Layer[];                                                    // bottom first
 }
 // Every layer: id (stable, unique in the whole tree), name, visible, locked, opacity 0–1, blend,
@@ -186,6 +188,7 @@ These are the conventions of token-maker's `frameKit.ts` (`alongBand(g, count, a
 - **Version 5 → 6** (`MIGRATIONS[5]`): repeats get `follow: null`, no variation, the brilliant cut at Phase 6's numbers and no setting; shapes and paths `radialCount: 1`; in groups too, so nothing changes. Version-5 files saved by Phase 6 (Dwarven bronze on a hexagon lit from 300°, Eldritch crystal on a square with the sample picture, Radiant gold) are in `src/project/fixtures/v5/`. From Phase 7 on, `npm run make-fixtures -- file:template:shape:light:showArt …` writes a version's fixtures before the next phase changes the format.
 - **Version 6 → 7** (`MIGRATIONS[6]`): lines get `waveFit: 0` and wear effects (on layers and on settings) `scratches: 0`, so nothing changes. Version-6 files saved by Phase 7 (the Royal inscription on a square lit from 135° and on a flat hexagon with the sample picture; they have text, so the test loads Frame Studio's fonts) are in `src/project/fixtures/v6/`.
 - **Version 7 → 8** (`MIGRATIONS[7]`): only a version number. Masks, shared height, combining, strokes and separate handles are all off when a file leaves them out (`mask: null`, `heightMode: 'none'`, `combine: 'normal'`, `stroke: 0`, no `handleIn`), which is how earlier files have them. Version-7 files saved by Phase 8 (the Overgrown ruin on a hexagon lit from 300° and on a circle with the sample picture) are in `src/project/fixtures/v7/`. An unsupported layer keeps its own mask and height settings in its kept data.
+- **Version 8 → 9** (`MIGRATIONS[8]`): only a version number; the lighting rig is off when a file leaves it out (no extra lights, no ambient colour, no bloom or bleed). Version-8 files saved by Phase 9 (the Rune-carved plates on a square lit from 140° and on a circle with the sample picture) are in `src/project/fixtures/v8/`. Library files can carry your own styles since version 9 (`styles: [{ name, effects }]`, §6.8); older readers ignore them.
 - Fixture files must draw as their version drew them (their `.png` beside them). Since Phase 3 every layer is drawn on its own canvas and composited (§5.3), which changes the rounding of a few nearly transparent edge pixels by a few 255ths; the test allows at most 8/255 in any premultiplied channel and a mean under 0.5/255, which is invisible. A single layer on its own (for example a Token Maker frame against `drawFrame`) is still pixel for pixel.
 - Nothing in a file is ever run as code.
 
@@ -410,6 +413,15 @@ A **setting** follows the gem's outline (or an oval round any other element): a 
 - **Combining shapes** (`group.combine`): the group draws its first layer, then each layer above added to it (union), cut out of it (subtract), overlapping it (intersect) or excluded from it (exclude), with canvas compositing, so the result is exact at every size; effects on the group follow the combined shape. Pixels rather than polygon booleans: robust for every layer kind (text, generators, Token Maker frames), at the cost of not producing an editable path.
 - **Strokes:** a path with `stroke` > 0 is drawn as a filled ribbon round its line, `stroke` times its height wide, narrowing over `taperStart` and `taperEnd` of its length, in its fill colour, so effects see a shape (brush strokes, blades, tendrils). **Turn into a path** makes a shape layer a path with the same outline.
 
+### 5.9 The lighting rig (Phase 10)
+
+`stage.lights`, `ambient`, `ambientStrength`, `bloom`, `bleed`; `render/effects.ts` (`bevel`, `lightPass`).
+
+- **More lights** (up to three besides the light dial): each has a direction, a colour, a strength and a height. They light every **bevel**: where a bevel's surface faces one more than a flat surface would, it is tinted towards that light's colour, so a low cold light from behind gives a rim light and a warm one from the side a fill. Paints, facets and element shading keep to the main light (Token Maker's lighting); the 2.5D surfaces are where colour light matters.
+- **Ambient colour:** the colour shaded sides of bevels take on, by `ambientStrength`, instead of each bevel's own shaded colour.
+- **Bloom** and **light bleeding** work on the whole design after its layers are composited (it is drawn on its own canvas first): bloom blurs the brightest parts (lightness over 60 %) and adds them like light (screen); bleeding blurs bright, vivid colours wider and adds them, so a glowing gem tints the metal round it. Sizes in band widths. A design with neither is drawn exactly as before.
+- Pictures with effects are cached with the rig in their key, so changing a light redraws only bevelled layers.
+
 ## 6. The editor
 
 `src/App.tsx` + `src/ui/`. Desktop layout from 960 px wide (narrower screens: §6.3):
@@ -474,6 +486,16 @@ A **setting** follows the gem's outline (or an oval round any other element): a 
 - **Show** (Advanced): the picture, the height map or the normal map.
 - Template: **Rune-carved plates** (bronze plates with sides, runes carved through them in one height map).
 
+### 6.8 Workflow (Phase 10)
+
+`project/variation.ts`, `ui/WorkflowDialogs.tsx`, `state/styles.ts`, `io/zip.ts`.
+
+- **Variations** (top bar): six versions of the design drawn by the renderer, each with new seeds (textures, generators, wear, random variation), its colours turned round the colour wheel together (one turn for the whole design plus a little each, saturation and lightness nudged, greys only lighter or darker) and its sizes, widths and counts nudged, all within **How different**; switches choose which. **Locked layers** (and everything in a locked group) stay exactly as they are, as do ids, names, order and the stage; every result goes through the file checker, so numbers stay in their ranges. Picking one is one undo step; **More variations** draws six others. In Effects, **Vary the style** does the same to one layer's effects.
+- **Theme** (top bar): recolours the design from a **theme colour** and, optionally, an **accent colour**. Every colour (Token Maker frame layers and converted frames included) is turned round the colour wheel so the design's average hue (weighted by how colourful each colour is) becomes the theme's, and its colourfulness scaled to the theme's, keeping each colour's lightness, so metal stays metal and shadows stay dark; greys stay grey. With an accent, the colours are split into two families by hue (a few rounds of 2-means on the colour wheel; the family with more colour is the main one) and each follows its own colour. One undo step; locked layers stay. This fixes the old limitation that a converted frame's colours didn't follow a change of the band's colour.
+- **Your own styles:** **Save as a style** in Effects keeps the layer's effects under a name in this browser (IndexedDB, `frame-studio:styles`); they appear first in the style library (**Your styles**, with a remove button), are written into library files by **Export all**, and come in with **Import…**.
+- **Lighting…** (over the canvas): the rig of §5.9.
+- **Export → Token pack:** one ZIP (a small stored-zip writer, no new dependency) with the design on all five token shapes at the chosen sizes (128–1024 px), see-through and, optionally, with the sample picture, plus its project file, in a folder named after the design.
+
 Undo/redo works on the structured project (token-maker's `history.ts`): every edit is one step; a slider, colour-picker, handle or point drag is one step. Loading a project starts a fresh history.
 
 Autosave: the project's JSON is written to IndexedDB (`frame-studio:project`) 0.4 s after each change and restored on the next visit. First visit opens Token Maker's Stamped frame.
@@ -506,7 +528,7 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 | 7 | Ornaments anywhere: repeat along a path, radial arrays, gem cuts and settings, text on a path, contours **(done)** |
 | 8 | Generators: organic growth, cracks and lightning as geometry, plates and cells, knotwork, gears and chains, distortion **(done)** |
 | 9 | Precise control: masks, height compositing, boolean geometry, editing (in/out handles, groups on the canvas, zoom) **(done)** |
-| 10 | Workflow: randomise, your own styles, a theme colour, a lighting rig, batch export, more shapes with Token Maker |
+| 10 | Workflow: randomise, your own styles, a theme colour, a lighting rig, batch export **(done)**; more shapes with Token Maker (waiting, §9) |
 
 ## 9. Owner answers and open questions
 
@@ -586,9 +608,17 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 4. **Moving a group moves each of its layers** in its own terms (round the band, across it, or freely), so the group stays band-relative on every shape; turning a group slides it round the token.
 5. **Zoom scales the canvas** and draws it sharper, rather than drawing part of the picture, so the cache and the one renderer are unchanged.
 
+**Decided while building Phase 10** (sensible defaults within the brief; say if any should change):
+
+1. **The padlock is the lock for randomising and recolouring**: a locked layer (or group) is left exactly as it is, so no second kind of lock is needed.
+2. **Variations turn all the colours together** (with only a little each on their own), so a variation stays in harmony instead of becoming random colours.
+3. **A theme keeps every colour's lightness**, changing only hue and colourfulness, so materials, shading and contrast survive recolouring.
+4. **Extra lights light the 2.5D surfaces (bevels) only**; paints and facets keep Token Maker's single light, so converted frames still match the originals.
+5. **More token shapes (octagon, triangle, shield) are not built yet.** The shapes live in Token Maker's engine, which Frame Studio copies and must not edit, and a design must draw the same in both apps; they need a change in the token-maker repository first, then `npm run engine:sync`. **Open question for the owner:** should that change be made in token-maker (and its copy of Frame Studio's code updated with `npm run share:export` at the same time)?
+
 **Answered before Phase 5:** "looks the same" is good enough for converted frames (they don't have to be exact copies). The limits in §4.7 stay as they are and the originals stay available beside the editable versions.
 
-**Still open:** none.
+**Still open:** the Phase 10 question above (new token shapes and updating Token Maker).
 
 ## 10. Using designs in Token Maker (Phase 5)
 

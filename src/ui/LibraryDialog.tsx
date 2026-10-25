@@ -9,6 +9,7 @@ import { LIBRARY_EXTENSION, PROJECT_EXTENSION, readTextFile, saveLibraryFile } f
 import { bandFillLayer } from '../project/defaults';
 import { projectOf } from '../project/transfer';
 import { importLibrary, insertLibraryItem, loadLibrary, removeFromLibrary, renameLibraryItem, useLibrary, type LibraryItem } from '../state/library';
+import { loadUserStyles, useUserStyles } from '../state/styles';
 import { showMessage } from '../state/messages';
 import { useUi } from '../state/projectStore';
 import { saveSelectionToLibrary } from './actions';
@@ -30,6 +31,7 @@ export function LibraryDialog({ onClose }: { onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const items = useLibrary();
+  const styles = useUserStyles();
   const [loaded, setLoaded] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
   const hasSelection = useUi((s) => s.selectedIds.length > 0);
@@ -37,6 +39,7 @@ export function LibraryDialog({ onClose }: { onClose: () => void }) {
     const d = ref.current;
     if (d && !d.open) d.showModal?.();
     void loadLibrary().then(() => setLoaded(true));
+    void loadUserStyles();
   }, []);
 
   const pick = (item: LibraryItem) => {
@@ -65,7 +68,7 @@ export function LibraryDialog({ onClose }: { onClose: () => void }) {
           <button type="button" className="btn small" onClick={() => fileInput.current?.click()} title={`Add the items of a library file (${LIBRARY_EXTENSION}), or a project's layers`}>
             <Upload size={16} /> Import…
           </button>
-          <button type="button" className="btn small" disabled={items.length === 0} onClick={() => saveLibraryFile(items, 'Frame Studio library')} title="Download every item as one library file">
+          <button type="button" className="btn small" disabled={items.length === 0 && styles.length === 0} onClick={() => saveLibraryFile(items, 'Frame Studio library', styles)} title="Download every item, and your own styles, as one library file">
             <Download size={16} /> Export all
           </button>
           <input
@@ -81,7 +84,8 @@ export function LibraryDialog({ onClose }: { onClose: () => void }) {
               const text = await readTextFile(file);
               const result = text === null ? ({ ok: false, error: 'That file is too big to be a Frame Studio library.' } as const) : await importLibrary(text);
               if (!result.ok) return showMessage(result.error, true);
-              showMessage(`Added ${result.count === 1 ? 'one item' : `${result.count} items`} to your library.${result.warnings.length ? ` ${result.warnings.join(' ')}` : ''}`);
+              const what = [result.count ? (result.count === 1 ? 'one item' : `${result.count} items`) : '', result.styles ? (result.styles === 1 ? 'one style' : `${result.styles} styles`) : ''].filter(Boolean).join(' and ');
+              showMessage(`Added ${what} to your library.${result.warnings.length ? ` ${result.warnings.join(' ')}` : ''}`);
             }}
           />
         </div>

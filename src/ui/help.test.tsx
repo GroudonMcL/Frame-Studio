@@ -11,6 +11,7 @@ import { loadProject, select, setMode } from '../state/projectStore';
 import { PropertiesPanel } from './PropertiesPanel';
 import { Stage } from './Stage';
 import { TopBar } from './TopBar';
+import { LightingDialog, RandomiseDialog, ThemeDialog } from './WorkflowDialogs';
 
 const PAINTS: Paint[] = [
   { kind: 'lit', color: '#806040', light: 0.8, dark: 0.8, pressed: false, highlight: '#ffeecc' },
@@ -96,4 +97,20 @@ it('every control of a repeat following a path has one', () => {
   const { container } = render(<PropertiesPanel />);
   expect(withoutHelp(container)).toEqual([]);
   setMode('basic');
+});
+
+it('every control of the variations, theme colour and lighting dialogs, and the token pack export, has one', async () => {
+  loadProject(createProject([lineLayer()]));
+  const { container } = render(
+    <>
+      <RandomiseDialog onClose={() => {}} />
+      <ThemeDialog onClose={() => {}} />
+      <LightingDialog onClose={() => {}} />
+      <TopBar onNew={() => {}} onHelp={() => {}} onMessage={() => {}} />
+    </>,
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Add a light', hidden: true }));
+  await userEvent.click(screen.getByRole('button', { name: 'Export' }));
+  await userEvent.selectOptions(screen.getByLabelText('Export as'), 'pack');
+  expect(withoutHelp(container)).toEqual([]);
 });
