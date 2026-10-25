@@ -31,7 +31,8 @@ import {
 } from '../render/hitTest';
 import { contourLines, lineOutline, repeatPlacements } from '../render/layers';
 import { textGlyphs } from '../render/text';
-import type { FindLayer } from '../render/track';
+import { followed, tracksFor, type FindLayer } from '../render/track';
+import { generatorReach } from '../render/generators';
 import { loadFonts } from './fonts';
 import { placements, localBounds, toCanvas } from '../render/placed';
 import { renderStats } from '../render/layerCache';
@@ -48,6 +49,12 @@ function strokeOutline(ctx: CanvasRenderingContext2D, poly: Point[]): void {
   ctx.beginPath();
   poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
   ctx.closePath();
+  ctx.stroke();
+}
+
+function strokeOpen(ctx: CanvasRenderingContext2D, poly: Point[]): void {
+  ctx.beginPath();
+  poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
   ctx.stroke();
 }
 
@@ -83,6 +90,20 @@ function outlineLayer(ctx: CanvasRenderingContext2D, layer: Layer, g: FrameGeome
         strokeOutline(ctx, outlineAt(g, l.at + l.width / 2));
       }
       break;
+    case 'growth':
+    case 'knotwork':
+    case 'gears':
+    case 'chain': {
+      const reach = generatorReach(layer);
+      if (followed(layer.follow, find)) for (const t of tracksFor(layer.follow, layer.at, g, find)) (t.closed ? strokeOutline : strokeOpen)(ctx, t.points);
+      else {
+        strokeOutline(ctx, outlineAt(g, layer.at - reach));
+        strokeOutline(ctx, outlineAt(g, layer.at + reach));
+      }
+      break;
+    }
+    case 'fracture':
+    case 'cells':
     case 'bandFill':
     case 'texture':
       strokeOutline(ctx, outlineAt(g, layer.from));

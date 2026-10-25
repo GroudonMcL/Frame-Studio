@@ -14,6 +14,7 @@ import { centredCanvas, context2d, newCanvas, putCentred, type Ctx } from './can
 import { activeEffects, applyEffects } from './effects';
 import { drawElement, drawSetting, gemOutline, runeFor, type GemStyle } from './elements';
 import { drawText } from './text';
+import { drawCells, drawChain, drawFracture, drawGears, drawGrowth, drawKnotwork } from './generators';
 import { findNothing, followed, lineOutline, spacedOnTrack, trackLength, tracksFor, type FindLayer } from './track';
 import { lightAt, raisedFrom } from './light';
 import { fillBand, paintStyle, recolourRound, ringTableFor } from './paint';
@@ -249,6 +250,18 @@ export function drawLayer(ctx: Ctx, layer: Layer, env: RenderEnv): void {
     case 'contours':
       for (const line of contourLines(layer)) drawLine(ctx, line, env);
       return;
+    case 'growth':
+      return drawGrowth(ctx, layer, env.g, env.light, env.find);
+    case 'fracture':
+      return drawFracture(ctx, layer, env.g);
+    case 'cells':
+      return drawCells(ctx, layer, env.g);
+    case 'knotwork':
+      return drawKnotwork(ctx, layer, env.g, env.find);
+    case 'gears':
+      return drawGears(ctx, layer, env.g, env.light, env.find);
+    case 'chain':
+      return drawChain(ctx, layer, env.g, env.light, env.find);
     case 'texture':
       return drawTexture(ctx, layer, env.g, env.light, env.size);
     case 'shape':

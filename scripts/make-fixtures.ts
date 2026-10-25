@@ -12,9 +12,11 @@ import { serializeProject } from '../src/project/migrate';
 import { SCHEMA_VERSION, type FrameProject, type StageSettings } from '../src/project/types';
 import { setCanvasFactory, type Ctx } from '../src/render/canvas';
 import { renderProject } from '../src/render/renderProject';
+import { registerShippedFonts } from './nodeFonts';
 
 const make = (w: number, h: number) => createCanvas(w, h) as unknown as HTMLCanvasElement;
 setCanvasFactory(make);
+registerShippedFonts();
 
 const [, , ...wanted] = process.argv;
 /** file name, template id, stage changes */

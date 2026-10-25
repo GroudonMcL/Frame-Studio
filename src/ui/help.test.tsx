@@ -5,7 +5,7 @@
 import 'fake-indexeddb/auto';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { bandFillLayer, contoursLayer, textLayer, createProject, NEW_EFFECT, groupLayer, legacyFrameLayer, lineLayer, pathLayer, repeatLayer, shapeLayer, textureLayer, GEM_POINTS } from '../project/defaults';
+import { NEW_LAYER, bandFillLayer, contoursLayer, textLayer, createProject, NEW_EFFECT, groupLayer, legacyFrameLayer, lineLayer, pathLayer, repeatLayer, shapeLayer, textureLayer, GEM_POINTS } from '../project/defaults';
 import { EFFECT_KINDS, TEXTURE_KINDS, type Effect, type Layer, type Paint } from '../project/types';
 import { loadProject, select, setMode } from '../state/projectStore';
 import { PropertiesPanel } from './PropertiesPanel';
@@ -37,6 +37,8 @@ const LAYERS: [string, Layer][] = [
   ['set gems with random variation', { ...repeatLayer(), element: 'gem', setting: 'claws4', settingEffects: [NEW_EFFECT.bevel()], jitterSize: 0.2 }],
   ['text', { ...textLayer(), outline: '#000000' }],
   ['contours', { ...contoursLayer(), altColor: '#ff0000' }],
+  ...(['growth', 'fracture', 'cells', 'knotwork', 'gears', 'chain'] as const).map((t): [string, Layer] => [t, NEW_LAYER[t]()]),
+  ['wavy line fitted to the band', { ...lineLayer(), waveAmplitude: 0.2, waveFit: 1 }],
 ];
 
 /** Every control in `root` with no help tip, by its label. */

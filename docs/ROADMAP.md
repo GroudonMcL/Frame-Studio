@@ -42,16 +42,16 @@ Each phase keeps the project's rules (DESIGN.md §7): one renderer, sizes measur
 | | Bézier paths | Phase 2; separate in/out handles in 9 |
 | | Path-following objects | **7 (done)** |
 | | Boolean geometry, offset, stroke to shape | 9 |
-| | Organic generators (branches, roots, tendrils, thorns, antlers, coral, veins) | 8 |
+| | Organic generators (branches, roots, tendrils, thorns, antlers, coral, veins) | **8 (done)** |
 | | Text on a path, variable-width strokes, symmetry tools | **7 (done)** |
 | 5 Procedural | Radial array, mandala | **7 (done)** |
 | | Linear array | **7 (done)** (along a path) |
-| | Spiral generator | 8 |
-| | Voronoi, cellular patterns, crack generator | 6 as surfaces (cracked plates, scales); as geometry in 8 |
-| | Fractal branching, L-systems | 8 |
-| | Knotwork | 8 |
-| | Gears and cogs | 8 |
-| | Noise-driven displacement | 8 |
+| | Spiral generator | **8 (done)**: curling tendrils |
+| | Voronoi, cellular patterns, crack generator | **8 (done)** as geometry (6 as surfaces) |
+| | Fractal branching, L-systems | **8 (done)**: branches on branches |
+| | Knotwork | **8 (done)** |
+| | Gears and cogs | **8 (done)** |
+| | Noise-driven displacement | **8 (done)**: the distortion effect |
 
 ## Phase 6 — Surfaces and effects (done)
 
@@ -76,7 +76,9 @@ The ring of repeated shapes is Frame Studio's most used layer; this phase frees 
 
 Done when: a ring of gems in claw settings follows a drawn wavy path, and an engraved inscription runs round the band, both with effects, on every token shape.
 
-## Phase 8 — Generators
+## Phase 8 — Generators (done)
+
+Built: growth (vines, roots, thorns, tendrils, antlers), cracks and lightning as geometry, plates and cells (irregular, honeycomb, bricks, tiles, scales; missing pieces), knotwork with real over/under crossings, gears and chains, a distortion effect and scratches; waves fitted to the band; Druid, Knotwork, Artificer and Barbarian converted; the Overgrown ruin template. Details in DESIGN.md §5.7 and §6.6. The plan as it was:
 
 Intricate geometry from a few numbers, all seeded so preview and export match, all producing ordinary layers that effects and styles work on.
 

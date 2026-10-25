@@ -107,7 +107,8 @@ const EFFECT_HINTS: Record<EffectKind, string> = {
   glow: 'A soft glow of colour round its edge, outside or inside.',
   recolour: 'Recolours it from dark to light, so its shading becomes gold, bronze, bone or any colours you choose.',
   adjust: 'Changes its hue, how vivid it is, its brightness and its contrast.',
-  wear: 'Makes it look old: chipped edges, edges rubbed bright and patches of grime.',
+  wear: 'Makes it look old: chipped edges, edges rubbed bright, scratches and patches of grime.',
+  distort: 'Warps it with smooth wobbles: uneven edges, irregular stone, a subtle shimmer.',
 };
 
 function AddEffect({ disabled, onAdd, label }: { disabled: boolean; onAdd: (k: EffectKind) => void; label: string }) {
@@ -289,6 +290,14 @@ function EffectControls({ effect: e, disabled, advanced, onChange }: { effect: E
           {slider('contrast', 'Contrast', -1, 1, 'Flatter or punchier.')}
         </div>
       );
+    case 'distort':
+      return (
+        <div className="effect-body">
+          {slider('amount', 'Amount', 0, 0.3, 'How far it is pushed about, as a share of the band width.')}
+          {slider('scale', 'Wobble size', 0.03, 2, 'How big the wobbles are, as a share of the band width.')}
+          {shuffle}
+        </div>
+      );
     case 'wear':
       return (
         <div className="effect-body">
@@ -296,6 +305,7 @@ function EffectControls({ effect: e, disabled, advanced, onChange }: { effect: E
           {slider('polish', 'Rubbed edges', 0, 1, 'How bright the edges are rubbed, as on old metal.')}
           {slider('grime', 'Grime', 0, 1, 'How much dirt and tarnish gathers in patches.')}
           <ColorField label="Grime colour" hint="The colour of the grime: brown dirt, green verdigris, black soot…" value={e.grimeColor} disabled={disabled} onChange={(grimeColor, t) => onChange({ grimeColor }, t)} />
+          {slider('scratches', 'Scratches', 0, 1, 'Fine scratches across it, bright with a dark edge.')}
           {slider('scale', 'Wear size', 0.03, 1.5, 'How big the chips and patches are, as a share of the band width.')}
           {shuffle}
         </div>

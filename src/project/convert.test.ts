@@ -42,6 +42,11 @@ const LIMITS: Record<string, { mean: number; over: number }> = {
   monk: { mean: 1.1, over: 0.8 },
   rogue: { mean: 1.4, over: 1.5 },
   sorcerer: { mean: 0.3, over: 0.05 },
+  // Phase 8, with generators:
+  druid: { mean: 1.2, over: 1.5 },
+  knotwork: { mean: 3.4, over: 5.5 },
+  barbarian: { mean: 1.6, over: 3.2 },
+  artificer: { mean: 1.5, over: 2.2 },
 };
 
 const converted = FRAME_PRESETS.filter((p) => canConvert(p.style));
@@ -146,11 +151,11 @@ describe('the converted layers', () => {
   });
 
   it('frames without a converter stay as they are', () => {
-    for (const style of ['stamped', 'fletching', 'notes', 'eyes', 'claws', 'clockwork', 'vines', 'braid', 'none'] as const) {
+    for (const style of ['stamped', 'fletching', 'notes', 'eyes', 'none'] as const) {
       expect(canConvert(style)).toBe(false);
       expect(convertFrame(style, { color: '#888888', accent: null })).toBeNull();
     }
     expect(convertLegacyLayer(legacyFrameLayer('stamped'))).toBeNull();
-    expect(CONVERTIBLE_STYLES.length).toBe(17);
+    expect(CONVERTIBLE_STYLES.length).toBe(21);
   });
 });

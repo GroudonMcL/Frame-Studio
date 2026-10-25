@@ -10,7 +10,7 @@
 // plain arithmetic on the pixels (no canvas filters), so the preview, the
 // export and the tests (node) draw exactly the same picture.
 
-import type { AdjustEffect, BevelEffect, BevelProfile, Effect, GlowEffect, GradientStop, RecolourEffect, ShadowEffect, Surface, WearEffect } from '../project/types';
+import type { AdjustEffect, BevelEffect, BevelProfile, DistortEffect, Effect, GlowEffect, GradientStop, RecolourEffect, ShadowEffect, Surface, WearEffect } from '../project/types';
 import type { Ctx } from './canvas';
 import { lightVector } from './light';
 
@@ -53,6 +53,9 @@ export function applyEffects(ctx: Ctx, size: number, effects: Effect[], env: Eff
         break;
       case 'wear':
         wear(px, size, e, env);
+        break;
+      case 'distort':
+        distort(px, size, e, env);
         break;
     }
   }
@@ -407,6 +410,95 @@ function bevel(px: Uint8ClampedArray, size: number, e: BevelEffect, env: EffectE
     }
 }
 
+/**
+ * Fine scratches (version 7): thin bright lines with a dark edge beside
+ * them, in seeded random directions, only on painted pixels.
+ */
+function scratch(px: Uint8ClampedArray, size: number, e: WearEffect, cell: number): void {
+  let painted = 0;
+  for (let i = 3; i < px.length; i += 4) if (px[i]) painted++;
+  const count = Math.round((e.scratches * painted * 3) / (cell * cell));
+  let h = (e.seed * 2654435761 + 0x5c2a7c) >>> 0;
+  const random = () => {
+    h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0;
+    h = (h + 0x6d2b79f5) >>> 0;
+    return (h >>> 8) / 16777216;
+  };
+  for (let k = 0; k < count; k++) {
+    const x0 = random() * size;
+    const y0 = random() * size;
+    const a = random() * Math.PI;
+    const len = cell * (0.4 + random() * 1.4);
+    const dx = Math.cos(a);
+    const dy = Math.sin(a);
+    const strength = 0.25 + random() * 0.45;
+    // Walk along the scratch a pixel at a time: lighten its line and darken the pixel beside it.
+    for (let t = 0; t < len; t += 0.7) {
+      const x = Math.round(x0 + dx * t);
+      const y = Math.round(y0 + dy * t);
+      if (x < 1 || y < 1 || x >= size - 1 || y >= size - 1) continue;
+      const fade = Math.sin((Math.PI * t) / len) * strength;
+      const p = (y * size + x) * 4;
+      if (!px[p + 3]) continue;
+      px[p] += (255 - px[p]) * fade * 0.6;
+      px[p + 1] += (255 - px[p + 1]) * fade * 0.6;
+      px[p + 2] += (255 - px[p + 2]) * fade * 0.6;
+      const q = ((y + Math.round(dx)) * size + x - Math.round(dy)) * 4;
+      if (px[q + 3]) {
+        px[q] *= 1 - fade * 0.45;
+        px[q + 1] *= 1 - fade * 0.45;
+        px[q + 2] *= 1 - fade * 0.45;
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------- distortion
+
+/**
+ * Moves every pixel by smooth noise (sizes in band widths), sampling the
+ * picture between pixels (premultiplied, so edges don't fringe).
+ */
+function distort(px: Uint8ClampedArray, size: number, e: DistortEffect, env: EffectEnv): void {
+  const amount = e.amount * env.bw;
+  if (amount < 0.05) return;
+  const cell = Math.max(2, e.scale * env.bw);
+  const src = new Float32Array(px.length);
+  for (let i = 0; i < px.length; i += 4) {
+    const a = px[i + 3] / 255;
+    src[i] = px[i] * a;
+    src[i + 1] = px[i + 1] * a;
+    src[i + 2] = px[i + 2] * a;
+    src[i + 3] = px[i + 3];
+  }
+  const at = (x: number, y: number, c: number) => (x < 0 || y < 0 || x >= size || y >= size ? 0 : src[(y * size + x) * 4 + c]);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const u = x / cell;
+      const v = y / cell;
+      const sx = x + (fbm(u, v, e.seed + 101, 3) - 0.5) * 2 * amount;
+      const sy = y + (fbm(u, v, e.seed + 211, 3) - 0.5) * 2 * amount;
+      const ix = Math.floor(sx);
+      const iy = Math.floor(sy);
+      const fx = sx - ix;
+      const fy = sy - iy;
+      const p = (y * size + x) * 4;
+      const out = [0, 0, 0, 0];
+      for (let c = 0; c < 4; c++) {
+        const top = at(ix, iy, c) * (1 - fx) + at(ix + 1, iy, c) * fx;
+        const bottom = at(ix, iy + 1, c) * (1 - fx) + at(ix + 1, iy + 1, c) * fx;
+        out[c] = top * (1 - fy) + bottom * fy;
+      }
+      const a = out[3] / 255;
+      px[p + 3] = out[3];
+      if (a > 0) {
+        px[p] = out[0] / a;
+        px[p + 1] = out[1] / a;
+        px[p + 2] = out[2] / a;
+      }
+    }
+}
+
 // ---------------------------------------------------------------- shadow and glow
 
 /** Puts a coloured layer of coverage `cover` (0–1) behind the picture. */
@@ -608,4 +700,5 @@ function wear(px: Uint8ClampedArray, size: number, e: WearEffect, env: EffectEnv
       px[p + 1] = g;
       px[p + 2] = b;
     }
+  if (e.scratches > 0) scratch(px, size, e, cell);
 }

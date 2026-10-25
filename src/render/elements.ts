@@ -28,6 +28,8 @@ export const ELEMENT_NAMES: Record<ElementKind, string> = {
   gem: 'Cut gem (faceted)',
   plate: 'Hexagonal plate (faceted)',
   shard: 'Crystal shard (faceted)',
+  tooth: 'Gear tooth',
+  gash: 'Claw gashes (cut in)',
 };
 
 /** The outline of a faceted element, pointing outwards, and how it is cut. */
@@ -168,8 +170,18 @@ function trace(ctx: Ctx, kind: ElementKind, w: number, h: number): void {
     case 'shard':
       facetedOutline(kind, w, h)!.pts.forEach((p) => ctx.lineTo(p.x, p.y));
       break;
+    case 'tooth': {
+      // A ring gear's tooth hanging inwards from its point (as Token Maker's Artificer): wide at its root, narrower at its tip.
+      const top = -h * 0.143;
+      ctx.moveTo(-x, top);
+      ctx.lineTo(x, top);
+      ctx.lineTo(x * 0.59, top + h);
+      ctx.lineTo(-x * 0.59, top + h);
+      break;
+    }
     case 'note':
     case 'rune':
+    case 'gash':
       break;
   }
   ctx.closePath();
@@ -417,6 +429,32 @@ export function drawElement(ctx: Ctx, kind: ElementKind, h: number, stretch: num
       ctx.lineWidth = Math.max(0.5, h * style.outlineWidth);
       ctx.stroke();
     }
+    return;
+  }
+  if (kind === 'gash') {
+    // Three claw gashes, as Token Maker's Barbarian draws them: a dark cut with a thin light edge.
+    const u = h / 1.65;
+    ctx.save();
+    ctx.scale(1.7 * stretch, 1.5);
+    ctx.lineCap = 'round';
+    const alpha = ctx.globalAlpha;
+    for (const dx of [-0.16, 0, 0.16]) {
+      ctx.globalAlpha = alpha * 0.9;
+      ctx.strokeStyle = style.fill;
+      ctx.lineWidth = u * 0.09;
+      ctx.beginPath();
+      ctx.moveTo(dx * u, -u * 0.55);
+      ctx.quadraticCurveTo(dx * u + u * 0.05, 0, dx * u, u * 0.55);
+      ctx.stroke();
+      ctx.globalAlpha = alpha * 0.5;
+      ctx.strokeStyle = style.outline ?? shade(style.fill, 0.5);
+      ctx.lineWidth = u * 0.02;
+      ctx.beginPath();
+      ctx.moveTo(dx * u - u * 0.04, -u * 0.5);
+      ctx.quadraticCurveTo(dx * u + u * 0.01, 0, dx * u - u * 0.04, u * 0.5);
+      ctx.stroke();
+    }
+    ctx.restore();
     return;
   }
   if (kind === 'rune') {

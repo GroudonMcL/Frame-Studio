@@ -1,7 +1,7 @@
 import { FRAME_PRESETS } from '../engine/legacy/catalog';
 import { bandFillLayer, createProject, EFFECT_NAMES, NEW_EFFECT, GEM_POINTS, TEXTURES, textureFromPreset, textureLayer, groupLayer, LAYERED_TEMPLATES, NEW_LAYER, pathLayer, projectFromFrame, repeatLayer, shapeLayer } from './defaults';
 import { parseProject, serializeProject } from './migrate';
-import { EFFECT_KINDS, SCHEMA_VERSION, type FrameProject, type Layer } from './types';
+import { EFFECT_KINDS, SCHEMA_VERSION, type Effect, type FrameProject, type Layer } from './types';
 
 const roundTrip = (p: FrameProject) => {
   const r = parseProject(serializeProject(p));
@@ -316,5 +316,29 @@ describe('project files', () => {
     if (!r.ok) throw new Error(r.error);
     expect(r.project.layers[0]).toMatchObject({ gemCut: 'brilliant', setting: 'none', gemFacets: 16, follow: null });
     expect(r.project.layers[1]).toMatchObject({ font: 'grenze', size: 0.05 });
+  });
+
+  it('a version-6 file opens with lines not fitted to the band and wear without scratches', () => {
+    const v6 = {
+      format: 'frame-studio-project',
+      schemaVersion: 6,
+      name: 'Old',
+      stage: {},
+      layers: [{ id: 'l', type: 'line', waveAmplitude: 0.2, effects: [{ kind: 'wear', chips: 0.2 }] }],
+    };
+    const r = parseProject(JSON.stringify(v6));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.warnings).toEqual([]);
+    expect(r.project.layers[0]).toMatchObject({ waveFit: 0, effects: [{ kind: 'wear', scratches: 0, chips: 0.2 }] });
+  });
+
+  it('version 7: every generator, distortion, scratches and fitted waves survive a round trip', () => {
+    const p = createProject([
+      { ...NEW_LAYER.line(), waveAmplitude: 0.2, waveFit: 1.5 } as Layer,
+      ...(['growth', 'fracture', 'cells', 'knotwork', 'gears', 'chain'] as const).map((t) => NEW_LAYER[t]()),
+      { ...bandFillLayer(), effects: [NEW_EFFECT.distort(), { ...NEW_EFFECT.wear(), scratches: 0.5 } as Effect] },
+      { ...repeatLayer(), element: 'gash' },
+    ]);
+    expect(roundTrip(p).project).toEqual(p);
   });
 });

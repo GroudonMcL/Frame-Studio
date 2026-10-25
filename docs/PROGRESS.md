@@ -108,7 +108,17 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] A hidden layer's row is readable (axe colour contrast)
   - [x] Tests: Phase 7 unit tests (tracks, spacing on open and closed paths, wavy lines, mirrored paths, facing, size along the way, variation, cache dependencies, copying references, picking, radial arrays, every gem cut and setting, text placement, fonts and runes, contours, the template on every shape, the migration and v5 fixtures, help tips) and Playwright runs for the "done when" flow (draw a path, gems in claws along it, an engraved inscription, every shape, export matches the renderer) and radial arrays, contours and the template with axe
   - **Done when:** a ring of gems in claw settings follows a drawn wavy path, and an engraved inscription runs round the band, both with effects, on every token shape ✔ (Playwright "done when" test)
-- [ ] **Phase 8 — Generators** (organic growth, cracks and lightning as geometry, plates and cells, knotwork, gears and chains, distortion)
+- [x] **Phase 8 — Generators**
+  - [x] Growth layer: vine, roots, thorny stem, curling tendrils, antlers; wavy and gnarled stems, branches that curl, taper and fork (up to 3 levels), leaves, thorns or berries; along the band or a path
+  - [x] Cracks (forking, jagged, staying in their part of the band) and lightning (bolts running round it) as geometry
+  - [x] Plates and cells: irregular (Voronoi), honeycomb, bricks, tiles, scales; gap, rounding, missing pieces, colour variation; each plate bevelled on its own by a style
+  - [x] Knotwork with real over/under crossings; gears (teeth, spokes, hub, domed boss, meshing); interlocking chains
+  - [x] Distortion effect (noise displacement) and scratches on wear; lines whose waves fit the band; gear-tooth and claw-gash elements
+  - [x] Converted Druid, Knotwork, Artificer and Barbarian, with comparison limits (22 frames convert)
+  - [x] Template: Overgrown ruin, made only from generators and styles
+  - [x] Schema version 7 with a migration from version 6; version-6 fixture files saved by Phase 7 open and draw as before (versions 1–5 too)
+  - [x] Tests: every generator repeatable, seeded, on every shape, growing with the band, pickable and with effects; growth (waves, leaves, branches from the stem, taper, depth, antlers, following a path), cracks staying in their part, lightning running round, cells inside their part, missing and varied, bevelled plates, knotwork arcs and swapping, gears' sizes and meshing, chains' even links, distortion, scratches, fitted waves, the template, the migration and v6 fixtures, help tips, the four conversions' limits; Playwright: the "done when" flow (template, changes, every shape, export matches the renderer) and adding every generator, the four conversions and axe
+  - **Done when:** an "Overgrown ruin" template (cracked stone plates with missing fragments, roots growing through, a knotwork band) is built only from generators and styles ✔ (Playwright "done when" test)
 - [ ] **Phase 9 — Precise control** (masks, height compositing, boolean geometry, in/out handles, groups on the canvas, zoom)
 - [ ] **Phase 10 — Workflow** (randomise, your own styles, a theme colour, a lighting rig, batch export, more shapes with Token Maker)
 

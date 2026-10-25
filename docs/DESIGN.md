@@ -48,14 +48,14 @@ Same as Token Maker, so code and habits carry over: TypeScript, React 19 + Vite,
 
 ## 4. The project format
 
-### 4.1 FrameProject (schema version 6)
+### 4.1 FrameProject (schema version 7)
 
 Defined in `src/project/types.ts`; defaults in `src/project/defaults.ts`; reading and checking in `src/project/migrate.ts`; finding layers anywhere in the tree in `src/project/tree.ts`.
 
 ```ts
 interface FrameProject {
   format: 'frame-studio-project';
-  schemaVersion: 6;
+  schemaVersion: 7;
   name: string;
   stage: { shape; thickness; outerSpacing; showArt; backingColor;     // how it's previewed, not the look
            light };                                                   // where the light comes from (§5.1)
@@ -68,7 +68,7 @@ type Layer =
   | { type: 'legacyFrame'; presetId; style; color; accent | null }     // a Token Maker frame, one composite layer
   | { type: 'bandFill'; from; to; paint }                              // colours part of the band
   | { type: 'line'; at; width; paint; dash; glow | null;               // a line round the band…
-      waveAmplitude; waves; wavePhase }                                // …optionally wavy (vines, knotwork)
+      waveAmplitude; waves; wavePhase; waveFit }                       // …optionally wavy, waves fitted to the band (Phase 8)
   | { type: 'repeat'; element; mode; count; spacing; snapToCorners;    // one shape repeated round the band
       at; size; stretch; rotation; offset; fill; outline | null; outlineWidth;
       raised; glow | null; accentEvery; accentScale; accentColor | null; seed;
@@ -86,6 +86,16 @@ type Layer =
       reverse; follow; fill; outline | null; outlineWidth }
   | { type: 'contours'; count; from; spacing; width; taper; paint;     // nested lines, a quick ring (Phase 7)
       altColor | null; dash }
+  | { type: 'growth'; kind; follow; at; count; waveLength; amplitude;  // generators (§5.7, Phase 8)
+      gnarl; thickness; taper; branching; branchLength; branchAngle; curl; depth;
+      extra; extraSpacing; extraSize; color; extraColor; seed }
+  | { type: 'fracture'; kind; from; to; count; length; branching; jagged; width; color; seed }
+  | { type: 'cells'; pattern; from; to; size; gap; jitter; rounding; missing; vary; color; seed }
+  | { type: 'knotwork'; follow; at; waveLength; amplitude; width; color; outline | null;
+      outlineWidth; outlineOpacity; shine; double; flip }
+  | { type: 'gears'; follow; at; count; snapToCorners; size; teeth; toothDepth; toothShape;
+      spokes; hub; domed; altSize; interlock; rotation; offset; color; shaded }
+  | { type: 'chain'; follow; at; linkLength; linkWidth; thickness; color; shaded }
   | { type: 'group'; children: Layer[]; collapsed }                    // layers kept together (§5.2)
   | { type: 'unsupported'; originalType; data; reason };               // kept, never drawn (see 4.3)
 type Placement = { place: 'band' | 'free'; along; across; x; y;       // §4.4
@@ -100,7 +110,8 @@ type Effect =                                                         // every o
   | { kind: 'glow'; inner; color; opacity; size }
   | { kind: 'recolour'; stops: GradientStop[]; amount }               // "Material colour": a gradient map
   | { kind: 'adjust'; hue; saturation; brightness; contrast }
-  | { kind: 'wear'; chips; polish; grime; grimeColor; scale; seed }
+  | { kind: 'wear'; chips; polish; grime; grimeColor; scale; seed; scratches }   // scratches: Phase 8
+  | { kind: 'distort'; amount; scale; seed }                           // noise displacement (Phase 8)
 type Paint =
   | { kind: 'solid'; color }
   | { kind: 'lit'; color; light; dark; pressed;     // token-maker's metal lighting (litTables), turned to stage.light
@@ -136,6 +147,8 @@ Phase 7 added, all off by default (a repeat on the band, Phase 6's brilliant gem
 - **Text** and **contours** layers (§4.10).
 - References between layers (`follow`) are by id. Copying layers together (`cloneAllWithNewIds`: duplicate, paste, the library, conversions) points the copies' references at the copies; a reference to a layer that isn't there falls back to the band.
 
+Phase 8 added the generators (§5.7: growth, fracture, cells, knotwork, gears, chain), the **distortion** effect, `scratches` on wear, `waveFit` on lines (0 = off: one wave every `waveFit` band widths, so the number of waves fits the band, as Token Maker's vines and knotwork count theirs) and two elements, `tooth` (a ring gear's tooth hanging inwards from its point) and `gash` (Token Maker's three claw gashes). Every reference by `follow` (repeats, text, growth, knotwork, gears, chains) is handled the same way (`referencesOf` in `tree.ts`).
+
 Repeat patterns (Phase 2), all off by default:
 
 - `altColors`: colours taken in turn after `fill` (light, dark, light, dark…; Harlequin, Ranger).
@@ -165,6 +178,7 @@ These are the conventions of token-maker's `frameKit.ts` (`alongBand(g, count, a
 - **Version 3 → 4** (`MIGRATIONS[3]`): lit paints get `highlight: null`, linear paints `followLight: false`, gradient stops `opacity: 1` and repeats `shaded: true, show: []`, in groups too, so nothing changes. Version-3 files saved by Phase 3 (a lit/pressed/across/linear paint mix on a rounded token lit from 135°, and both texture templates) are in `src/project/fixtures/v3/`.
 - **Version 4 → 5** (`MIGRATIONS[4]`): every layer of a kind this version knows gets `effects: []`, shapes and paths `faceted: false, facetTable: 0.5, facetDepth: 1`, in groups too, so nothing changes; a layer of a kind it doesn't know is left exactly as it was. An effect of a kind this version doesn't know is left out with a warning (a layer that can't be read keeps its effects in its kept data). Version-4 files saved by Phase 5 (Jewelled on a hexagon lit from 300°, and Paladin converted to layers on a thick square) are in `src/project/fixtures/v4/`.
 - **Version 5 → 6** (`MIGRATIONS[5]`): repeats get `follow: null`, no variation, the brilliant cut at Phase 6's numbers and no setting; shapes and paths `radialCount: 1`; in groups too, so nothing changes. Version-5 files saved by Phase 6 (Dwarven bronze on a hexagon lit from 300°, Eldritch crystal on a square with the sample picture, Radiant gold) are in `src/project/fixtures/v5/`. From Phase 7 on, `npm run make-fixtures -- file:template:shape:light:showArt …` writes a version's fixtures before the next phase changes the format.
+- **Version 6 → 7** (`MIGRATIONS[6]`): lines get `waveFit: 0` and wear effects (on layers and on settings) `scratches: 0`, so nothing changes. Version-6 files saved by Phase 7 (the Royal inscription on a square lit from 135° and on a flat hexagon with the sample picture; they have text, so the test loads Frame Studio's fonts) are in `src/project/fixtures/v6/`.
 - Fixture files must draw as their version drew them (their `.png` beside them). Since Phase 3 every layer is drawn on its own canvas and composited (§5.3), which changes the rounding of a few nearly transparent edge pixels by a few 255ths; the test allows at most 8/255 in any premultiplied channel and a mean under 0.5/255, which is invisible. A single layer on its own (for example a Token Maker frame against `drawFrame`) is still pixel for pixel.
 - Nothing in a file is ever run as code.
 
@@ -232,10 +246,15 @@ Token Maker's see-through colours (`rgba(…, 0.55)`) become a solid colour and 
 | Engraved, Rogue | ~1.1 | ~1.2 % | 1.4 / 1.6 | Tick marks and stitches are flat bars with square ends (not round-capped strokes) |
 | Arcane, Infernal, Wizard | 1.8–2.1 | ≤ 0.65 % | 2.4–2.6 / 0.8–0.9 | Runes and glow match; the marbling is judged by its colour lit the usual way rather than by the band's own lighting, so a few patches move |
 | Paladin | 2.0 | 4.1 % | 2.5 / 5 | Frame Studio's crosses: lit from the stage's light (the original lights each one from its own top left, so the bottom crosses look lit from below), with a softer gradient; slightly thinner upright; a single shadow; at hexagon corners a cross can face along the next side |
+| Druid (Phase 8) | 0.99 | 1.2 % | 1.2 / 1.5 | A growth layer: the leaves are shaded by the stage's light |
+| Artificer (Phase 8) | 1.24 | 1.8 % | 1.5 / 2.2 | Gear teeth and a gears layer; the gears turn with the band, their shadows a shadow effect |
+| Barbarian (Phase 8) | 1.32 | 2.7 % | 1.6 / 3.2 | The gash element; every gash leans the same way (the original tilts each a little) |
+| Knotwork (Phase 8) | 2.96 | 4.7 % | 3.4 / 5.5 | A knotwork layer with real over/under crossings (the original lays one strand over the other all the way round) |
 | Cleric | 4.2 | 9.3 % | 5.5 / 12 | The rays are counted along their own line rather than the band's middle, so there can be one or two more or fewer and they drift out of step; long and short rays share one position across |
 
   (Worst over every shape, size and thickness tested. A mean of 1/255 is invisible; the differences above are in fine detail, which is why the default is "looks the same", §9.)
-- **Not converted yet** (they stay one Token Maker layer, and say so): **Stamped** (its veins and dark-side marbling need a texture judged by its ring colours), **Ranger** (its fletching is thin stroked chevrons; the chevron element is a filled arrowhead), **Bard** (notes with Token Maker's own random placement and shapes), **Warlock** (the detailed eyes), **Barbarian** (claw gashes as paired strokes), **Artificer** (gear teeth on the inner edge and its gears), **Druid** and **Knotwork** (their waves are counted to fit the band, where a wavy line has a fixed number of waves). Each needs a new element or option; until then the original is the better choice.
+- **Converted in Phase 8** with the generators: Druid, Knotwork, Artificer, Barbarian (22 frames, 21 drawing styles, in all).
+- **Not converted yet** (they stay one Token Maker layer, and say so): **Stamped** (its veins and dark-side marbling need a texture judged by its ring colours), **Ranger** (its fletching is thin stroked chevrons; the chevron element is a filled arrowhead), **Bard** (notes with Token Maker's own random placement and shapes), **Warlock** (the detailed eyes), and, until Phase 8, Barbarian, Artificer, Druid and Knotwork. Each needs a new element or option; until then the original is the better choice.
 
 ### 4.8 Layers on the move: copied, saved and in library files (Phase 5)
 
@@ -355,6 +374,23 @@ Budget (tested): a 10-layer textured design draws at 512 px in about 140 ms from
 
 A **setting** follows the gem's outline (or an oval round any other element): a bezel is a wider cup behind the stone and a lip round its edge; claws are four or six prongs behind it and round tips over its edge. The parts behind and in front are drawn on canvases of their own and get `settingEffects` (by default the Polished gold style), so the setting is metal while the gem keeps its own colour and effects; then the layer's own effects apply to the whole.
 
+### 5.7 Generators (Phase 8)
+
+`render/generators.ts`, `render/geometry.ts`. Each generator makes ordinary filled shapes from a few numbers (seeded, so the same every time) and draws them in one colour, so every effect and style works on the result: a bevel on plates bevels each plate, a glow on cracks makes them burn.
+
+| Layer | What it makes |
+|---|---|
+| **Growth** (`growth`) | A stem along its track (the band at `at`, or a followed path or line): wavy (waves fitted to the band) and gnarled by smooth noise; branches every so often (`branching`) that turn `branchAngle` from the stem, curl, taper and fork again (`depth` levels); leaves (Token Maker's Druid leaf), thorns or berries along the stem on alternate sides. Kinds are starting points: vine, roots, thorny stem, curling tendrils (curl tightening into spirals), antlers (beams growing outwards with tines on one side). Branches are tapered ribbons (`ribbon`); an even closed stem is one stroke. |
+| **Cracks and lightning** (`fracture`) | Cracks: random walks from seeded points across the band, jagged, forking, tapering, stopping at the edge of their part of the band. Lightning: bolts running round the band, zigzagging across it and forking. Set the layer to cut a hole to break the band, or clip it to plates. |
+| **Plates and cells** (`cells`) | The band between `from` and `to` divided into separate plates: irregular (Voronoi: one jittered point per grid cell, each plate cut from half-planes, wrapping round the ring), honeycomb, bricks, tiles or overlapping scales. Cells are made flat (along × across) so they wrap seamlessly, inset by half the gap, then laid on the band corner by corner (each side cut into short pieces so it bends with the band) and rounded. Pieces can be left out (`missing`) and vary in shade. |
+| **Knotwork** (`knotwork`) | Two strands swinging across the track in opposite phase, waves fitted to the band, with real over/under crossings: at each crossing one strand stops short on both sides of the other (the gap worked out from the crossing angle), taking turns, so every strand goes over, under, over… Outline, shine, double strands, swap over/under. |
+| **Gears** (`gears`) | Gears round the band or along a path: teeth (square or pointed), tooth depth, a rim with spokes and a hub or a solid wheel, a domed boss lit like a bead, an axle hole; every other one another size and turned half a tooth so neighbours look meshed. |
+| **Chain** (`chain`) | Links fitted to the track (an even number on a closed one), face-on rings and edge-on bars in turn; each ring's trailing half is drawn over the bar before it, so they interlock. |
+
+- **Distortion** (effect): every pixel moves by smooth noise (`amount`, `scale` in band widths), sampled between pixels premultiplied so edges don't fringe: wobbly edges, irregular stone, a shimmer.
+- **Scratches** (wear): seeded thin bright lines with a dark edge beside them, on painted pixels only.
+- Picking a generator on the canvas: plates and cracks by their part of the band; the others within their reach of their track. The selection outline shows that reach.
+
 ## 6. The editor
 
 `src/App.tsx` + `src/ui/`. Desktop layout from 960 px wide (narrower screens: §6.3):
@@ -403,6 +439,12 @@ A **setting** follows the gem's outline (or an oval round any other element): a 
 - Template: **Royal inscription** (gold, engraved contour lines and inscription, rubies in gold claw settings following a hidden wavy line).
 - A hidden layer's row in the list is muted and slanted rather than half see-through, so it stays readable (an axe finding).
 
+### 6.6 Generators (Phase 8)
+
+- **Add layer** offers Growth, Plates and cells, Cracks and lightning, Knotwork, Gears and Chain. Each has its settings in Properties with a help tip, Follow where it runs along a track, and a variation number with a shuffle button where it is seeded. Growth's **Kind** applies that kind's starting settings.
+- **Effects:** Distortion (amount, wobble size, variation); Wear and grime has Scratches. Lines have **Fit the waves to the band** with a wave length.
+- **Templates:** Overgrown ruin (stone plates with missing pieces and cracks, a verdigris knotwork band, roots and a creeper, only generators and styles). Druid, Knotwork, Artificer and Barbarian are now Token Maker frames that convert into editable layers (§4.7).
+
 Undo/redo works on the structured project (token-maker's `history.ts`): every edit is one step; a slider, colour-picker, handle or point drag is one step. Loading a project starts a fresh history.
 
 Autosave: the project's JSON is written to IndexedDB (`frame-studio:project`) 0.4 s after each change and restored on the next visit. First visit opens Token Maker's Stamped frame.
@@ -433,7 +475,7 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 | 5 | Polish and sharing: a personal layer library, copy/paste between projects, touch support, export options, help tips, Token Maker opening `.framestudio.json` files **(done)** |
 | 6 | Surfaces and effects: the 2.5D bevel and surfaces lit by the light, shadows, glows, material colours, colour adjust, wear; faceted shapes and gems; more blend modes and a knockout; the style library; templates made with effects **(done)** |
 | 7 | Ornaments anywhere: repeat along a path, radial arrays, gem cuts and settings, text on a path, contours **(done)** |
-| 8 | Generators: organic growth, cracks and lightning as geometry, plates and cells, knotwork, gears and chains, distortion |
+| 8 | Generators: organic growth, cracks and lightning as geometry, plates and cells, knotwork, gears and chains, distortion **(done)** |
 | 9 | Precise control: masks, height compositing, boolean geometry, editing (in/out handles, groups on the canvas, zoom) |
 | 10 | Workflow: randomise, your own styles, a theme colour, a lighting rig, batch export, more shapes with Token Maker |
 
@@ -499,6 +541,13 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 2. **Gem cuts and settings are options of the repeat**, not a new layer, so a ring of set gems is one layer that can follow a path; the setting's metal is a separate effect list on the same layer.
 3. **Text uses Frame Studio's own fonts plus stroke-drawn runes**, so it draws the same in the editor, the export, node and Token Maker; no font files are taken from the user's computer.
 4. **A radial array is a setting of shapes and paths** (like mirroring), round the layer's own anchor, so it works on the band and placed freely.
+
+**Decided while building Phase 8** (sensible defaults within the brief; say if any should change):
+
+1. **Generators are layers of their own** (growth, cracks and lightning, plates, knotwork, gears, chains), each drawing filled shapes in one colour, so styles and effects give them their material; nothing about effects had to change.
+2. **Knotwork really interlaces**: the under strand stops short at each crossing. Token Maker's Knotwork lays one strand over the other; the conversion is the interlaced version, measured and limited like the others.
+3. **Cells are laid on the band by share of the way round**, so a pattern fits every shape and thickness and wraps without a seam; plates stay convex so the gap is an exact inset.
+4. **Missing fragments are plates left out**, and cracks can be clipped to the plates or cut through the band with the existing knockout, rather than a separate "break" setting.
 
 **Answered before Phase 5:** "looks the same" is good enough for converted frames (they don't have to be exact copies). The limits in §4.7 stay as they are and the originals stay available beside the editable versions.
 

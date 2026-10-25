@@ -12,6 +12,13 @@ import {
   DEFAULT_LIGHT,
   type BandFillLayer,
   type ContoursLayer,
+  type CellsLayer,
+  type ChainLayer,
+  type FractureLayer,
+  type GearsLayer,
+  type GrowthKind,
+  type GrowthLayer,
+  type KnotworkLayer,
   type TextLayer,
   type Effect,
   type EditableLayerType,
@@ -60,7 +67,7 @@ export function bandFillLayer(): BandFillLayer {
 }
 
 export function lineLayer(): LineLayer {
-  return { ...base('Line'), type: 'line', at: 0.5, width: 0.06, paint: { kind: 'solid', color: '#2a1a0a' }, dash: 'solid', glow: null, waveAmplitude: 0, waves: 12, wavePhase: 0 };
+  return { ...base('Line'), type: 'line', at: 0.5, width: 0.06, paint: { kind: 'solid', color: '#2a1a0a' }, dash: 'solid', glow: null, waveAmplitude: 0, waves: 12, wavePhase: 0, waveFit: 0 };
 }
 
 export function repeatLayer(): RepeatLayer {
@@ -200,6 +207,48 @@ export function contoursLayer(): ContoursLayer {
   return { ...base('Contours'), type: 'contours', count: 3, from: 0.12, spacing: 0.12, width: 0.05, taper: 0.4, paint: { kind: 'solid', color: '#2a1a0a' }, altColor: null, dash: 'solid' };
 }
 
+/** Organic growth: a ready-made start for each kind (the Kind menu applies these). */
+export const GROWTH_PRESETS: Record<GrowthKind, Partial<GrowthLayer>> = {
+  vine: { kind: 'vine', count: 1, waveLength: 1.8, amplitude: 0.22, gnarl: 0.1, thickness: 0.08, taper: 0.7, branching: 0.35, branchLength: 0.45, branchAngle: 50, curl: 220, depth: 1, extra: 'leaves', extraSpacing: 0.9, extraSize: 0.6, color: '#3e5a22', extraColor: '#6aa83a' },
+  roots: { kind: 'roots', count: 1, waveLength: 0, amplitude: 0, gnarl: 0.6, thickness: 0.11, taper: 0.9, branching: 0.6, branchLength: 0.7, branchAngle: 65, curl: 40, depth: 3, extra: 'none', extraSpacing: 0.6, extraSize: 0.3, color: '#4a3220', extraColor: '#6a4a2c' },
+  thorns: { kind: 'thorns', count: 1, waveLength: 2.4, amplitude: 0.12, gnarl: 0.2, thickness: 0.07, taper: 0.8, branching: 0, branchLength: 0.4, branchAngle: 45, curl: 0, depth: 1, extra: 'thorns', extraSpacing: 0.35, extraSize: 0.28, color: '#3a2a1a', extraColor: '#3a2a1a' },
+  tendrils: { kind: 'tendrils', count: 2, waveLength: 3, amplitude: 0.25, gnarl: 0.15, thickness: 0.05, taper: 0.9, branching: 0.5, branchLength: 0.7, branchAngle: 40, curl: 420, depth: 1, extra: 'none', extraSpacing: 0.6, extraSize: 0.3, color: '#4a1a66', extraColor: '#7a3aa8' },
+  antlers: { kind: 'antlers', count: 6, waveLength: 0, amplitude: 0, gnarl: 0.25, thickness: 0.14, taper: 0.85, branching: 0.6, branchLength: 0.9, branchAngle: 38, curl: 60, depth: 2, extra: 'none', extraSpacing: 0.6, extraSize: 0.3, color: '#d8c8a8', extraColor: '#b8a888' },
+};
+
+export function growthLayer(kind: GrowthKind = 'vine'): GrowthLayer {
+  return {
+    ...base('Growth'),
+    type: 'growth',
+    follow: null,
+    at: 0.5,
+    seed: 1,
+    ...(GROWTH_PRESETS.vine as Omit<GrowthLayer, keyof ReturnType<typeof base> | 'type' | 'follow' | 'at' | 'seed'>),
+    ...GROWTH_PRESETS[kind],
+    kind,
+  };
+}
+
+export function fractureLayer(): FractureLayer {
+  return { ...base('Cracks'), type: 'fracture', kind: 'cracks', from: 0, to: 1, count: 6, length: 1.6, branching: 0.5, jagged: 0.5, width: 0.05, color: '#1a1208', seed: 1 };
+}
+
+export function cellsLayer(): CellsLayer {
+  return { ...base('Plates'), type: 'cells', pattern: 'voronoi', from: 0, to: 1, size: 0.5, gap: 0.04, jitter: 0.8, rounding: 0.2, missing: 0, vary: 0.3, color: '#8a8478', seed: 1 };
+}
+
+export function knotworkLayer(): KnotworkLayer {
+  return { ...base('Knotwork'), type: 'knotwork', follow: null, at: 0.5, waveLength: 0.9, amplitude: 0.25, width: 0.17, color: '#d4ac52', outline: '#000000', outlineWidth: 0.035, outlineOpacity: 0.6, shine: true, double: false, flip: false };
+}
+
+export function gearsLayer(): GearsLayer {
+  return { ...base('Gears'), type: 'gears', follow: null, at: 0.5, count: 6, snapToCorners: true, size: 0.8, teeth: 10, toothDepth: 0.22, toothShape: 'square', spokes: 4, hub: 0.3, domed: false, altSize: 1, interlock: false, rotation: 0, offset: 0, color: '#b8862e', shaded: true };
+}
+
+export function chainLayer(): ChainLayer {
+  return { ...base('Chain'), type: 'chain', follow: null, at: 0.5, linkLength: 0.5, linkWidth: 0.6, thickness: 0.08, color: '#9aa0aa', shaded: true };
+}
+
 export function groupLayer(children: Layer[] = []): GroupLayer {
   return { ...base('Group'), type: 'group', children, collapsed: false };
 }
@@ -223,6 +272,12 @@ export const NEW_LAYER: Record<EditableLayerType, () => Layer> = {
   path: () => pathLayer(),
   text: textLayer,
   contours: contoursLayer,
+  growth: () => growthLayer(),
+  fracture: fractureLayer,
+  cells: cellsLayer,
+  knotwork: knotworkLayer,
+  gears: gearsLayer,
+  chain: chainLayer,
   group: () => groupLayer(),
 };
 
@@ -237,6 +292,12 @@ export const LAYER_TYPE_NAMES: Record<Layer['type'], string> = {
   path: 'Path',
   text: 'Text',
   contours: 'Contours',
+  growth: 'Growth',
+  fracture: 'Cracks and lightning',
+  cells: 'Plates and cells',
+  knotwork: 'Knotwork',
+  gears: 'Gears',
+  chain: 'Chain',
   group: 'Group',
   unsupported: 'Unsupported layer',
 };
@@ -461,6 +522,31 @@ export const LAYERED_TEMPLATES: LayeredTemplate[] = [
           settingEffects: styleEffects('gold'),
           effects: [shadow({ distance: 0.03, blur: 0.04, opacity: 0.6 })],
         },
+      ];
+    },
+  },
+  // Phase 8: made only from generators and styles.
+  {
+    id: 'overgrown-ruin',
+    name: 'Overgrown ruin',
+    description: 'Cracked stone plates with missing pieces, a verdigris knotwork band and roots growing through.',
+    make: () => {
+      const plates = { ...cellsLayer(), name: 'Stone plates', from: 0.2, to: 1, size: 0.42, gap: 0.05, missing: 0.12, vary: 0.45, color: '#8a8478', seed: 7, effects: styleEffects('carved-stone') };
+      return [
+        plates,
+        { ...fractureLayer(), name: 'Cracks', from: 0.2, to: 1, count: 9, length: 1.4, width: 0.035, color: '#14100c', clip: 'below', seed: 3 },
+        { ...knotworkLayer(), name: 'Knotwork band', at: 0.1, width: 0.075, amplitude: 0.075, waveLength: 0.42, color: '#909090', outlineWidth: 0.02, shine: false, effects: styleEffects('verdigris') },
+        {
+          ...growthLayer('roots'),
+          name: 'Roots',
+          at: 0.62,
+          thickness: 0.09,
+          branchLength: 0.6,
+          color: '#5a3c22',
+          seed: 4,
+          effects: [bevel({ size: 0.4, gloss: 0.15, surface: 'grain', surfaceDepth: 0.4 }), shadow({ distance: 0.05, blur: 0.06, opacity: 0.7 })],
+        },
+        { ...growthLayer('vine'), name: 'Creeper', at: 0.45, count: 1, waveLength: 2.6, amplitude: 0.3, thickness: 0.035, branching: 0.2, extraSpacing: 1.1, extraSize: 0.4, color: '#2e4a1c', extraColor: '#5a8a32', seed: 9, effects: [shadow({ distance: 0.04, blur: 0.05, opacity: 0.6 })] },
       ];
     },
   },

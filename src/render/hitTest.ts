@@ -9,7 +9,8 @@ import { flatten } from '../project/tree';
 import { contourLines, lineOutline, repeatPlacements } from './layers';
 import { localBounds, placement, placements, primaryPlacement, toCanvas, toLocal, unitPx } from './placed';
 import { textGlyphs } from './text';
-import type { FindLayer } from './track';
+import { tracksFor, type FindLayer } from './track';
+import { distanceToTrack, generatorReach } from './generators';
 
 const round3 = (v: number) => Math.round(v * 1000) / 1000;
 
@@ -62,6 +63,16 @@ function hits(layer: Layer, g: FrameGeometry, pt: Point, find: FindLayer): boole
     }
     case 'contours':
       return contourLines(layer).some((l) => Math.abs(across - l.at) <= l.width / 2 + slack);
+    case 'fracture':
+    case 'cells':
+      return across >= Math.min(layer.from, layer.to) - slack && across <= Math.max(layer.from, layer.to) + slack;
+    case 'growth':
+    case 'knotwork':
+    case 'gears':
+    case 'chain': {
+      const reach = generatorReach(layer) * bandWidthPx(g) + 4;
+      return tracksFor(layer.follow, layer.at, g, find).some((t) => distanceToTrack(t, pt) <= reach);
+    }
     default:
       return false;
   }
@@ -119,7 +130,14 @@ export function dragLayer(layer: Layer, project: FrameProject, size: number, sta
     }
     case 'line':
     case 'text':
+    case 'growth':
+    case 'knotwork':
+    case 'gears':
+    case 'chain':
       return { at: clamp(layer.at + dAcross) };
+    case 'fracture':
+    case 'cells':
+      return { from: clamp(layer.from + dAcross), to: clamp(layer.to + dAcross) };
     case 'contours':
       return { from: clamp(layer.from + dAcross) };
     case 'bandFill':
@@ -150,7 +168,7 @@ export function nudgeLayer(layer: Layer, project: FrameProject, size: number, dx
     if (!t) return null;
     start = { x: t.x, y: t.y };
   } else {
-    const across = layer.type === 'line' || layer.type === 'repeat' || layer.type === 'text' ? layer.at : layer.type === 'contours' ? layer.from : layer.type === 'bandFill' || layer.type === 'texture' ? (layer.from + layer.to) / 2 : 0.5;
+    const across = 'at' in layer ? layer.at : layer.type === 'contours' ? layer.from : 'from' in layer ? (layer.from + layer.to) / 2 : 0.5;
     start = { x: 0, y: -(g.R - insetAt(g, across)) };
   }
   return dragLayer(layer, project, size, start, { x: start.x + dx, y: start.y + dy });

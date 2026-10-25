@@ -25,13 +25,24 @@ export interface Track {
 export function lineOutline(layer: LineLayer, g: FrameGeometry): Point[] {
   const outline = outlineAt(g, layer.at);
   if (layer.waveAmplitude <= 0 || outline.length === 0) return outline;
-  const n = Math.max(240, layer.waves * 24);
+  const waves = lineWaves(layer, outline, g);
+  const n = Math.max(240, waves * 24);
   const amp = layer.waveAmplitude * bandWidthPx(g);
   return spacedAlong(outline, n).map((p, i) => {
-    const off = amp * Math.sin(Math.PI * 2 * (layer.waves * (i / n) + layer.wavePhase));
+    const off = amp * Math.sin(Math.PI * 2 * (waves * (i / n) + layer.wavePhase));
     // Inwards is to the right of the direction of travel (outlines run clockwise).
     return { x: p.x - Math.sin(p.angle) * off, y: p.y + Math.cos(p.angle) * off };
   });
+}
+
+/** How many waves a wavy line has: its own number, or as many as fit at `waveFit` band widths each (at least 2). */
+export function lineWaves(layer: Pick<LineLayer, 'waves' | 'waveFit'>, outline: Point[], g: FrameGeometry): number {
+  return layer.waveFit > 0 ? Math.max(2, Math.round(perimeterLength(outline) / Math.max(1, layer.waveFit * bandWidthPx(g)))) : layer.waves;
+}
+
+/** How many of something fit round a track at `spacing` pixels each (at least `min`). */
+export function fitCount(t: Track, spacing: number, min = 1): number {
+  return Math.max(min, Math.round(trackLength(t) / Math.max(1, spacing)));
 }
 
 /** The layer `follow` names, if it is one that can be followed. */

@@ -6,15 +6,18 @@ import { FRAME_PRESETS } from '../engine/legacy/catalog';
 import { mix, shade } from '../engine/legacy/color';
 import { frameAccent } from '../engine/legacy/frames';
 import { canConvert, differenceNote } from '../project/convert';
-import { LAYER_TYPE_NAMES, TEXTURES } from '../project/defaults';
+import { GROWTH_PRESETS, LAYER_TYPE_NAMES, TEXTURES } from '../project/defaults';
 import { findLayer, locate } from '../project/tree';
 import {
   BLEND_MODES,
   CLIP_MODES,
   DEFAULT_LIGHT,
   ELEMENT_KINDS,
+  CELL_PATTERNS,
   GEM_CUTS,
   GEM_SETTINGS,
+  GROWTH_EXTRAS,
+  GROWTH_KINDS,
   MIRROR_MODES,
   TEXT_FONTS,
   SHAPE_KINDS,
@@ -24,6 +27,15 @@ import {
   type ClipMode,
   type ContoursLayer,
   type GemCut,
+  type CellsLayer,
+  type CellPattern,
+  type ChainLayer,
+  type FractureLayer,
+  type GearsLayer,
+  type GrowthExtra,
+  type GrowthKind,
+  type GrowthLayer,
+  type KnotworkLayer,
   type GemSetting,
   type RepeatLayer,
   type TextFont,
@@ -297,7 +309,16 @@ function LayerControls({ layer, light }: { layer: Layer; light: number }) {
           {layer.waveAmplitude > 0 && (
             <>
               {num(layer, set, 'waveAmplitude', 'Wave height', 0.01, 1, { ...pct, hint: 'How far it wanders, as a share of the band width.' })}
-              {num(layer, set, 'waves', 'Waves all the way round', 1, 64, { step: 1 })}
+              <Toggle
+                label="Fit the waves to the band"
+                hint="On: the waves keep their length and their number changes with the band, as Token Maker's vines and knotwork do. Off: a set number of waves."
+                checked={layer.waveFit > 0}
+                disabled={disabled}
+                onChange={(on) => set({ waveFit: on ? 1.8 : 0 })}
+              />
+              {layer.waveFit > 0
+                ? num(layer, set, 'waveFit', 'Wave length', 0.2, 8, { step: 0.05, scale: 100, unit: '%', hint: 'How long one wave is, as a share of the band width.' })
+                : num(layer, set, 'waves', 'Waves all the way round', 1, 64, { step: 1 })}
               {num(layer, set, 'wavePhase', 'Slide the waves', 0, 1, pct)}
             </>
           )}
@@ -310,6 +331,18 @@ function LayerControls({ layer, light }: { layer: Layer; light: number }) {
       return <TextControls layer={layer} />;
     case 'contours':
       return <ContoursControls layer={layer} />;
+    case 'growth':
+      return <GrowthControls layer={layer} />;
+    case 'fracture':
+      return <FractureControls layer={layer} />;
+    case 'cells':
+      return <CellsControls layer={layer} />;
+    case 'knotwork':
+      return <KnotworkControls layer={layer} />;
+    case 'gears':
+      return <GearsControls layer={layer} />;
+    case 'chain':
+      return <ChainControls layer={layer} />;
     case 'shape':
     case 'path':
       return <PlacedControls layer={layer} />;
@@ -843,7 +876,7 @@ function following(layer: RepeatLayer | TextLayer, layers: Layer[]): boolean {
 }
 
 /** Choose what a repeat or text runs along: the band, or a path or line layer. */
-function FollowSelect({ layer, onChange }: { layer: RepeatLayer | TextLayer; onChange: (follow: string | null) => void }) {
+function FollowSelect({ layer, onChange }: { layer: RepeatLayer | TextLayer | GrowthLayer | KnotworkLayer | GearsLayer | ChainLayer; onChange: (follow: string | null) => void }) {
   const project = useProject();
   const tracks = flatten(project.layers).filter((l) => (l.type === 'path' || l.type === 'line') && l.id !== layer.id);
   const value = layer.follow && tracks.some((t) => t.id === layer.follow) ? layer.follow : '';
@@ -959,6 +992,218 @@ function ContoursControls({ layer }: { layer: ContoursLayer }) {
         ]}
         onChange={(dash) => set({ dash })}
       />
+    </>
+  );
+}
+
+const GROWTH_NAMES: Record<GrowthKind, string> = {
+  vine: 'Vine',
+  roots: 'Roots',
+  thorns: 'Thorny stem',
+  tendrils: 'Curling tendrils',
+  antlers: 'Antlers',
+};
+
+const EXTRA_NAMES: Record<GrowthExtra, string> = {
+  none: 'Nothing',
+  leaves: 'Leaves',
+  thorns: 'Thorns',
+  berries: 'Berries',
+};
+
+const PATTERN_NAMES: Record<CellPattern, string> = {
+  voronoi: 'Irregular plates (flagstones)',
+  hex: 'Honeycomb',
+  brick: 'Bricks',
+  grid: 'Tiles',
+  scales: 'Scales',
+};
+
+/** A seed slider with a shuffle button. */
+function SeedRow<L extends Layer & { seed: number }>({ layer, hint }: { layer: L; hint: string }) {
+  const set = setterFor(layer);
+  return (
+    <div className="row">
+      {num(layer, set, 'seed', 'Variation', 0, 99999, { step: 1, hint })}
+      <button type="button" className="icon-btn" aria-label="Shuffle" title="Try another variation" disabled={layer.locked} onClick={() => set({ seed: Math.floor(Math.random() * 99999) } as Partial<L>)}>
+        <Shuffle size={16} />
+      </button>
+    </div>
+  );
+}
+
+/** Follow (the band or a path) and the position across the band, for generators that run along a track. */
+function TrackControls({ layer }: { layer: GrowthLayer | KnotworkLayer | GearsLayer | ChainLayer }) {
+  const { layers } = useProject();
+  const set = setterFor(layer);
+  const target = layer.follow ? findLayer(layers, layer.follow) : undefined;
+  const onPath = !!target && (target.type === 'line' || (target.type === 'path' && target.points.length > 1));
+  return (
+    <>
+      <FollowSelect layer={layer} onChange={(follow) => set({ follow } as Partial<typeof layer>)} />
+      {!onPath && num(layer, set, 'at', 'Position across the band', -0.5, 1.5, pct)}
+    </>
+  );
+}
+
+function GrowthControls({ layer }: { layer: GrowthLayer }) {
+  const disabled = layer.locked;
+  const set = setterFor(layer);
+  return (
+    <>
+      <Select
+        label="Kind"
+        hint="What grows: each kind starts with settings that suit it, which you can then change."
+        value={layer.kind}
+        disabled={disabled}
+        options={GROWTH_KINDS.map((k) => ({ value: k, label: GROWTH_NAMES[k] }))}
+        onChange={(kind) => set({ ...GROWTH_PRESETS[kind], kind })}
+      />
+      <ColorField label="Colour" value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+      <TrackControls layer={layer} />
+      {num(layer, set, 'count', layer.kind === 'antlers' ? 'How many antlers' : 'Stems', 1, layer.kind === 'antlers' ? 24 : 4, { step: 1, hint: layer.kind === 'antlers' ? 'How many antlers grow round the band.' : 'How many stems twine round, each its own way.' })}
+      {num(layer, set, 'thickness', 'Thickness', 0.01, 0.4, { ...pct, hint: 'How thick the stem is, as a share of the band width.' })}
+      {layer.kind !== 'antlers' && num(layer, set, 'waveLength', 'Wave length', 0, 6, { step: 0.05, scale: 100, unit: '%', hint: 'How long each wave of the stem is (fitted to the band); 0 for a straight stem.' })}
+      {layer.kind !== 'antlers' && num(layer, set, 'amplitude', 'Wave height', 0, 0.8, { ...pct, hint: 'How far the stem wanders in and out.' })}
+      {num(layer, set, 'gnarl', 'Gnarled', 0, 1, { ...pct, hint: 'How twisted and knobbly the stem and branches are.' })}
+      <Fold title="Branches" defaultOpen>
+        {layer.kind !== 'antlers' && num(layer, set, 'branching', 'Branching', 0, 1, { ...pct, hint: 'How often branches grow from the stem.' })}
+        {num(layer, set, 'branchLength', 'Branch length', 0.05, 3, { ...pct, step: 0.01, hint: 'How long the branches are, as a share of the band width.' })}
+        {num(layer, set, 'branchAngle', 'Branch angle', 0, 120, { step: 1, unit: '°', hint: 'How sharply branches turn away from the stem.' })}
+        {num(layer, set, 'curl', 'Curl', -800, 800, { step: 5, unit: '°', hint: 'How much branches curl as they grow (degrees per band width); negative curls the other way.' })}
+        {num(layer, set, 'taper', 'Taper', 0, 1, { ...pct, hint: 'How thin the branch tips get.' })}
+        {num(layer, set, 'depth', 'Levels', 1, 3, { step: 1, hint: 'Branches on branches: 1 is none, 3 is very bushy.' })}
+      </Fold>
+      <Select label="Along it" hint="Leaves, thorns or berries along the stem (and leaves or berries on the branch tips)." value={layer.extra} disabled={disabled} options={GROWTH_EXTRAS.map((e) => ({ value: e, label: EXTRA_NAMES[e] }))} onChange={(extra) => set({ extra })} />
+      {layer.extra !== 'none' && (
+        <>
+          <ColorField label="Their colour" hint="The colour of the leaves, thorns or berries." value={layer.extraColor} disabled={disabled} onChange={(extraColor, t) => set({ extraColor }, t)} />
+          {num(layer, set, 'extraSpacing', 'Spacing', 0.1, 3, { ...pct, step: 0.01, hint: 'How far apart they are along the stem, as a share of the band width.' })}
+          {num(layer, set, 'extraSize', 'Their size', 0.05, 1.5, { ...pct, hint: 'How big they are, as a share of the band width.' })}
+        </>
+      )}
+      <SeedRow layer={layer} hint="Each number grows it differently." />
+    </>
+  );
+}
+
+function FractureControls({ layer }: { layer: FractureLayer }) {
+  const disabled = layer.locked;
+  const set = setterFor(layer);
+  return (
+    <>
+      <Select
+        label="Kind"
+        hint="Cracks wander across the band; lightning runs round it."
+        value={layer.kind}
+        disabled={disabled}
+        options={[
+          { value: 'cracks', label: 'Cracks' },
+          { value: 'lightning', label: 'Lightning' },
+        ]}
+        onChange={(kind) => set(kind === 'lightning' ? { kind, color: '#d8eeff', count: 3, length: 5, width: 0.035, jagged: 0.6 } : { kind, color: '#1a1208', count: 6, length: 1.6, width: 0.05, jagged: 0.5 })}
+      />
+      <ColorField label="Colour" value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+      {num(layer, set, 'count', 'How many', 1, 40, { step: 1, hint: 'How many cracks or bolts.' })}
+      {num(layer, set, 'length', 'Length', 0.1, 10, { ...pct, step: 0.05, hint: 'How long each one is, as a share of the band width.' })}
+      {num(layer, set, 'width', 'Width', 0.005, 0.3, { ...pct, hint: 'How wide each is where it starts; they taper to their ends.' })}
+      {num(layer, set, 'branching', 'Forking', 0, 1, { ...pct, hint: 'How often they fork.' })}
+      {num(layer, set, 'jagged', 'Jagged', 0, 1, { ...pct, hint: 'How sharply they zigzag.' })}
+      {num(layer, set, 'from', 'Starts at (outer edge = 0%)', -0.5, 1.5, pct)}
+      {num(layer, set, 'to', 'Ends at (inner edge = 100%)', -0.5, 1.5, pct)}
+      <SeedRow layer={layer} hint="Each number gives different cracks." />
+      <p className="note">Cut them into the band with Advanced → Cut a hole in the layers below, or make them glow with an effect.</p>
+    </>
+  );
+}
+
+function CellsControls({ layer }: { layer: CellsLayer }) {
+  const disabled = layer.locked;
+  const set = setterFor(layer);
+  return (
+    <>
+      <Select label="Pattern" hint="How the band is divided into plates." value={layer.pattern} disabled={disabled} options={CELL_PATTERNS.map((c) => ({ value: c, label: PATTERN_NAMES[c] }))} onChange={(pattern) => set({ pattern })} />
+      <ColorField label="Colour" value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+      {num(layer, set, 'size', 'Plate size', 0.08, 2, { ...pct, hint: 'How big each plate is, as a share of the band width.' })}
+      {num(layer, set, 'gap', 'Gap', 0, 0.3, { ...pct, hint: 'The gap between plates, as a share of the band width.' })}
+      {layer.pattern === 'voronoi' && num(layer, set, 'jitter', 'Irregular', 0, 1, { ...pct, hint: 'How uneven the plates are: 0% is a neat grid.' })}
+      {layer.pattern !== 'scales' && num(layer, set, 'rounding', 'Round the corners', 0, 1, pct)}
+      {num(layer, set, 'missing', 'Missing pieces', 0, 0.9, { ...pct, hint: 'The share of plates left out, for a broken, ruined look.' })}
+      {num(layer, set, 'vary', 'Vary the colour', 0, 1, { ...pct, hint: 'How much each plate is lighter or darker than the next.' })}
+      {num(layer, set, 'from', 'Starts at (outer edge = 0%)', -0.5, 1.5, pct)}
+      {num(layer, set, 'to', 'Ends at (inner edge = 100%)', -0.5, 1.5, pct)}
+      <SeedRow layer={layer} hint="Each number gives different plates." />
+      <p className="note">Give it a style (carved stone, scales…): each plate gets its own bevel.</p>
+    </>
+  );
+}
+
+function KnotworkControls({ layer }: { layer: KnotworkLayer }) {
+  const disabled = layer.locked;
+  const set = setterFor(layer);
+  return (
+    <>
+      <ColorField label="Colour" value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+      <TrackControls layer={layer} />
+      {num(layer, set, 'width', 'Strand width', 0.02, 0.6, { ...pct, hint: 'How wide each strand is, as a share of the band width.' })}
+      {num(layer, set, 'amplitude', 'Swing', 0, 0.8, { ...pct, hint: 'How far the strands swing in and out.' })}
+      {num(layer, set, 'waveLength', 'Wave length', 0.2, 6, { step: 0.05, scale: 100, unit: '%', hint: 'How long each twist is (fitted to the band, so it always joins up).' })}
+      <OptionalColor label="Outline" value={layer.outline} fallback="#000000" disabled={disabled} onChange={(outline, t) => set({ outline }, t)} />
+      {layer.outline !== null && num(layer, set, 'outlineWidth', 'Outline width', 0, 0.2, pct)}
+      {layer.outline !== null && num(layer, set, 'outlineOpacity', 'Outline strength', 0, 1, { ...pct, hint: 'How dark the outline is.' })}
+      <Toggle label="Shine" hint="A thin bright line down each strand." checked={layer.shine} disabled={disabled} onChange={(shine) => set({ shine })} />
+      <Toggle label="Double strands" hint="Each strand drawn as two bands with a line between." checked={layer.double} disabled={disabled} onChange={(double) => set({ double })} />
+      <Toggle label="Swap over and under" hint="Swaps which strand goes over at every crossing." checked={layer.flip} disabled={disabled} onChange={(flip) => set({ flip })} />
+    </>
+  );
+}
+
+function GearsControls({ layer }: { layer: GearsLayer }) {
+  const disabled = layer.locked;
+  const set = setterFor(layer);
+  return (
+    <>
+      <ColorField label="Colour" value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+      <TrackControls layer={layer} />
+      {num(layer, set, 'count', 'Number', 1, 48, { step: 1 })}
+      {num(layer, set, 'size', 'Size', 0.05, 2, pct)}
+      {num(layer, set, 'teeth', 'Teeth', 3, 40, { step: 1, hint: 'How many teeth each gear has.' })}
+      {num(layer, set, 'toothDepth', 'Tooth depth', 0, 0.5, { ...pct, hint: 'How long the teeth are, as a share of the gear.' })}
+      <Select
+        label="Tooth shape"
+        hint="Square teeth, or pointed ones like a star."
+        value={layer.toothShape}
+        disabled={disabled}
+        options={[
+          { value: 'square', label: 'Square' },
+          { value: 'pointed', label: 'Pointed' },
+        ]}
+        onChange={(toothShape) => set({ toothShape })}
+      />
+      {num(layer, set, 'spokes', 'Spokes', 0, 12, { step: 1, hint: 'Spokes between the rim and the hub; 0 is a solid wheel.' })}
+      {num(layer, set, 'hub', 'Hub', 0, 0.9, { ...pct, hint: 'How big the hub (or, on a solid wheel, the axle hole) is.' })}
+      <Toggle label="Domed middle" hint="A rounded boss in the middle, lit by the light." checked={layer.domed} disabled={disabled} onChange={(domed) => set({ domed })} />
+      {num(layer, set, 'altSize', 'Every other one', 0.2, 3, { ...pct, step: 0.05, hint: 'The size of every other gear, compared with the rest.' })}
+      <Toggle label="Mesh the teeth" hint="Turns every other gear by half a tooth, so neighbours look as if they mesh." checked={layer.interlock} disabled={disabled} onChange={(interlock) => set({ interlock })} />
+      {num(layer, set, 'rotation', 'Rotation', -180, 180, { step: 1, unit: '°' })}
+      {num(layer, set, 'offset', 'Slide along', 0, 1, pct)}
+      <Toggle label="Shaded by the light" checked={layer.shaded} disabled={disabled} onChange={(shaded) => set({ shaded })} />
+      <Toggle label="One on every corner" hint="Rounds the number so square and hexagon corners each get one." checked={layer.snapToCorners} disabled={disabled} onChange={(snapToCorners) => set({ snapToCorners })} />
+    </>
+  );
+}
+
+function ChainControls({ layer }: { layer: ChainLayer }) {
+  const disabled = layer.locked;
+  const set = setterFor(layer);
+  return (
+    <>
+      <ColorField label="Colour" value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+      <TrackControls layer={layer} />
+      {num(layer, set, 'linkLength', 'Link length', 0.05, 2, { ...pct, hint: 'How long each link is, as a share of the band width; the number of links fits the band.' })}
+      {num(layer, set, 'linkWidth', 'Link width', 0.2, 1.5, { ...pct, hint: 'How wide a link is compared with its length.' })}
+      {num(layer, set, 'thickness', 'Metal thickness', 0.01, 0.4, { ...pct, hint: 'How thick the metal of each link is.' })}
+      <Toggle label="Shaded by the light" checked={layer.shaded} disabled={disabled} onChange={(shaded) => set({ shaded })} />
     </>
   );
 }

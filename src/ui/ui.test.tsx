@@ -214,7 +214,7 @@ describe('converting Token Maker frames (Phase 4)', () => {
     render(<TemplateDialog mode="new" onClose={() => {}} />);
     const editable = FRAME_PRESETS.filter((p) => canConvert(p.style));
     // Arcane and Infernal share their drawing code: 17 converters, 18 frames.
-    expect(editable.length).toBe(18);
+    expect(editable.length).toBe(22);
     for (const f of editable) expect(screen.getByRole('button', { name: `${f.name} Editable` })).toBeInTheDocument();
     for (const f of FRAME_PRESETS) expect(screen.getByRole('button', { name: f.name })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Stamped Editable' })).toBeNull();

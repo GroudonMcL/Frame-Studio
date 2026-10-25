@@ -14,7 +14,7 @@
 import type { FrameStyle, ShapeId } from '../engine/legacy/catalog';
 
 export const PROJECT_FORMAT = 'frame-studio-project';
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export interface FrameProject {
   format: typeof PROJECT_FORMAT;
@@ -190,10 +190,23 @@ export interface WearEffect {
   /** How big the marks are (band widths). */
   scale: number;
   seed: number;
+  /** 0–1: fine scratches across it (version 7). */
+  scratches: number;
 }
 
-export type Effect = BevelEffect | ShadowEffect | GlowEffect | RecolourEffect | AdjustEffect | WearEffect;
-export const EFFECT_KINDS = ['bevel', 'shadow', 'glow', 'recolour', 'adjust', 'wear'] as const satisfies readonly Effect['kind'][];
+/** Warps the picture with smooth noise: wobbly edges, irregular stone, subtle distortion (version 7). */
+export interface DistortEffect {
+  kind: 'distort';
+  on: boolean;
+  /** How far pixels move (band widths). */
+  amount: number;
+  /** How big the wobbles are (band widths). */
+  scale: number;
+  seed: number;
+}
+
+export type Effect = BevelEffect | ShadowEffect | GlowEffect | RecolourEffect | AdjustEffect | WearEffect | DistortEffect;
+export const EFFECT_KINDS = ['bevel', 'shadow', 'glow', 'recolour', 'adjust', 'wear', 'distort'] as const satisfies readonly Effect['kind'][];
 export type EffectKind = (typeof EFFECT_KINDS)[number];
 
 export const CLIP_MODES = ['none', 'band', 'below'] as const;
@@ -280,6 +293,8 @@ export interface LineLayer extends LayerBase {
   waves: number;
   /** Slides the waves round, as a fraction of one wave (0–1). */
   wavePhase: number;
+  /** Fit the waves to the band (version 7): one wave every this many band widths, so the number changes with the band; 0 = use `waves`. */
+  waveFit: number;
 }
 
 export const ELEMENT_KINDS = [
@@ -303,6 +318,9 @@ export const ELEMENT_KINDS = [
   'gem',
   'plate',
   'shard',
+  // Version 7:
+  'tooth',
+  'gash',
 ] as const;
 export type ElementKind = (typeof ELEMENT_KINDS)[number];
 
@@ -554,6 +572,172 @@ export interface ContoursLayer extends LayerBase {
   dash: 'solid' | 'dashed' | 'dotted';
 }
 
+// ---------------------------------------------------------------- generators (version 7)
+
+export const GROWTH_KINDS = ['vine', 'roots', 'thorns', 'tendrils', 'antlers'] as const;
+export type GrowthKind = (typeof GROWTH_KINDS)[number];
+export const GROWTH_EXTRAS = ['none', 'leaves', 'thorns', 'berries'] as const;
+export type GrowthExtra = (typeof GROWTH_EXTRAS)[number];
+
+/**
+ * Organic growth along the band or a path: a stem (wavy or gnarled) with
+ * branches that curl and taper, and leaves, thorns or berries, drawn as
+ * filled shapes so effects work on them (DESIGN.md §5.7).
+ */
+export interface GrowthLayer extends LayerBase {
+  type: 'growth';
+  kind: GrowthKind;
+  follow: string | null;
+  at: number;
+  /** Stems along the track (antlers: how many antlers). */
+  count: number;
+  /** Band widths per wave of the stem (fitted to the band); 0 = straight. */
+  waveLength: number;
+  /** How far the stem wanders (band widths). */
+  amplitude: number;
+  /** How gnarled the stem is (0–1). */
+  gnarl: number;
+  /** Stem thickness (band widths). */
+  thickness: number;
+  /** How thin the branch tips get (0 = not at all, 1 = to a point). */
+  taper: number;
+  /** How often branches grow (0–1). */
+  branching: number;
+  /** Branch length (band widths). */
+  branchLength: number;
+  /** Degrees from the stem. */
+  branchAngle: number;
+  /** How much branches curl (degrees per band width). */
+  curl: number;
+  /** Levels of branches on branches (1–3). */
+  depth: number;
+  extra: GrowthExtra;
+  /** Band widths between leaves (or thorns, berries). */
+  extraSpacing: number;
+  /** Their size (band widths). */
+  extraSize: number;
+  color: string;
+  extraColor: string;
+  seed: number;
+}
+
+export const FRACTURE_KINDS = ['cracks', 'lightning'] as const;
+export type FractureKind = (typeof FRACTURE_KINDS)[number];
+
+/** Branching cracks across the band, or lightning bolts along it, as geometry (version 7). */
+export interface FractureLayer extends LayerBase {
+  type: 'fracture';
+  kind: FractureKind;
+  /** The part of the band they stay in (across positions). */
+  from: number;
+  to: number;
+  count: number;
+  /** How long each main crack or bolt is (band widths). */
+  length: number;
+  /** How much they fork (0–1). */
+  branching: number;
+  /** How jagged (0–1). */
+  jagged: number;
+  /** Width at the start (band widths). */
+  width: number;
+  color: string;
+  seed: number;
+}
+
+export const CELL_PATTERNS = ['voronoi', 'hex', 'brick', 'grid', 'scales'] as const;
+export type CellPattern = (typeof CELL_PATTERNS)[number];
+
+/** The band divided into separate plates (flagstones, scales, honeycomb, mosaic), each its own shape (version 7). */
+export interface CellsLayer extends LayerBase {
+  type: 'cells';
+  pattern: CellPattern;
+  from: number;
+  to: number;
+  /** How big a cell is (band widths). */
+  size: number;
+  /** The gap between cells (band widths). */
+  gap: number;
+  /** How irregular Voronoi cells are (0–1). */
+  jitter: number;
+  /** Rounded corners (0–1). */
+  rounding: number;
+  /** Share of cells left out (missing fragments). */
+  missing: number;
+  /** How much each cell's colour varies (0–1). */
+  vary: number;
+  color: string;
+  seed: number;
+}
+
+/** Interlaced bands with real over/under crossings (version 7). */
+export interface KnotworkLayer extends LayerBase {
+  type: 'knotwork';
+  follow: string | null;
+  at: number;
+  /** Band widths per crossing pair (one wave), fitted to the band. */
+  waveLength: number;
+  /** How far the strands swing (band widths). */
+  amplitude: number;
+  /** Strand width (band widths). */
+  width: number;
+  color: string;
+  outline: string | null;
+  /** Outline width each side (band widths). */
+  outlineWidth: number;
+  outlineOpacity: number;
+  /** A shine line down each strand. */
+  shine: boolean;
+  /** Each strand drawn as two lines (a double band). */
+  double: boolean;
+  /** Swaps which strand is on top at each crossing. */
+  flip: boolean;
+}
+
+/** Gears round the band or along a path (version 7). */
+export interface GearsLayer extends LayerBase {
+  type: 'gears';
+  follow: string | null;
+  at: number;
+  count: number;
+  snapToCorners: boolean;
+  /** Diameter (band widths). */
+  size: number;
+  teeth: number;
+  /** Tooth height as a share of the radius. */
+  toothDepth: number;
+  toothShape: 'square' | 'pointed';
+  /** Spokes (0 = a solid wheel). */
+  spokes: number;
+  /** The hub's size as a share of the radius. */
+  hub: number;
+  /** A domed boss in the middle, lit by the light. */
+  domed: boolean;
+  /** Every other gear this size (a multiple). */
+  altSize: number;
+  /** Turns every other gear by half a tooth so neighbours mesh. */
+  interlock: boolean;
+  /** Degrees. */
+  rotation: number;
+  offset: number;
+  color: string;
+  shaded: boolean;
+}
+
+/** A chain of interlocking links round the band or along a path (version 7). */
+export interface ChainLayer extends LayerBase {
+  type: 'chain';
+  follow: string | null;
+  at: number;
+  /** One link's length (band widths). */
+  linkLength: number;
+  /** Width of a link as a share of its length. */
+  linkWidth: number;
+  /** Thickness of the metal (band widths). */
+  thickness: number;
+  color: string;
+  shaded: boolean;
+}
+
 /** Layers kept together: hidden, locked, faded and moved as one. */
 export interface GroupLayer extends LayerBase {
   type: 'group';
@@ -574,7 +758,24 @@ export interface UnsupportedLayer extends LayerBase {
   reason: string;
 }
 
-export type Layer = LegacyFrameLayer | BandFillLayer | LineLayer | RepeatLayer | TextureLayer | ShapeLayer | PathLayer | TextLayer | ContoursLayer | GroupLayer | UnsupportedLayer;
+export type Layer =
+  | LegacyFrameLayer
+  | BandFillLayer
+  | LineLayer
+  | RepeatLayer
+  | TextureLayer
+  | ShapeLayer
+  | PathLayer
+  | TextLayer
+  | ContoursLayer
+  | GrowthLayer
+  | FractureLayer
+  | CellsLayer
+  | KnotworkLayer
+  | GearsLayer
+  | ChainLayer
+  | GroupLayer
+  | UnsupportedLayer;
 /** Layers that a repeat or text can follow (their outline is a track). */
 export type TrackLayer = PathLayer | LineLayer;
 /** Layers with a placement (move, scale, rotate, mirror). */

@@ -5,7 +5,7 @@
 
 import { FRAME_STYLES, SHAPES } from '../engine/legacy/catalog';
 import { isValidHex } from '../engine/legacy/color';
-import { DEFAULT_STAGE, NEW_EFFECT, NEW_LAYER, NO_RADIAL, REPEAT_PHASE7, newId, textureLayer } from './defaults';
+import { cellsLayer, chainLayer, DEFAULT_STAGE, fractureLayer, gearsLayer, growthLayer, knotworkLayer, NEW_EFFECT, NEW_LAYER, NO_RADIAL, REPEAT_PHASE7, newId, textureLayer } from './defaults';
 import {
   BEVEL_PROFILES,
   BLEND_MODES,
@@ -14,7 +14,11 @@ import {
   CLIP_MODES,
   DEFAULT_LIGHT,
   ELEMENT_KINDS,
+  CELL_PATTERNS,
+  FRACTURE_KINDS,
   GEM_CUTS,
+  GROWTH_EXTRAS,
+  GROWTH_KINDS,
   GEM_SETTINGS,
   MIRROR_MODES,
   REPEAT_ORIENTS,
@@ -70,7 +74,7 @@ function addPhase4Fields(layer: unknown): unknown {
   return out;
 }
 
-const KNOWN_TYPES = new Set(['legacyFrame', 'bandFill', 'line', 'repeat', 'texture', 'shape', 'path', 'group']);
+const KNOWN_TYPES = new Set(['legacyFrame', 'bandFill', 'line', 'repeat', 'texture', 'shape', 'path', 'group', 'text', 'contours']);
 // Kinds added later need no migrations for earlier versions (they didn't exist).
 
 /**
@@ -101,6 +105,22 @@ function addPhase7Fields(layer: unknown): unknown {
   return out;
 }
 
+/**
+ * Version 6 → 7 (Phase 8): lines get waves fitted to the band switched off
+ * and wear no scratches; the generators are new kinds and distortion a new
+ * effect, so nothing else changes.
+ */
+function addPhase8Fields(layer: unknown): unknown {
+  if (!isObj(layer) || !KNOWN_TYPES.has(layer.type as string)) return layer;
+  const out: Obj = { ...layer };
+  if (Array.isArray(layer.children)) out.children = layer.children.map(addPhase8Fields);
+  if (layer.type === 'line') out.waveFit ??= 0;
+  const noScratches = (effects: unknown) => (Array.isArray(effects) ? effects.map((e) => (isObj(e) && e.kind === 'wear' ? { scratches: 0, ...e } : e)) : effects);
+  if ('effects' in out) out.effects = noScratches(out.effects);
+  if ('settingEffects' in out) out.settingEffects = noScratches(out.settingEffects);
+  return out;
+}
+
 /** Migrations from version n to n + 1, keyed by n. */
 const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
   1: (p) => ({
@@ -114,6 +134,7 @@ const MIGRATIONS: Record<number, (p: Obj) => Obj> = {
   3: (p) => ({ ...p, schemaVersion: 4, layers: Array.isArray(p.layers) ? p.layers.map(addPhase4Fields) : p.layers }),
   4: (p) => ({ ...p, schemaVersion: 5, layers: Array.isArray(p.layers) ? p.layers.map(addPhase6Fields) : p.layers }),
   5: (p) => ({ ...p, schemaVersion: 6, layers: Array.isArray(p.layers) ? p.layers.map(addPhase7Fields) : p.layers }),
+  6: (p) => ({ ...p, schemaVersion: 7, layers: Array.isArray(p.layers) ? p.layers.map(addPhase8Fields) : p.layers }),
 };
 
 export function parseProject(input: unknown): ParseResult {
@@ -313,7 +334,11 @@ function checkEffects(v: unknown, name: string, warnings: string[]): Effect[] {
           grimeColor: hex(e.grimeColor, d.grimeColor),
           scale: num(e.scale, d.scale, 0.02, 2),
           seed: Math.round(num(e.seed, d.seed, 0, 99999)),
+          scratches: num(e.scratches, d.scratches, 0, 1),
         });
+        break;
+      case 'distort':
+        out.push({ kind: 'distort', on, amount: num(e.amount, d.amount, 0, 0.5), scale: num(e.scale, d.scale, 0.02, 3), seed: Math.round(num(e.seed, d.seed, 0, 99999)) });
         break;
     }
   }
@@ -400,6 +425,7 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
         waveAmplitude: num(o.waveAmplitude, d.waveAmplitude, 0, 2),
         waves: Math.round(num(o.waves, d.waves, 1, 200)),
         wavePhase: num(o.wavePhase, d.wavePhase, 0, 1),
+        waveFit: num(o.waveFit, d.waveFit, 0, 20),
       };
     }
     case 'shape': {
@@ -455,6 +481,126 @@ function checkLayer(l: unknown, index: number, warnings: string[], ids: Set<stri
         paint: checkPaint(o.paint, d.paint),
         altColor: hexOrNull(o.altColor, null),
         dash: oneOf(o.dash, DASHES, 'solid'),
+      };
+    }
+    case 'growth': {
+      const kind = oneOf(o.kind, GROWTH_KINDS, 'vine');
+      const d = growthLayer(kind);
+      return {
+        ...common,
+        type,
+        kind,
+        follow: idOrNull(o.follow),
+        at: num(o.at, d.at, -0.5, 1.5),
+        count: Math.round(num(o.count, d.count, 1, 48)),
+        waveLength: num(o.waveLength, d.waveLength, 0, 20),
+        amplitude: num(o.amplitude, d.amplitude, 0, 2),
+        gnarl: num(o.gnarl, d.gnarl, 0, 1),
+        thickness: num(o.thickness, d.thickness, 0.005, 1),
+        taper: num(o.taper, d.taper, 0, 1),
+        branching: num(o.branching, d.branching, 0, 1),
+        branchLength: num(o.branchLength, d.branchLength, 0.05, 4),
+        branchAngle: num(o.branchAngle, d.branchAngle, 0, 120),
+        curl: num(o.curl, d.curl, -1000, 1000),
+        depth: Math.round(num(o.depth, d.depth, 1, 3)),
+        extra: oneOf(o.extra, GROWTH_EXTRAS, d.extra),
+        extraSpacing: num(o.extraSpacing, d.extraSpacing, 0.1, 5),
+        extraSize: num(o.extraSize, d.extraSize, 0.05, 2),
+        color: hex(o.color, d.color),
+        extraColor: hex(o.extraColor, d.extraColor),
+        seed: Math.round(num(o.seed, d.seed, 0, 99999)),
+      };
+    }
+    case 'fracture': {
+      const d = fractureLayer();
+      return {
+        ...common,
+        type,
+        kind: oneOf(o.kind, FRACTURE_KINDS, d.kind),
+        from: num(o.from, d.from, -0.5, 1.5),
+        to: num(o.to, d.to, -0.5, 1.5),
+        count: Math.round(num(o.count, d.count, 1, 60)),
+        length: num(o.length, d.length, 0.1, 10),
+        branching: num(o.branching, d.branching, 0, 1),
+        jagged: num(o.jagged, d.jagged, 0, 1),
+        width: num(o.width, d.width, 0.005, 0.5),
+        color: hex(o.color, d.color),
+        seed: Math.round(num(o.seed, d.seed, 0, 99999)),
+      };
+    }
+    case 'cells': {
+      const d = cellsLayer();
+      return {
+        ...common,
+        type,
+        pattern: oneOf(o.pattern, CELL_PATTERNS, d.pattern),
+        from: num(o.from, d.from, -0.5, 1.5),
+        to: num(o.to, d.to, -0.5, 1.5),
+        size: num(o.size, d.size, 0.08, 3),
+        gap: num(o.gap, d.gap, 0, 0.5),
+        jitter: num(o.jitter, d.jitter, 0, 1),
+        rounding: num(o.rounding, d.rounding, 0, 1),
+        missing: num(o.missing, d.missing, 0, 0.95),
+        vary: num(o.vary, d.vary, 0, 1),
+        color: hex(o.color, d.color),
+        seed: Math.round(num(o.seed, d.seed, 0, 99999)),
+      };
+    }
+    case 'knotwork': {
+      const d = knotworkLayer();
+      return {
+        ...common,
+        type,
+        follow: idOrNull(o.follow),
+        at: num(o.at, d.at, -0.5, 1.5),
+        waveLength: num(o.waveLength, d.waveLength, 0.2, 10),
+        amplitude: num(o.amplitude, d.amplitude, 0, 2),
+        width: num(o.width, d.width, 0.01, 1),
+        color: hex(o.color, d.color),
+        outline: hexOrNull(o.outline, d.outline),
+        outlineWidth: num(o.outlineWidth, d.outlineWidth, 0, 0.3),
+        outlineOpacity: num(o.outlineOpacity, d.outlineOpacity, 0, 1),
+        shine: bool(o.shine, d.shine),
+        double: bool(o.double, d.double),
+        flip: bool(o.flip, d.flip),
+      };
+    }
+    case 'gears': {
+      const d = gearsLayer();
+      return {
+        ...common,
+        type,
+        follow: idOrNull(o.follow),
+        at: num(o.at, d.at, -0.5, 1.5),
+        count: Math.round(num(o.count, d.count, 1, 96)),
+        snapToCorners: bool(o.snapToCorners, d.snapToCorners),
+        size: num(o.size, d.size, 0.05, 4),
+        teeth: Math.round(num(o.teeth, d.teeth, 3, 48)),
+        toothDepth: num(o.toothDepth, d.toothDepth, 0, 0.6),
+        toothShape: oneOf(o.toothShape, ['square', 'pointed'] as const, d.toothShape),
+        spokes: Math.round(num(o.spokes, d.spokes, 0, 12)),
+        hub: num(o.hub, d.hub, 0, 0.9),
+        domed: bool(o.domed, d.domed),
+        altSize: num(o.altSize, d.altSize, 0.2, 3),
+        interlock: bool(o.interlock, d.interlock),
+        rotation: num(o.rotation, d.rotation, -360, 360),
+        offset: num(o.offset, d.offset, 0, 1),
+        color: hex(o.color, d.color),
+        shaded: bool(o.shaded, d.shaded),
+      };
+    }
+    case 'chain': {
+      const d = chainLayer();
+      return {
+        ...common,
+        type,
+        follow: idOrNull(o.follow),
+        at: num(o.at, d.at, -0.5, 1.5),
+        linkLength: num(o.linkLength, d.linkLength, 0.05, 4),
+        linkWidth: num(o.linkWidth, d.linkWidth, 0.2, 1.5),
+        thickness: num(o.thickness, d.thickness, 0.01, 1),
+        color: hex(o.color, d.color),
+        shaded: bool(o.shaded, d.shaded),
       };
     }
     case 'group':

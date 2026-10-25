@@ -38,7 +38,8 @@ export const NEW_EFFECT: Record<EffectKind, () => Effect> = {
     amount: 1,
   }),
   adjust: () => ({ kind: 'adjust', on: true, hue: 0, saturation: 0, brightness: 0, contrast: 0 }),
-  wear: () => ({ kind: 'wear', on: true, chips: 0.35, polish: 0.4, grime: 0.4, grimeColor: '#2a2016', scale: 0.3, seed: 1 }),
+  wear: () => ({ kind: 'wear', on: true, chips: 0.35, polish: 0.4, grime: 0.4, grimeColor: '#2a2016', scale: 0.3, seed: 1, scratches: 0 }),
+  distort: () => ({ kind: 'distort', on: true, amount: 0.04, scale: 0.3, seed: 1 }),
 };
 
 /** What each effect is called in the interface. */
@@ -49,4 +50,5 @@ export const EFFECT_NAMES: Record<EffectKind, string> = {
   recolour: 'Material colour',
   adjust: 'Colour adjust',
   wear: 'Wear and grime',
+  distort: 'Distortion',
 };
