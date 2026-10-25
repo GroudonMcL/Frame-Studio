@@ -47,6 +47,11 @@ const LIMITS: Record<string, { mean: number; over: number }> = {
   knotwork: { mean: 3.4, over: 5.5 },
   barbarian: { mean: 1.6, over: 3.2 },
   artificer: { mean: 1.5, over: 2.2 },
+  // Version 10, with the ornaments and textures made for them:
+  stamped: { mean: 0.2, over: 0.05 }, // the same picture to within rounding
+  ranger: { mean: 2.8, over: 8 },
+  bard: { mean: 0.6, over: 0.35 },
+  warlock: { mean: 2.2, over: 3 },
 };
 
 const converted = FRAME_PRESETS.filter((p) => canConvert(p.style));
@@ -150,12 +155,11 @@ describe('the converted layers', () => {
     expect(group.children.length).toBe(8);
   });
 
-  it('frames without a converter stay as they are', () => {
-    for (const style of ['stamped', 'fletching', 'notes', 'eyes', 'none'] as const) {
-      expect(canConvert(style)).toBe(false);
-      expect(convertFrame(style, { color: '#888888', accent: null })).toBeNull();
-    }
-    expect(convertLegacyLayer(legacyFrameLayer('stamped'))).toBeNull();
-    expect(CONVERTIBLE_STYLES.length).toBe(21);
+  it('every Token Maker frame converts; "No frame" has nothing to convert', () => {
+    expect(canConvert('none')).toBe(false);
+    expect(convertFrame('none', { color: '#888888', accent: null })).toBeNull();
+    expect(convertLegacyLayer(legacyFrameLayer('none'))).toBeNull();
+    expect(CONVERTIBLE_STYLES.length).toBe(25);
+    expect(FRAME_PRESETS.filter((p) => p.style !== 'none').every((p) => canConvert(p.style))).toBe(true);
   });
 });

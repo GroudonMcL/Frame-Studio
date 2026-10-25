@@ -1,6 +1,6 @@
 // @vitest-environment node
 // Project files saved by earlier versions (fixtures/v1/ by Phase 1,
-// fixtures/v2/ by Phase 2, fixtures/v3/ by Phase 3, fixtures/v4/ by Phase 5, fixtures/v5/ by Phase 6, fixtures/v6/ by Phase 7, fixtures/v7/ by Phase 8, fixtures/v8/ by Phase 9) must still open and draw
+// fixtures/v2/ by Phase 2, fixtures/v3/ by Phase 3, fixtures/v4/ by Phase 5, fixtures/v5/ by Phase 6, fixtures/v6/ by Phase 7, fixtures/v7/ by Phase 8, fixtures/v8/ by Phase 9, fixtures/v9/ by Phase 10) must still open and draw
 // as they did then. Each
 // .png beside a file is that picture as its version rendered it at 160 px.
 // Since Phase 3 every layer is drawn on its own canvas and then composited
@@ -36,6 +36,7 @@ const v5 = fixtures('v5');
 const v6 = fixtures('v6');
 const v7 = fixtures('v7');
 const v8 = fixtures('v8');
+const v9 = fixtures('v9');
 
 /** The largest difference between two pictures, per premultiplied channel (0–255), and the mean. */
 function difference(a: Uint8ClampedArray, b: Uint8ClampedArray): { max: number; mean: number } {
@@ -73,6 +74,7 @@ describe.each([
   ['version-6', v6],
   ['version-7', v7],
   ['version-8', v8],
+  ['version-9', v9],
 ])('%s project files', (_name, files) => {
   it('there are fixtures, each with its picture', () => {
     expect(files.length).toBeGreaterThan(1);
@@ -119,5 +121,32 @@ describe('version-3 files', () => {
       if (paint.kind === 'linear') expect(paint.followLight).toBe(false);
       if (paint.kind === 'linear' || paint.kind === 'acrossBand') for (const s of paint.stops) expect(s.opacity).toBe(1);
     }
+  });
+});
+
+describe('files from before version 10', () => {
+  it.each([...v4, ...v5, ...v6, ...v7, ...v8, ...v9])('$file gets the version-10 settings switched off', ({ path }) => {
+    const r = parseProject(readFileSync(path, 'utf8'));
+    if (!r.ok) throw new Error(r.error);
+    const all = (layers: typeof r.project.layers): typeof r.project.layers => layers.flatMap((l) => (l.type === 'group' ? [l, ...all(l.children)] : [l]));
+    for (const l of all(r.project.layers)) {
+      if (l.type === 'line') expect(l).toMatchObject({ waveShape: 'sine', raised: false });
+      if (l.type === 'repeat') expect(l).toMatchObject({ detail: null, multipleOf: 1, wander: 0, fillPaint: null, paintEach: false });
+      if (l.type === 'shape') expect(l).toMatchObject({ element: 'heart', detail: null });
+      if (l.type === 'shape' || l.type === 'path') expect(l).toMatchObject({ fillPaint: null, paintEach: false });
+    }
+  });
+});
+
+describe('version-5 files', () => {
+  it.each(v5)('$file is a version-5 file whose repeats, shapes and paths get no fill paint', ({ path }) => {
+    const text = readFileSync(path, 'utf8');
+    expect(JSON.parse(text).schemaVersion).toBe(5);
+    const r = parseProject(text);
+    if (!r.ok) throw new Error(r.error);
+    const all = (layers: typeof r.project.layers): typeof r.project.layers => layers.flatMap((l) => (l.type === 'group' ? [l, ...all(l.children)] : [l]));
+    const filled = all(r.project.layers).filter((l) => l.type === 'repeat' || l.type === 'shape' || l.type === 'path');
+    expect(filled.length).toBeGreaterThan(0);
+    for (const l of filled) expect(l).toMatchObject({ fillPaint: null, paintEach: false });
   });
 });

@@ -6,7 +6,7 @@ import { FRAME_PRESETS } from '../engine/legacy/catalog';
 import { mix, shade } from '../engine/legacy/color';
 import { frameAccent } from '../engine/legacy/frames';
 import { canConvert, differenceNote } from '../project/convert';
-import { GROWTH_PRESETS, LAYER_TYPE_NAMES, TEXTURES } from '../project/defaults';
+import { GROWTH_PRESETS, LAYER_TYPE_NAMES, NEW_LAYER, TEXTURES, textureLayer } from '../project/defaults';
 import { findLayer, locate } from '../project/tree';
 import {
   BLEND_MODES,
@@ -24,6 +24,7 @@ import {
   TEXT_FONTS,
   SHAPE_KINDS,
   TEXTURE_KINDS,
+  WAVE_SHAPES,
   TEXTURE_PLACES,
   type BlendMode,
   type ClipMode,
@@ -41,7 +42,6 @@ import {
   type GrowthLayer,
   type KnotworkLayer,
   type GemSetting,
-  type RepeatLayer,
   type TextFont,
   type TextLayer,
   type GradientStop,
@@ -50,15 +50,18 @@ import {
   type Paint,
   type PathLayer,
   type PlacedLayer,
+  type RepeatLayer,
   type RingStop,
   type ShapeKind,
   type TextureLayer,
   type TexturePlace,
+  type WaveShape,
 } from '../project/types';
 import { bandGeometry } from '../render/band';
 import { litFor } from '../render/paint';
 import { TEXTURE_NAMES } from '../render/textures';
-import { ELEMENT_NAMES } from '../render/elements';
+import { DETAIL_NAMES, ELEMENT_NAMES, LINE_ELEMENTS } from '../render/elements';
+import { PICTURES, pictureById } from '../project/pictures';
 import { switchPlace, toggleSeparate, toggleSmooth } from '../render/hitTest';
 import { commit, convertToLayers, finishDrawing, setPathEdit, setPathPoints, shapeToPath, turnGroup, ungroup, updateLayer, useProject, useUi } from '../state/projectStore';
 import { ColorField, ColorList, Fold, OptionalColor, PatternField, PercentList, Select, Slider, TextField, Toggle } from './controls';
@@ -106,6 +109,7 @@ const SHAPE_NAMES: Record<ShapeKind, string> = {
   rectangle: 'Rectangle',
   polygon: 'Polygon',
   star: 'Star',
+  ornament: 'Ornament (heart, fleur-de-lis…)',
 };
 
 const COMBINE_NAMES: Record<CombineMode, string> = {
@@ -146,6 +150,15 @@ const FONT_NAMES: Record<TextFont, string> = {
 /** Metal styles a setting can take. */
 const SETTING_STYLES = ['gold', 'silver', 'hammered-bronze', 'blackened-iron', 'brushed-steel', 'verdigris'];
 
+const WAVE_NAMES: Record<WaveShape, string> = {
+  sine: 'Smooth waves',
+  zigzag: 'Zigzag',
+  scallop: 'Scallops',
+  square: 'Battlements',
+};
+
+const DETAIL_HINT = 'The colour of its second part; off works one out from the main colour.';
+
 const WHERE_NAMES: Record<TexturePlace, string> = {
   everywhere: 'Everywhere',
   shaded: 'Mostly on the shaded side',
@@ -158,7 +171,14 @@ function setterFor<L extends Layer>(layer: L): Set<L> {
   return (patch, transient) => updateLayer(layer.id, patch as Partial<Layer>, { transient });
 }
 
-/** A slider bound to one numeric setting of a layer. */
+/** A new layer of the same kind: what the reset buttons put settings back to. */
+function defaultsFor(layer: Layer): Record<string, unknown> {
+  if (layer.type === 'texture') return textureLayer(layer.kind) as unknown as Record<string, unknown>;
+  if (layer.type === 'unsupported') return {};
+  return NEW_LAYER[layer.type]() as unknown as Record<string, unknown>;
+}
+
+/** A slider bound to one numeric setting of a layer, with a button that puts it back as a new layer has it. */
 function num<L extends Layer>(layer: L, set: Set<L>, key: keyof L & string, label: string, min: number, max: number, extra: Partial<Parameters<typeof Slider>[0]> = {}) {
   return (
     <Slider
@@ -168,6 +188,7 @@ function num<L extends Layer>(layer: L, set: Set<L>, key: keyof L & string, labe
       min={min}
       max={max}
       disabled={layer.locked}
+      defaultValue={typeof defaultsFor(layer)[key] === 'number' ? (defaultsFor(layer)[key] as number) : undefined}
       onChange={(v, transient) => set({ [key]: v } as Partial<L>, transient)}
       onCommit={commit}
       {...extra}
@@ -277,7 +298,7 @@ function LayerControls({ layer, light }: { layer: Layer; light: number }) {
               set({ presetId, style: p.style, color: p.color, accent: null, name: layer.name === FRAME_PRESETS.find((f) => f.id === layer.presetId)?.name ? p.name : layer.name });
             }}
           />
-          <ColorField label="Colour" value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+          <ColorField label="Colour" value={layer.color} disabled={disabled} defaultValue={FRAME_PRESETS.find((f) => f.id === layer.presetId)?.color} onChange={(color, t) => set({ color }, t)} />
           {accent && (
             <ColorField
               label="Highlights colour"
@@ -328,6 +349,7 @@ function LayerControls({ layer, light }: { layer: Layer; light: number }) {
           />
           {layer.waveAmplitude > 0 && (
             <>
+              <Select label="Wave shape" value={layer.waveShape} disabled={disabled} options={WAVE_SHAPES.map((w) => ({ value: w, label: WAVE_NAMES[w] }))} onChange={(waveShape) => set({ waveShape })} />
               {num(layer, set, 'waveAmplitude', 'Wave height', 0.01, 1, { ...pct, hint: 'How far it wanders, as a share of the band width.' })}
               <Toggle
                 label="Fit the waves to the band"
@@ -342,6 +364,7 @@ function LayerControls({ layer, light }: { layer: Layer; light: number }) {
               {num(layer, set, 'wavePhase', 'Slide the waves', 0, 1, pct)}
             </>
           )}
+          <Toggle label="Raised (small shadow)" checked={layer.raised} disabled={disabled} onChange={(raised) => set({ raised })} />
         </>
       );
     }
@@ -402,7 +425,9 @@ function LayerControls({ layer, light }: { layer: Layer; light: number }) {
       return (
         <>
           <Select label="Shape" value={layer.element} disabled={disabled} options={ELEMENT_KINDS.map((k) => ({ value: k, label: ELEMENT_NAMES[k] }))} onChange={(element) => set({ element })} />
-          <ColorField label="Colour" value={layer.fill} disabled={disabled} onChange={(fill, t) => set({ fill }, t)} />
+          <ColorField label="Colour" value={layer.fill} disabled={disabled} defaultValue={defaultsFor(layer).fill as string} onChange={(fill, t) => set({ fill }, t)} />
+          <FillPaintControls layer={layer} set={set as never} />
+          {DETAIL_NAMES[layer.element] && <OptionalColor label={DETAIL_NAMES[layer.element]!} hint={DETAIL_HINT} value={layer.detail} fallback="#f2ead8" disabled={disabled} onChange={(detail, t) => set({ detail }, t)} />}
           <Select
             label="How many"
             value={layer.mode}
@@ -473,8 +498,10 @@ function LayerControls({ layer, light }: { layer: Layer; light: number }) {
             />
             {num(layer, set, 'alternateSides', 'Alternate sides', 0, 1, { ...pct, hint: 'Every other one moves inwards and points the other way, like leaves on a vine. 0 = off.' })}
             {num(layer, set, 'scaleEnd', 'Size at the end', 0.1, 3, { ...pct, step: 0.05, hint: 'How big the last one is compared with the first; they grow or shrink evenly along the way.' })}
+            {num(layer, set, 'multipleOf', 'Make the number a multiple of', 1, 12, { step: 1, hint: 'Rounds how many there are to a multiple of this: 2 keeps it even, so alternating patterns meet up all the way round.' })}
           </Fold>
-          <Fold title="Random variation" defaultOpen={layer.jitterSize > 0 || layer.jitterAngle > 0 || layer.skipChance > 0}>
+          <Fold title="Random variation" defaultOpen={layer.jitterSize > 0 || layer.jitterAngle > 0 || layer.skipChance > 0 || layer.wander > 0}>
+            {num(layer, set, 'wander', 'Wander in and out', 0, 1.5, { ...pct, hint: 'Moves each one in or out across the band by a random amount, like Bard’s dancing notes.' })}
             {num(layer, set, 'jitterSize', 'Vary the size', 0, 1, { ...pct, hint: 'Makes each one a little bigger or smaller, at random.' })}
             {num(layer, set, 'jitterAngle', 'Vary the angle', 0, 180, { step: 1, unit: '°', hint: 'Turns each one a little either way, at random, up to this many degrees.' })}
             {num(layer, set, 'skipChance', 'Leave some out', 0, 0.9, { ...pct, hint: 'The chance of each one being left out, for a scattered look.' })}
@@ -509,7 +536,7 @@ function AdvancedControls({ layer }: { layer: Layer }) {
     <>
       {num(layer, set, 'stretch', 'Width ÷ height', 0.2, 3, { step: 0.05 })}
       <OptionalColor label="Outline" value={layer.outline} fallback="#1a1008" disabled={disabled} onChange={(outline, t) => set({ outline }, t)} />
-      {num(layer, set, 'outlineWidth', layer.element === 'rune' ? 'Stroke width' : 'Outline width', 0, 0.4, pct)}
+      {num(layer, set, 'outlineWidth', LINE_ELEMENTS.has(layer.element) ? 'Stroke width' : 'Outline width', 0, 0.4, pct)}
       <OptionalColor label="Glow" value={layer.glow} fallback="#6fc3ff" disabled={disabled} onChange={(glow, t) => set({ glow }, t)} />
       {num(layer, set, 'accentEvery', 'Bigger one every… (0 = off)', 0, 24, { step: 1 })}
       {layer.accentEvery > 0 && num(layer, set, 'accentScale', 'Bigger by', 0.2, 4, { step: 0.05, scale: 100, unit: '%' })}
@@ -526,9 +553,11 @@ const PAINT_KINDS: { value: Paint['kind']; label: string }[] = [
   { value: 'linear', label: 'Gradient across the token' },
   { value: 'acrossBand', label: 'Gradient across the band' },
   { value: 'ring', label: 'Colours round the ring' },
+  { value: 'picture', label: 'Photo texture' },
 ];
 
 function colorOf(paint: Paint): string {
+  if (paint.kind === 'picture') return paint.tint ?? pictureById(paint.picture)?.average ?? '#808080';
   return 'color' in paint ? paint.color : paint.stops[0].color;
 }
 
@@ -553,22 +582,60 @@ function convert(paint: Paint, kind: Paint['kind']): Paint {
       return { kind, angle: 45, stops, followLight: false };
     case 'acrossBand':
       return { kind, stops };
+    case 'picture':
+      return { kind, picture: 'gold', scale: 3, angle: 0, bend: true, tint: null, lighting: 0.5 };
   }
 }
 
-export function PaintEditor({ paint, disabled, onChange }: { paint: Paint; disabled: boolean; onChange: (p: Paint, transient?: boolean) => void }) {
+/** A repeat's, shape's or path's fill: its colour, or a paint (Version 6). */
+function FillPaintControls({ layer, set }: { layer: RepeatLayer | PlacedLayer; set: (patch: { fillPaint?: Paint | null; paintEach?: boolean }, transient?: boolean) => void }) {
+  const disabled = layer.locked;
+  const color = 'element' in layer && layer.type === 'repeat' ? layer.fill : (layer.fill ?? '#808080');
+  return (
+    <>
+      <Select
+        label="Fill with"
+        value={layer.fillPaint ? 'paint' : 'colour'}
+        disabled={disabled}
+        options={[
+          { value: 'colour', label: 'A colour' },
+          { value: 'paint', label: 'A paint (gradient, metal, photo…)' },
+        ]}
+        onChange={(v) => set({ fillPaint: v === 'paint' ? { kind: 'lit', color, light: 0.85, dark: 0.8, pressed: false, highlight: null } : null })}
+      />
+      {layer.fillPaint && (
+        <>
+          <PaintEditor paint={layer.fillPaint} disabled={disabled} ornament onChange={(fillPaint, t) => set({ fillPaint }, t)} />
+          <Toggle label="Paint each one on its own" checked={layer.paintEach} disabled={disabled} onChange={(paintEach) => set({ paintEach })} />
+        </>
+      )}
+    </>
+  );
+}
+
+export function PaintEditor({ paint, disabled, onChange, ornament = false }: { paint: Paint; disabled: boolean; onChange: (p: Paint, transient?: boolean) => void; ornament?: boolean }) {
   const advanced = useUi((s) => s.mode === 'advanced');
   return (
     <>
       <Select label="Paint" value={paint.kind} disabled={disabled} options={PAINT_KINDS} onChange={(k) => onChange(convert(paint, k))} />
+      {paint.kind === 'picture' && (
+        <>
+          <Select label="Photo" value={paint.picture} disabled={disabled} options={PICTURES.map((p) => ({ value: p.id, label: p.name }))} onChange={(picture) => onChange({ ...paint, picture })} />
+          <Slider label="Tile size" value={paint.scale} min={0.5} max={15} step={0.05} scale={100} unit="%" disabled={disabled} defaultValue={3} onChange={(scale, t) => onChange({ ...paint, scale }, t)} onCommit={commit} />
+          <Slider label="Turn the photo" value={paint.angle} min={-180} max={180} step={1} unit="°" disabled={disabled} defaultValue={0} onChange={(angle, t) => onChange({ ...paint, angle }, t)} onCommit={commit} />
+          {!ornament && <Toggle label="Bend round the band" checked={paint.bend} disabled={disabled} onChange={(bend) => onChange({ ...paint, bend })} />}
+          <OptionalColor label="Tint" value={paint.tint} fallback={pictureById(paint.picture)?.average ?? '#c9a24a'} disabled={disabled} onChange={(tint, t) => onChange({ ...paint, tint }, t)} />
+          <Slider label="Light and shade" value={paint.lighting} min={0} max={1} disabled={disabled} {...pct} defaultValue={0.5} onChange={(lighting, t) => onChange({ ...paint, lighting }, t)} onCommit={commit} />
+        </>
+      )}
       {(paint.kind === 'solid' || paint.kind === 'lit') && <ColorField label="Colour" value={paint.color} disabled={disabled} onChange={(color, t) => onChange({ ...paint, color }, t)} />}
       {paint.kind === 'lit' && (
         <>
           <Toggle label="Pressed in (lit from the other side)" checked={paint.pressed} disabled={disabled} onChange={(pressed) => onChange({ ...paint, pressed })} />
           {advanced && (
             <>
-              <Slider label="Highlight" value={paint.light} min={0} max={1} disabled={disabled} {...pct} onChange={(light, t) => onChange({ ...paint, light }, t)} onCommit={commit} />
-              <Slider label="Shade" value={paint.dark} min={0} max={1} disabled={disabled} {...pct} onChange={(dark, t) => onChange({ ...paint, dark }, t)} onCommit={commit} />
+              <Slider label="Highlight" value={paint.light} min={0} max={1} disabled={disabled} {...pct} defaultValue={0.85} onChange={(light, t) => onChange({ ...paint, light }, t)} onCommit={commit} />
+              <Slider label="Shade" value={paint.dark} min={0} max={1} disabled={disabled} {...pct} defaultValue={0.8} onChange={(dark, t) => onChange({ ...paint, dark }, t)} onCommit={commit} />
               <OptionalColor
                 label="Highlight colour"
                 hint="The colour of the lit side. Off: a warm, pale version of the colour, as Token Maker draws it."
@@ -584,7 +651,7 @@ export function PaintEditor({ paint, disabled, onChange }: { paint: Paint; disab
       {paint.kind === 'ring' && <RingStops paint={paint} disabled={disabled} onChange={onChange} />}
       {paint.kind === 'linear' && (
         <>
-          <Slider label="Angle" value={paint.angle} min={-180} max={180} step={1} unit="°" disabled={disabled} onChange={(angle, t) => onChange({ ...paint, angle }, t)} onCommit={commit} />
+          <Slider label="Angle" value={paint.angle} min={-180} max={180} step={1} unit="°" disabled={disabled} defaultValue={45} onChange={(angle, t) => onChange({ ...paint, angle }, t)} onCommit={commit} />
           <Toggle
             label="Turn with the light"
             hint="On: the angle is for a light at the top left and turns when you move the light, like a lit rim. Off: it stays where it is."
@@ -705,6 +772,9 @@ function RingStops({ paint, disabled, onChange }: { paint: Extract<Paint, { kind
 const TEXTURE_COLOUR_LABEL: Partial<Record<TextureLayer['kind'], [string, string]>> = {
   scatter: ['Star colour', 'The colour of the stars.'],
   cracks: ['Glow colour', 'The colour the cracks glow.'],
+  rust: ['Rust colour', 'The colour of the rust patches.'],
+  frost: ['Ice colour', 'The colour of the frost and its crystals.'],
+  sparkle: ['Sparkle colour', 'The colour of the sparkles.'],
 };
 
 function TextureControls({ layer }: { layer: TextureLayer }) {
@@ -724,7 +794,7 @@ function TextureControls({ layer }: { layer: TextureLayer }) {
           set({ kind, seed: preset.seed ?? layer.seed, color2: kind === 'scatter' ? (layer.color2 ?? preset.color2 ?? null) : layer.color2, ...(named ? { name: preset.name } : {}) });
         }}
       />
-      <ColorField label={colourLabel} hint={colourHint} value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+      <ColorField label={colourLabel} hint={colourHint} value={layer.color} disabled={disabled} defaultValue={defaultsFor(layer).color as string} onChange={(color, t) => set({ color }, t)} />
       {layer.kind === 'scatter' && <OptionalColor label="Haze" hint="Soft clouds of colour behind the stars." value={layer.color2} fallback="#6a5acd" disabled={disabled} onChange={(color2, t) => set({ color2 }, t)} />}
       {num(layer, set, 'amount', 'How many', 0.1, 3, { ...pct, step: 0.05, hint: '100% is as many as Token Maker draws.' })}
       {num(layer, set, 'scale', 'Size', 0.2, 3, { ...pct, step: 0.05, hint: '100% is the size Token Maker draws them.' })}
@@ -765,9 +835,17 @@ function PlacedControls({ layer }: { layer: PlacedLayer }) {
           {(layer.shape === 'polygon' || layer.shape === 'star') && num(layer, set, 'sides', layer.shape === 'star' ? 'Points' : 'Sides', 3, 16, { step: 1 })}
           {layer.shape === 'star' && num(layer, set, 'innerRatio', 'Inner points', 0.1, 0.95, pct)}
           {layer.shape === 'rectangle' && num(layer, set, 'corner', 'Round the corners', 0, 1, pct)}
-          <button type="button" className="btn small" disabled={disabled} onClick={() => shapeToPath(layer.id)} title="Make it a path with the same outline, so its points can be moved one by one">
-            <PenTool size={16} /> Turn into a path
-          </button>
+          {layer.shape === 'ornament' && (
+            <Select label="Ornament" value={layer.element} disabled={disabled} options={ELEMENT_KINDS.map((k) => ({ value: k, label: ELEMENT_NAMES[k] }))} onChange={(element) => set({ element })} />
+          )}
+          {layer.shape === 'ornament' && DETAIL_NAMES[layer.element] && (
+            <OptionalColor label={DETAIL_NAMES[layer.element]!} hint={DETAIL_HINT} value={layer.detail} fallback="#f2ead8" disabled={disabled} onChange={(detail, t) => set({ detail }, t)} />
+          )}
+          {layer.shape !== 'ornament' && (
+            <button type="button" className="btn small" disabled={disabled} onClick={() => shapeToPath(layer.id)} title="Make it a path with the same outline, so its points can be moved one by one">
+              <PenTool size={16} /> Turn into a path
+            </button>
+          )}
         </>
       ) : (
         <>
@@ -778,7 +856,7 @@ function PlacedControls({ layer }: { layer: PlacedLayer }) {
         </>
       )}
       <OptionalColor label="Fill" value={layer.fill} fallback="#5fa8d3" disabled={disabled} onChange={(fill, t) => set({ fill }, t)} />
-      {layer.fill !== null && (
+      {layer.fill !== null && !(layer.type === 'shape' && layer.shape === 'ornament') && (
         <Toggle
           label="Cut into facets"
           hint="Cuts it into flat faces rising to a flat top or a point, each lit by the light, like a cut gem, a star badge or a metal plate."
@@ -793,6 +871,7 @@ function PlacedControls({ layer }: { layer: PlacedLayer }) {
           {num(layer, set, 'facetDepth', 'Facet depth', 0.2, 3, { step: 0.05, scale: 100, unit: '%', hint: 'How steep the faces are, so how strongly they catch the light.' })}
         </>
       )}
+      {layer.fill !== null && !layer.faceted && <FillPaintControls layer={layer} set={set as never} />}
       {layer.fill !== null && !layer.faceted && <Toggle label="Shaded by the light" checked={layer.shaded} disabled={disabled} onChange={(shaded) => set({ shaded })} />}
       <OptionalColor label="Outline" value={layer.outline} fallback="#1a1008" disabled={disabled} onChange={(outline, t) => set({ outline }, t)} />
       {layer.outline !== null && num(layer, set, 'outlineWidth', 'Outline width', 0.005, 0.4, pct)}
@@ -978,7 +1057,7 @@ function SettingControls({ layer }: { layer: RepeatLayer }) {
             ]}
             onChange={(id) => id !== 'custom' && set({ settingEffects: id === 'plain' ? [] : STYLES.find((s) => s.id === id)!.effects() })}
           />
-          <ColorField label="Setting colour" hint="The setting's colour (a metal style turns it into that metal)." value={layer.settingColor} disabled={disabled} onChange={(settingColor, t) => set({ settingColor }, t)} />
+          <ColorField label="Setting colour" hint="The setting's colour (a metal style turns it into that metal)." value={layer.settingColor} disabled={disabled} defaultValue={defaultsFor(layer).settingColor as string} onChange={(settingColor, t) => set({ settingColor }, t)} />
           {advanced && <EffectStack effects={layer.settingEffects} disabled={disabled} advanced={advanced} label="setting" onChange={(settingEffects, t) => set({ settingEffects }, t)} />}
         </>
       )}
@@ -994,7 +1073,7 @@ function TextControls({ layer }: { layer: TextLayer }) {
     <>
       <TextField label="Text" hint="The words. Runes turn letters into Elder Futhark runes (th and ng have their own) and spaces into dots." value={layer.text} disabled={disabled} onChange={(text, t) => set({ text }, t)} />
       <Select label="Font" hint="The letters' style: runes, an old-style face or a plain one." value={layer.font} disabled={disabled} options={TEXT_FONTS.map((f) => ({ value: f, label: FONT_NAMES[f] }))} onChange={(font) => set({ font })} />
-      <ColorField label="Colour" value={layer.fill} disabled={disabled} onChange={(fill, t) => set({ fill }, t)} />
+      <ColorField label="Colour" value={layer.fill} disabled={disabled} defaultValue={defaultsFor(layer).fill as string} onChange={(fill, t) => set({ fill }, t)} />
       {num(layer, set, 'size', 'Letter height', 0.05, 1.5, { ...pct, hint: 'How tall the letters are, as a share of the band width.' })}
       {num(layer, set, 'spacing', 'Letter spacing', -0.3, 1.5, { ...pct, hint: 'Extra room between the letters.' })}
       <FollowSelect layer={layer} onChange={(follow) => set({ follow })} />
@@ -1109,7 +1188,7 @@ function GrowthControls({ layer }: { layer: GrowthLayer }) {
         options={GROWTH_KINDS.map((k) => ({ value: k, label: GROWTH_NAMES[k] }))}
         onChange={(kind) => set({ ...GROWTH_PRESETS[kind], kind })}
       />
-      <ColorField label="Colour" value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+      <ColorField label="Colour" value={layer.color} disabled={disabled} defaultValue={defaultsFor(layer).color as string} onChange={(color, t) => set({ color }, t)} />
       <TrackControls layer={layer} />
       {num(layer, set, 'count', layer.kind === 'antlers' ? 'How many antlers' : 'Stems', 1, layer.kind === 'antlers' ? 24 : 4, { step: 1, hint: layer.kind === 'antlers' ? 'How many antlers grow round the band.' : 'How many stems twine round, each its own way.' })}
       {num(layer, set, 'thickness', 'Thickness', 0.01, 0.4, { ...pct, hint: 'How thick the stem is, as a share of the band width.' })}
@@ -1127,7 +1206,7 @@ function GrowthControls({ layer }: { layer: GrowthLayer }) {
       <Select label="Along it" hint="Leaves, thorns or berries along the stem (and leaves or berries on the branch tips)." value={layer.extra} disabled={disabled} options={GROWTH_EXTRAS.map((e) => ({ value: e, label: EXTRA_NAMES[e] }))} onChange={(extra) => set({ extra })} />
       {layer.extra !== 'none' && (
         <>
-          <ColorField label="Their colour" hint="The colour of the leaves, thorns or berries." value={layer.extraColor} disabled={disabled} onChange={(extraColor, t) => set({ extraColor }, t)} />
+          <ColorField label="Their colour" hint="The colour of the leaves, thorns or berries." value={layer.extraColor} disabled={disabled} defaultValue={defaultsFor(layer).extraColor as string} onChange={(extraColor, t) => set({ extraColor }, t)} />
           {num(layer, set, 'extraSpacing', 'Spacing', 0.1, 3, { ...pct, step: 0.01, hint: 'How far apart they are along the stem, as a share of the band width.' })}
           {num(layer, set, 'extraSize', 'Their size', 0.05, 1.5, { ...pct, hint: 'How big they are, as a share of the band width.' })}
         </>
@@ -1153,7 +1232,7 @@ function FractureControls({ layer }: { layer: FractureLayer }) {
         ]}
         onChange={(kind) => set(kind === 'lightning' ? { kind, color: '#d8eeff', count: 3, length: 5, width: 0.035, jagged: 0.6 } : { kind, color: '#1a1208', count: 6, length: 1.6, width: 0.05, jagged: 0.5 })}
       />
-      <ColorField label="Colour" value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+      <ColorField label="Colour" value={layer.color} disabled={disabled} defaultValue={defaultsFor(layer).color as string} onChange={(color, t) => set({ color }, t)} />
       {num(layer, set, 'count', 'How many', 1, 40, { step: 1, hint: 'How many cracks or bolts.' })}
       {num(layer, set, 'length', 'Length', 0.1, 10, { ...pct, step: 0.05, hint: 'How long each one is, as a share of the band width.' })}
       {num(layer, set, 'width', 'Width', 0.005, 0.3, { ...pct, hint: 'How wide each is where it starts; they taper to their ends.' })}
@@ -1173,7 +1252,7 @@ function CellsControls({ layer }: { layer: CellsLayer }) {
   return (
     <>
       <Select label="Pattern" hint="How the band is divided into plates." value={layer.pattern} disabled={disabled} options={CELL_PATTERNS.map((c) => ({ value: c, label: PATTERN_NAMES[c] }))} onChange={(pattern) => set({ pattern })} />
-      <ColorField label="Colour" value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+      <ColorField label="Colour" value={layer.color} disabled={disabled} defaultValue={defaultsFor(layer).color as string} onChange={(color, t) => set({ color }, t)} />
       {num(layer, set, 'size', 'Plate size', 0.08, 2, { ...pct, hint: 'How big each plate is, as a share of the band width.' })}
       {num(layer, set, 'gap', 'Gap', 0, 0.3, { ...pct, hint: 'The gap between plates, as a share of the band width.' })}
       {layer.pattern === 'voronoi' && num(layer, set, 'jitter', 'Irregular', 0, 1, { ...pct, hint: 'How uneven the plates are: 0% is a neat grid.' })}
@@ -1193,7 +1272,7 @@ function KnotworkControls({ layer }: { layer: KnotworkLayer }) {
   const set = setterFor(layer);
   return (
     <>
-      <ColorField label="Colour" value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+      <ColorField label="Colour" value={layer.color} disabled={disabled} defaultValue={defaultsFor(layer).color as string} onChange={(color, t) => set({ color }, t)} />
       <TrackControls layer={layer} />
       {num(layer, set, 'width', 'Strand width', 0.02, 0.6, { ...pct, hint: 'How wide each strand is, as a share of the band width.' })}
       {num(layer, set, 'amplitude', 'Swing', 0, 0.8, { ...pct, hint: 'How far the strands swing in and out.' })}
@@ -1213,7 +1292,7 @@ function GearsControls({ layer }: { layer: GearsLayer }) {
   const set = setterFor(layer);
   return (
     <>
-      <ColorField label="Colour" value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+      <ColorField label="Colour" value={layer.color} disabled={disabled} defaultValue={defaultsFor(layer).color as string} onChange={(color, t) => set({ color }, t)} />
       <TrackControls layer={layer} />
       {num(layer, set, 'count', 'Number', 1, 48, { step: 1 })}
       {num(layer, set, 'size', 'Size', 0.05, 2, pct)}
@@ -1248,7 +1327,7 @@ function ChainControls({ layer }: { layer: ChainLayer }) {
   const set = setterFor(layer);
   return (
     <>
-      <ColorField label="Colour" value={layer.color} disabled={disabled} onChange={(color, t) => set({ color }, t)} />
+      <ColorField label="Colour" value={layer.color} disabled={disabled} defaultValue={defaultsFor(layer).color as string} onChange={(color, t) => set({ color }, t)} />
       <TrackControls layer={layer} />
       {num(layer, set, 'linkLength', 'Link length', 0.05, 2, { ...pct, hint: 'How long each link is, as a share of the band width; the number of links fits the band.' })}
       {num(layer, set, 'linkWidth', 'Link width', 0.2, 1.5, { ...pct, hint: 'How wide a link is compared with its length.' })}

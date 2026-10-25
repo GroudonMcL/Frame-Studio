@@ -1,0 +1,150 @@
+{
+  "format": "frame-studio-project",
+  "schemaVersion": 4,
+  "name": "Monk",
+  "stage": {
+    "shape": "hexagon",
+    "thickness": 0.14,
+    "outerSpacing": 0.1,
+    "showArt": false,
+    "backingColor": "#1d1f27",
+    "light": 225
+  },
+  "layers": [
+    {
+      "id": "Lmvmvb7a3q13mv",
+      "name": "Band",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "bandFill",
+      "from": 0,
+      "to": 1,
+      "paint": {
+        "kind": "lit",
+        "color": "#934a21",
+        "light": 0.5,
+        "dark": 0.75,
+        "pressed": false,
+        "highlight": null
+      }
+    },
+    {
+      "id": "Lmvmvb7a3rt15",
+      "name": "Rope",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "band",
+      "type": "texture",
+      "kind": "rope",
+      "from": 0,
+      "to": 1,
+      "color": "#934a21",
+      "color2": null,
+      "amount": 1,
+      "scale": 1,
+      "strength": 1,
+      "where": "everywhere",
+      "seed": 48813
+    },
+    {
+      "id": "Lmvmvb7a3s12mz",
+      "name": "Outer rim (lit)",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "line",
+      "at": 0.02,
+      "width": 0.04,
+      "paint": {
+        "kind": "linear",
+        "angle": 45,
+        "followLight": true,
+        "stops": [
+          {
+            "at": 0,
+            "color": "#ebf5ff",
+            "opacity": 0.9
+          },
+          {
+            "at": 0.45,
+            "color": "#fff0dc",
+            "opacity": 0.15
+          },
+          {
+            "at": 1,
+            "color": "#000000",
+            "opacity": 0
+          }
+        ]
+      },
+      "dash": "solid",
+      "glow": null,
+      "waveAmplitude": 0,
+      "waves": 12,
+      "wavePhase": 0
+    },
+    {
+      "id": "Lmvmvb7a3t1133",
+      "name": "Inner rim (shadow)",
+      "visible": true,
+      "locked": false,
+      "opacity": 0.6,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "line",
+      "at": 0.988,
+      "width": 0.024,
+      "paint": {
+        "kind": "solid",
+        "color": "#0a0200"
+      },
+      "dash": "solid",
+      "glow": null,
+      "waveAmplitude": 0,
+      "waves": 12,
+      "wavePhase": 0
+    },
+    {
+      "id": "Lmvmvb7a3uw96",
+      "name": "Prayer beads",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "repeat",
+      "element": "bead",
+      "mode": "spacing",
+      "count": 12,
+      "spacing": 0.62,
+      "snapToCorners": false,
+      "at": 0.5,
+      "size": 0.54,
+      "stretch": 1,
+      "rotation": 0,
+      "offset": 0,
+      "fill": "#783e1d",
+      "outline": null,
+      "outlineWidth": 0.08,
+      "raised": true,
+      "glow": null,
+      "accentEvery": 9,
+      "accentScale": 1.8518518518518516,
+      "accentColor": "#3d8c6a",
+      "seed": 1,
+      "altColors": [],
+      "altSizes": [],
+      "skipAroundAccent": 1,
+      "alternateSides": 0,
+      "shaded": true,
+      "show": []
+    }
+  ]
+}

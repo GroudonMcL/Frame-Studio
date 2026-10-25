@@ -4,7 +4,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import { createProject, textureBand, textureFromPreset, TEXTURES, type TexturePreset } from '../project/defaults';
+import { createProject, photoBand, textureBand, textureFromPreset, TEXTURES, type TexturePreset } from '../project/defaults';
+import { PICTURES, type PictureId } from '../project/pictures';
 import type { FrameProject } from '../project/types';
 import { addLayers, useProject } from '../state/projectStore';
 import { Toggle } from './controls';
@@ -21,6 +22,13 @@ const makers = new Map(
     },
   ]),
 );
+
+const photo = (id: PictureId) => (): FrameProject => {
+  const p = createProject([photoBand(id)], id);
+  p.stage = { ...p.stage, showArt: false, thickness: 0.34, outerSpacing: 0.04 };
+  return p;
+};
+const photoMakers = new Map(PICTURES.map((p) => [p.id, photo(p.id)]));
 
 export function TextureDialog({ onClose }: { onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -50,11 +58,35 @@ export function TextureDialog({ onClose }: { onClose: () => void }) {
           afterwards: its colour, how many marks, their size and strength, and which side of the light they keep to.
         </p>
         <Toggle label="Also add a matching band colour under it" checked={withBand} onChange={setWithBand} />
-        <div className="tiles">
-          {TEXTURES.map((t) => (
-            <Tile key={t.id} id={`texture:${t.id}`} name={t.name} description={t.description} make={makers.get(t.id)!} onPick={() => pick(t)} />
-          ))}
-        </div>
+        <section aria-label="Drawn textures">
+          <div className="tiles">
+            {TEXTURES.map((t) => (
+              <Tile key={t.id} id={`texture:${t.id}`} name={t.name} description={t.description} make={makers.get(t.id)!} onPick={() => pick(t)} />
+            ))}
+          </div>
+        </section>
+        <section aria-label="Photo textures">
+          <h3>Photo textures</h3>
+          <p className="note">
+            Seamless photographs from Poly Haven and ambientCG (free to use), added as a band fill that bends round the band. Pick another photo, tint it,
+            turn it or change its size in the band fill's settings; any shape or ornament can be filled with one too.
+          </p>
+          <div className="tiles">
+            {PICTURES.map((p) => (
+              <Tile
+                key={p.id}
+                id={`photo:${p.id}`}
+                name={p.name}
+                description={`A photo texture from ${p.site}`}
+                make={photoMakers.get(p.id)!}
+                onPick={() => {
+                  addLayers([photoBand(p.id)]);
+                  onClose();
+                }}
+              />
+            ))}
+          </div>
+        </section>
       </div>
     </dialog>
   );

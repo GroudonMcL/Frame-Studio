@@ -1,0 +1,261 @@
+{
+  "format": "frame-studio-project",
+  "schemaVersion": 4,
+  "name": "Paladin",
+  "stage": {
+    "shape": "circle",
+    "thickness": 0.14,
+    "outerSpacing": 0.1,
+    "showArt": false,
+    "backingColor": "#1d1f27",
+    "light": 300
+  },
+  "layers": [
+    {
+      "id": "Lmvmvb78tbzwp",
+      "name": "Band",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "bandFill",
+      "from": 0,
+      "to": 1,
+      "paint": {
+        "kind": "lit",
+        "color": "#c9d2de",
+        "light": 0.95,
+        "dark": 0.75,
+        "pressed": false,
+        "highlight": "#ffffff"
+      }
+    },
+    {
+      "id": "Lmvmvb78tcmel",
+      "name": "Pressed-in step",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "bandFill",
+      "from": 0.65,
+      "to": 1,
+      "paint": {
+        "kind": "lit",
+        "color": "#c9d2de",
+        "light": 0.95,
+        "dark": 0.75,
+        "pressed": true,
+        "highlight": "#ffffff"
+      }
+    },
+    {
+      "id": "Lmvmvb78td1cph",
+      "name": "Groove",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "group",
+      "children": [
+        {
+          "id": "Lmvmvb78te12oy",
+          "name": "Groove cut",
+          "visible": true,
+          "locked": false,
+          "opacity": 0.85,
+          "blend": "source-over",
+          "clip": "band",
+          "type": "line",
+          "at": 0.3,
+          "width": 0.05,
+          "paint": {
+            "kind": "solid",
+            "color": "#282a2c"
+          },
+          "dash": "solid",
+          "glow": null,
+          "waveAmplitude": 0,
+          "waves": 12,
+          "wavePhase": 0
+        },
+        {
+          "id": "Lmvmvb78tf3ff",
+          "name": "Groove edge",
+          "visible": true,
+          "locked": false,
+          "opacity": 0.45,
+          "blend": "source-over",
+          "clip": "band",
+          "type": "line",
+          "at": 0.33999999999999997,
+          "width": 0.020000000000000004,
+          "paint": {
+            "kind": "solid",
+            "color": "#e9edf2"
+          },
+          "dash": "solid",
+          "glow": null,
+          "waveAmplitude": 0,
+          "waves": 12,
+          "wavePhase": 0
+        }
+      ],
+      "collapsed": true
+    },
+    {
+      "id": "Lmvmvb78tg1b7b",
+      "name": "Crease",
+      "visible": true,
+      "locked": false,
+      "opacity": 0.55,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "line",
+      "at": 0.65,
+      "width": 0.03,
+      "paint": {
+        "kind": "solid",
+        "color": "#190500"
+      },
+      "dash": "solid",
+      "glow": null,
+      "waveAmplitude": 0,
+      "waves": 12,
+      "wavePhase": 0
+    },
+    {
+      "id": "Lmvmvb78th3ot",
+      "name": "Outer rim (lit)",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "line",
+      "at": 0.02,
+      "width": 0.04,
+      "paint": {
+        "kind": "linear",
+        "angle": 45,
+        "followLight": true,
+        "stops": [
+          {
+            "at": 0,
+            "color": "#ebf5ff",
+            "opacity": 0.9
+          },
+          {
+            "at": 0.45,
+            "color": "#fff0dc",
+            "opacity": 0.15
+          },
+          {
+            "at": 1,
+            "color": "#000000",
+            "opacity": 0
+          }
+        ]
+      },
+      "dash": "solid",
+      "glow": null,
+      "waveAmplitude": 0,
+      "waves": 12,
+      "wavePhase": 0
+    },
+    {
+      "id": "Lmvmvb78tiftw",
+      "name": "Inner rim (shadow)",
+      "visible": true,
+      "locked": false,
+      "opacity": 0.6,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "line",
+      "at": 0.988,
+      "width": 0.024,
+      "paint": {
+        "kind": "solid",
+        "color": "#0a0200"
+      },
+      "dash": "solid",
+      "glow": null,
+      "waveAmplitude": 0,
+      "waves": 12,
+      "wavePhase": 0
+    },
+    {
+      "id": "Lmvmvb78tjamq",
+      "name": "Gold crosses",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "repeat",
+      "element": "cross",
+      "mode": "count",
+      "count": 8,
+      "spacing": 1,
+      "snapToCorners": true,
+      "at": 0.42,
+      "size": 0.96,
+      "stretch": 0.7,
+      "rotation": 0,
+      "offset": 0,
+      "fill": "#d9ad4a",
+      "outline": null,
+      "outlineWidth": 0.08,
+      "raised": true,
+      "glow": null,
+      "accentEvery": 0,
+      "accentScale": 1.6,
+      "accentColor": null,
+      "seed": 1,
+      "altColors": [],
+      "altSizes": [],
+      "skipAroundAccent": 0,
+      "alternateSides": 0,
+      "shaded": true,
+      "show": []
+    },
+    {
+      "id": "Lmvmvb78tkhws",
+      "name": "Blue gems",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "type": "repeat",
+      "element": "bead",
+      "mode": "count",
+      "count": 8,
+      "spacing": 1,
+      "snapToCorners": true,
+      "at": 0.42,
+      "size": 0.28,
+      "stretch": 1,
+      "rotation": 0,
+      "offset": 0.5,
+      "fill": "#3b6fd8",
+      "outline": null,
+      "outlineWidth": 0.08,
+      "raised": true,
+      "glow": null,
+      "accentEvery": 0,
+      "accentScale": 1.6,
+      "accentColor": null,
+      "seed": 1,
+      "altColors": [],
+      "altSizes": [],
+      "skipAroundAccent": 0,
+      "alternateSides": 0,
+      "shaded": true,
+      "show": []
+    }
+  ]
+}

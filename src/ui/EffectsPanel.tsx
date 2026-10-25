@@ -169,6 +169,9 @@ function AddEffect({ disabled, onAdd, label }: { disabled: boolean; onAdd: (k: E
 type OnChange = (p: Partial<Effect>, transient?: boolean) => void;
 
 function EffectControls({ effect: e, disabled, advanced, onChange }: { effect: Effect; disabled: boolean; advanced: boolean; onChange: OnChange }) {
+  // What a new effect of this kind starts with: where the reset buttons put things back to.
+  const start = NEW_EFFECT[e.kind]() as unknown as Record<string, unknown>;
+  const startColor = (key: string) => (typeof start[key] === 'string' ? (start[key] as string) : undefined);
   const slider = (key: string, label: string, min: number, max: number, hint: string, extra: Partial<Parameters<typeof Slider>[0]> = pct) => (
     <Slider
       key={key}
@@ -178,6 +181,7 @@ function EffectControls({ effect: e, disabled, advanced, onChange }: { effect: E
       min={min}
       max={max}
       disabled={disabled}
+      defaultValue={typeof start[key] === 'number' ? (start[key] as number) : undefined}
       onChange={(v, t) => onChange({ [key]: v } as Partial<Effect>, t)}
       onCommit={commit}
       {...extra}
@@ -222,9 +226,9 @@ function EffectControls({ effect: e, disabled, advanced, onChange }: { effect: E
             <>
               {slider('soften', 'Soften', 0, 0.3, 'Smooths the slopes and the surface.')}
               {slider('lightHeight', 'Light height', 10, 90, 'How high the light is above the token: low gives long, strong shading; 90° is straight above.', { step: 1, unit: '°' })}
-              <ColorField label="Lit side colour" hint="The colour of the side facing the light and of the shine." value={e.highlight} disabled={disabled} onChange={(highlight, t) => onChange({ highlight }, t)} />
+              <ColorField label="Lit side colour" hint="The colour of the side facing the light and of the shine." value={e.highlight} disabled={disabled} defaultValue={startColor('highlight')} onChange={(highlight, t) => onChange({ highlight }, t)} />
               {slider('highlightOpacity', 'Lit side strength', 0, 1, 'How strongly the side facing the light shows.')}
-              <ColorField label="Shaded side colour" hint="The colour of the side away from the light." value={e.shadow} disabled={disabled} onChange={(shadow, t) => onChange({ shadow }, t)} />
+              <ColorField label="Shaded side colour" hint="The colour of the side away from the light." value={e.shadow} disabled={disabled} defaultValue={startColor('shadow')} onChange={(shadow, t) => onChange({ shadow }, t)} />
               {slider('shadowOpacity', 'Shaded side strength', 0, 1, 'How strongly the side away from the light shows.')}
             </>
           )}
@@ -234,7 +238,7 @@ function EffectControls({ effect: e, disabled, advanced, onChange }: { effect: E
       return (
         <div className="effect-body">
           <InsideOutside value={e.inner} disabled={disabled} onChange={(inner) => onChange({ inner })} what="shadow" />
-          <ColorField label="Shadow colour" hint="The colour of the shadow." value={e.color} disabled={disabled} onChange={(color, t) => onChange({ color }, t)} />
+          <ColorField label="Shadow colour" hint="The colour of the shadow." value={e.color} disabled={disabled} defaultValue={startColor('color')} onChange={(color, t) => onChange({ color }, t)} />
           {slider('opacity', 'Strength', 0, 1, 'How dark the shadow is.')}
           {slider('distance', 'Distance', 0, 0.6, 'How far the shadow falls from the light, as a share of the band width.')}
           {slider('blur', 'Softness', 0, 0.6, 'How soft its edge is.')}
@@ -244,7 +248,7 @@ function EffectControls({ effect: e, disabled, advanced, onChange }: { effect: E
       return (
         <div className="effect-body">
           <InsideOutside value={e.inner} disabled={disabled} onChange={(inner) => onChange({ inner })} what="glow" />
-          <ColorField label="Glow colour" hint="The colour of the glow." value={e.color} disabled={disabled} onChange={(color, t) => onChange({ color }, t)} />
+          <ColorField label="Glow colour" hint="The colour of the glow." value={e.color} disabled={disabled} defaultValue={startColor('color')} onChange={(color, t) => onChange({ color }, t)} />
           {slider('opacity', 'Strength', 0, 1, 'How bright the glow is.')}
           {slider('size', 'Glow size', 0.01, 1.5, 'How far the glow spreads, as a share of the band width.')}
         </div>
@@ -347,7 +351,7 @@ function EffectControls({ effect: e, disabled, advanced, onChange }: { effect: E
           {slider('chips', 'Chipped edges', 0, 1, 'How much of the edge is chipped away.')}
           {slider('polish', 'Rubbed edges', 0, 1, 'How bright the edges are rubbed, as on old metal.')}
           {slider('grime', 'Grime', 0, 1, 'How much dirt and tarnish gathers in patches.')}
-          <ColorField label="Grime colour" hint="The colour of the grime: brown dirt, green verdigris, black soot…" value={e.grimeColor} disabled={disabled} onChange={(grimeColor, t) => onChange({ grimeColor }, t)} />
+          <ColorField label="Grime colour" hint="The colour of the grime: brown dirt, green verdigris, black soot…" value={e.grimeColor} disabled={disabled} defaultValue={startColor('grimeColor')} onChange={(grimeColor, t) => onChange({ grimeColor }, t)} />
           {slider('scratches', 'Scratches', 0, 1, 'Fine scratches across it, bright with a dark edge.')}
           {slider('scale', 'Wear size', 0.03, 1.5, 'How big the chips and patches are, as a share of the band width.')}
           {shuffle}

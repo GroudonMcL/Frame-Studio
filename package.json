@@ -21,6 +21,7 @@
     "effects-sheet": "tsx scripts/effects-sheet.ts",
     "screenshots": "tsx scripts/screenshots.ts",
     "compare-conversions": "tsx scripts/compare-conversions.ts",
+    "showcase": "tsx scripts/showcase.ts",
     "share:check": "tsx scripts/share-export.ts check",
     "share:export": "tsx scripts/share-export.ts export",
     "make-fixtures": "tsx scripts/make-fixtures.ts",

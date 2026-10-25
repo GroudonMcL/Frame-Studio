@@ -1,0 +1,347 @@
+{
+  "format": "frame-studio-project",
+  "schemaVersion": 9,
+  "name": "Royal inscription",
+  "stage": {
+    "shape": "square",
+    "thickness": 0.14,
+    "outerSpacing": 0.1,
+    "showArt": true,
+    "backingColor": "#1d1f27",
+    "light": 225,
+    "lights": [],
+    "ambient": "#203050",
+    "ambientStrength": 0,
+    "bloom": 0,
+    "bleed": 0
+  },
+  "layers": [
+    {
+      "id": "Lmvnqa7qx714tq",
+      "name": "Gold band",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "bevel",
+          "on": true,
+          "direction": "raised",
+          "profile": "rounded",
+          "size": 0.22,
+          "depth": 1,
+          "soften": 0.02,
+          "highlight": "#ffffff",
+          "highlightOpacity": 0.75,
+          "shadow": "#000000",
+          "shadowOpacity": 0.6,
+          "gloss": 0.7,
+          "lightHeight": 35,
+          "surface": "smooth",
+          "surfaceDepth": 0.5,
+          "surfaceScale": 0.25,
+          "seed": 1
+        },
+        {
+          "kind": "recolour",
+          "on": true,
+          "stops": [
+            {
+              "at": 0,
+              "color": "#2a1404",
+              "opacity": 1
+            },
+            {
+              "at": 0.25,
+              "color": "#7a4a10",
+              "opacity": 1
+            },
+            {
+              "at": 0.5,
+              "color": "#c8962a",
+              "opacity": 1
+            },
+            {
+              "at": 0.75,
+              "color": "#f0d070",
+              "opacity": 1
+            },
+            {
+              "at": 1,
+              "color": "#fffae0",
+              "opacity": 1
+            }
+          ],
+          "amount": 1
+        }
+      ],
+      "mask": null,
+      "heightMode": "none",
+      "heightDepth": 1,
+      "heightSize": 0.15,
+      "type": "bandFill",
+      "from": 0,
+      "to": 1,
+      "paint": {
+        "kind": "solid",
+        "color": "#909090"
+      }
+    },
+    {
+      "id": "Lmvnqa7qx813sv",
+      "name": "Contour lines",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "bevel",
+          "on": true,
+          "direction": "sunken",
+          "profile": "chisel",
+          "size": 0.05,
+          "depth": 1.5,
+          "soften": 0.02,
+          "highlight": "#ffffff",
+          "highlightOpacity": 0.75,
+          "shadow": "#000000",
+          "shadowOpacity": 0.6,
+          "gloss": 0.1,
+          "lightHeight": 35,
+          "surface": "smooth",
+          "surfaceDepth": 0.5,
+          "surfaceScale": 0.25,
+          "seed": 1
+        },
+        {
+          "kind": "shadow",
+          "on": true,
+          "inner": true,
+          "color": "#000000",
+          "opacity": 0.7,
+          "distance": 0.02,
+          "blur": 0.02
+        }
+      ],
+      "mask": null,
+      "heightMode": "none",
+      "heightDepth": 1,
+      "heightSize": 0.15,
+      "type": "contours",
+      "count": 2,
+      "from": 0.06,
+      "spacing": 0.88,
+      "width": 0.035,
+      "taper": 0,
+      "paint": {
+        "kind": "solid",
+        "color": "#5a3a10"
+      },
+      "altColor": null,
+      "dash": "solid"
+    },
+    {
+      "id": "Lmvnqa7qx92gf",
+      "name": "Inscription",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "bevel",
+          "on": true,
+          "direction": "sunken",
+          "profile": "chisel",
+          "size": 0.05,
+          "depth": 1.5,
+          "soften": 0.02,
+          "highlight": "#ffffff",
+          "highlightOpacity": 0.75,
+          "shadow": "#000000",
+          "shadowOpacity": 0.6,
+          "gloss": 0.1,
+          "lightHeight": 35,
+          "surface": "smooth",
+          "surfaceDepth": 0.5,
+          "surfaceScale": 0.25,
+          "seed": 1
+        },
+        {
+          "kind": "shadow",
+          "on": true,
+          "inner": true,
+          "color": "#000000",
+          "opacity": 0.7,
+          "distance": 0.02,
+          "blur": 0.02
+        }
+      ],
+      "mask": null,
+      "heightMode": "none",
+      "heightDepth": 1,
+      "heightSize": 0.15,
+      "type": "text",
+      "text": "BY CROWN AND OATH · EVER LOYAL ·",
+      "font": "grenze",
+      "size": 0.24,
+      "spacing": 0.12,
+      "at": 0.24,
+      "along": 0,
+      "align": "centre",
+      "reverse": false,
+      "follow": null,
+      "fill": "#6a4a18",
+      "outline": null,
+      "outlineWidth": 0.06
+    },
+    {
+      "id": "Lmvnqa7qx6xcv",
+      "name": "Gem path",
+      "visible": false,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [],
+      "mask": null,
+      "heightMode": "none",
+      "heightDepth": 1,
+      "heightSize": 0.15,
+      "type": "line",
+      "at": 0.68,
+      "width": 0.06,
+      "paint": {
+        "kind": "solid",
+        "color": "#2a1a0a"
+      },
+      "dash": "solid",
+      "glow": null,
+      "waveAmplitude": 0.13,
+      "waves": 8,
+      "wavePhase": 0,
+      "waveFit": 0
+    },
+    {
+      "id": "Lmvnqa7qxanhs",
+      "name": "Rubies",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blend": "source-over",
+      "clip": "none",
+      "effects": [
+        {
+          "kind": "shadow",
+          "on": true,
+          "inner": false,
+          "color": "#000000",
+          "opacity": 0.6,
+          "distance": 0.03,
+          "blur": 0.04
+        }
+      ],
+      "mask": null,
+      "heightMode": "none",
+      "heightDepth": 1,
+      "heightSize": 0.15,
+      "type": "repeat",
+      "element": "gem",
+      "mode": "count",
+      "count": 24,
+      "spacing": 1,
+      "snapToCorners": true,
+      "at": 0.5,
+      "size": 0.3,
+      "stretch": 1,
+      "rotation": 0,
+      "offset": 0,
+      "fill": "#b0182a",
+      "outline": null,
+      "outlineWidth": 0.08,
+      "raised": false,
+      "glow": null,
+      "accentEvery": 0,
+      "accentScale": 1.6,
+      "accentColor": null,
+      "seed": 1,
+      "altColors": [],
+      "altSizes": [],
+      "skipAroundAccent": 0,
+      "alternateSides": 0,
+      "shaded": true,
+      "show": [],
+      "follow": "Lmvnqa7qx6xcv",
+      "orient": "along",
+      "scaleEnd": 1,
+      "jitterSize": 0,
+      "jitterAngle": 0,
+      "skipChance": 0,
+      "gemCut": "brilliant",
+      "gemTable": 0.52,
+      "gemCrown": 0.9,
+      "gemFacets": 8,
+      "gemSparkle": 0.6,
+      "setting": "claws4",
+      "settingColor": "#d4a838",
+      "settingEffects": [
+        {
+          "kind": "bevel",
+          "on": true,
+          "direction": "raised",
+          "profile": "rounded",
+          "size": 0.22,
+          "depth": 1,
+          "soften": 0.02,
+          "highlight": "#ffffff",
+          "highlightOpacity": 0.75,
+          "shadow": "#000000",
+          "shadowOpacity": 0.6,
+          "gloss": 0.7,
+          "lightHeight": 35,
+          "surface": "smooth",
+          "surfaceDepth": 0.5,
+          "surfaceScale": 0.25,
+          "seed": 1
+        },
+        {
+          "kind": "recolour",
+          "on": true,
+          "stops": [
+            {
+              "at": 0,
+              "color": "#2a1404",
+              "opacity": 1
+            },
+            {
+              "at": 0.25,
+              "color": "#7a4a10",
+              "opacity": 1
+            },
+            {
+              "at": 0.5,
+              "color": "#c8962a",
+              "opacity": 1
+            },
+            {
+              "at": 0.75,
+              "color": "#f0d070",
+              "opacity": 1
+            },
+            {
+              "at": 1,
+              "color": "#fffae0",
+              "opacity": 1
+            }
+          ],
+          "amount": 1
+        }
+      ]
+    }
+  ]
+}
