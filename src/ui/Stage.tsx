@@ -451,6 +451,28 @@ export function Stage() {
             }}
           />
         </div>
+        <div className="stage-tools">
+          <div className="zoom" role="group" aria-label="Zoom">
+            <button type="button" className="icon-btn" aria-label="Zoom out" title="Zoom out (Ctrl + mouse wheel)" disabled={zoom <= 1} onClick={() => setZoomAround(ZOOMS.filter((z) => z < zoom).at(-1) ?? 1)}>
+              <ZoomOut size={16} />
+            </button>
+            <button type="button" className="btn small zoom-level" aria-label={`${Math.round(zoom * 100)}%: fit the whole token`} title="Fit the whole token" onClick={() => setZoomAround(1)}>
+              {Math.round(zoom * 100)}%
+            </button>
+            <button type="button" className="icon-btn" aria-label="Zoom in" title="Zoom in (Ctrl + mouse wheel); drag the empty canvas to move about" disabled={zoom >= 8} onClick={() => setZoomAround(ZOOMS.find((z) => z > zoom) ?? 8)}>
+              <ZoomIn size={16} />
+            </button>
+          </div>
+          {advanced && (
+            <Select
+              label="Show"
+              hint="The picture, or (to check how surfaces are shaped) every bevel's height map, lighter where higher, or its normal map."
+              value={view}
+              options={(Object.keys(VIEW_NAMES) as RenderView[]).map((v) => ({ value: v, label: VIEW_NAMES[v] }))}
+              onChange={setView}
+            />
+          )}
+        </div>
         {pathEdit?.drawing && (
           <p className="stage-hint" role="status">
             Click to add points{selected?.type === 'path' && selected.points.length >= 3 ? '; click the first point or press Enter to finish' : ''}.
@@ -486,26 +508,7 @@ export function Stage() {
             />
           )}
           <LightDial value={project.stage.light} />
-          <div className="zoom" role="group" aria-label="Zoom">
-            <button type="button" className="icon-btn" aria-label="Zoom out" title="Zoom out (Ctrl + mouse wheel)" disabled={zoom <= 1} onClick={() => setZoomAround(ZOOMS.filter((z) => z < zoom).at(-1) ?? 1)}>
-              <ZoomOut size={16} />
-            </button>
-            <button type="button" className="btn small zoom-level" aria-label="Fit the whole token" title="Fit the whole token" onClick={() => setZoomAround(1)}>
-              {Math.round(zoom * 100)}%
-            </button>
-            <button type="button" className="icon-btn" aria-label="Zoom in" title="Zoom in (Ctrl + mouse wheel); drag the empty canvas to move about" disabled={zoom >= 8} onClick={() => setZoomAround(ZOOMS.find((z) => z > zoom) ?? 8)}>
-              <ZoomIn size={16} />
-            </button>
-          </div>
-          {advanced && (
-            <Select
-              label="Show"
-              hint="The picture, or (to check how surfaces are shaped) every bevel's height map, lighter where higher, or its normal map."
-              value={view}
-              options={(Object.keys(VIEW_NAMES) as RenderView[]).map((v) => ({ value: v, label: VIEW_NAMES[v] }))}
-              onChange={setView}
-            />
-          )}
+
           <Toggle label="Show sample picture" checked={project.stage.showArt} onChange={(showArt) => updateStage({ showArt })} />
           {advanced && project.stage.showArt && <ColorField label="Backing colour" value={project.stage.backingColor} onChange={(backingColor, t) => updateStage({ backingColor }, { transient: t })} />}
         </div>
