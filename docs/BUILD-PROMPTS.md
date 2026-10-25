@@ -103,7 +103,7 @@ Done when: Polished and Paladin open as editable layer stacks that match the ori
 
 ---
 
-## Phase 5 — Polish, library and sharing
+## Phase 5 — Polish, library and sharing (done)
 
 ```
 Ground rules: (as above)
@@ -118,4 +118,96 @@ Phase 5 goal: a complete creative tool.
 6. Help tips for every control (one plain sentence each), and a first-time welcome card.
 
 Done when: a design made in Frame Studio can be saved to the library, reused in another design, and opened as a frame in Token Maker from its .framestudio.json file.
+```
+
+---
+
+The phases below come from the owner's brief after Phase 5, "Expanding Frame Studio: a world of creative possibilities": move from an editor to a procedural art studio whose borders emerge from combining reusable systems, easy to use, most useful for D&D tokens first. `ROADMAP.md` maps the brief's whole idea catalogue to these phases and explains the order. Every prompt also says: *read docs/ROADMAP.md; keep sizes in band widths, light everything from stage.light, and add a schema migration with fixture files from the previous version.*
+
+## Phase 6 — Surfaces and effects (done)
+
+```
+Ground rules: (as above)
+
+Phase 6 goal: materials, depth, lighting and surface detail that work on every layer, and an easy way to apply them.
+
+1. Effects on every layer and group, non-destructive, ordered, each switchable: a bevel built on a height map (distance from the edge through a profile, raised or sunk in, plus procedural surfaces such as hammered metal, grain, brushed, cracked and scales) turned into normals and lit by the stage's light, with shine; outer and inner shadow and glow; a gradient-map material colour; hue/saturation/brightness/contrast; wear (chips, rubbed edges, grime).
+2. Faceted shapes and paths whose faces have calculated orientations lit by the light; faceted gem, plate and shard elements.
+3. More blend modes, and a knockout kept apart from colour blending in the interface.
+4. A style library of ready-made effect stacks (metals, stone and bone, crystal, carving, magic, finishes), previewed on the user's own design, applied to every picked layer in one step; copy and paste effects.
+5. Templates built from effects, including the brief's dwarven bronze and eldritch crystal borders.
+
+Done when: a band given a style from the library becomes hammered bronze, follows the light dial, can be adjusted and undone, and its exported picture is the picture the renderer draws from the saved file.
+```
+
+---
+
+## Phase 7 — Ornaments anywhere
+
+```
+Ground rules: (as above)
+
+Phase 7 goal: ornaments that follow any path or radiate round any point.
+
+1. Repeated shapes can follow a drawn path (open or closed) instead of the band: count or spacing, orientation, alternate sides, scale along the path, seeded random variation of size, angle and gaps.
+2. A radial array: any shape or path repeated round a point (count, radius, start angle, mirrored copies).
+3. Gem cuts (brilliant, rose, emerald, cabochon, rough) with table, crown and facet settings, and metal settings (bezel, 4 or 6 claws) with their own style.
+4. Text on the band or a path (bundled fonts including runes), with effects.
+5. A contours layer: several nested bands at once (count, spacing, taper).
+
+Done when: a ring of gems in claw settings follows a drawn wavy path, and an engraved inscription runs round the band, both with effects, on every token shape.
+```
+
+---
+
+## Phase 8 — Generators
+
+```
+Ground rules: (as above)
+
+Phase 8 goal: intricate geometry from a few numbers, as ordinary layers that effects and styles work on.
+
+1. Organic growth along the band or a path: vines, roots, thorns, tendrils, antlers (branching, curl, taper, thickness, leaves or thorns), drawn as filled shapes.
+2. Cracks (breaking the band into fragments, with missing pieces) and lightning, as geometry.
+3. Plates and cells: Voronoi or regular cells dividing the band into separate plates, each bevelled and varied in colour.
+4. Knotwork with real over/under crossings; gears; chains that interlock round the band.
+5. A noise displacement effect (warped edges, subtle distortion) and scratches as a wear option.
+6. Convert the Token Maker frames that were waiting for these (Druid, Knotwork, Artificer, Barbarian), with comparison limits as in Phase 4.
+
+Done when: an "Overgrown ruin" template (cracked stone plates with missing fragments, roots growing through, a knotwork band) is built only from generators and styles.
+```
+
+---
+
+## Phase 9 — Precise control
+
+```
+Ground rules: (as above)
+
+Phase 9 goal: the power tools.
+
+1. Masks from any layer: alpha or luminance, inverted or not.
+2. Height compositing: layers add to or cut into a shared height map, so one bevel lights overlapping parts as one surface; extruded sidewalls; views of the height and normal maps.
+3. Boolean geometry for shapes and paths (union, subtract, intersect), offset, stroke to shape with taper.
+4. Separate in/out handles for path points, moving and turning groups on the canvas, zoom and pan.
+
+Done when: runes cut through a raised plate share one height map with it (the plate's bevel follows the cut edges), seen in the height-map view and in the export.
+```
+
+---
+
+## Phase 10 — Workflow
+
+```
+Ground rules: (as above)
+
+Phase 10 goal: faster ways to make many good tokens.
+
+1. Randomise a style or a whole design within sensible limits, with locks.
+2. Save your own styles in the library and library files.
+3. A theme colour that recolours a whole design, converted Token Maker frames included.
+4. A lighting rig: several coloured lights, ambient colour, bloom, light bleeding onto neighbours.
+5. Batch export of a token pack; more token shapes, added to Token Maker too.
+
+Done when: a design is randomised into three variations, each recoloured from a theme colour and exported as a pack on every shape.
 ```

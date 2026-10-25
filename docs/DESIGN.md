@@ -33,6 +33,7 @@ Behind the visual editing, a design is **structured data** (a `FrameProject`), n
 | Free shapes and paths: tied to the band or placed freely? *(after Phase 1)* | **Adaptable by default**: placed at a point round the band (angle + across), so they still fit every shape and thickness. Placing freely stays available as an option. Built in Phase 2 (§4.4). |
 | Procedural textures? *(Phase 3 prompt)* | Nine **texture layers** re-implementing Token Maker's textures, each identical to the original at its default settings; a colour-round-the-ring paint; per-layer caching. Built in Phase 3 (§4.6, §5.3). |
 | Phase 5: layer library, sharing with Token Maker, phones *(Phase 5 prompt)* | A **personal layer library** in IndexedDB with library files; **copy and paste** through the system clipboard and a shared copy for other tabs; a **phone layout** (canvas over a bottom sheet, 44 px targets) with keyboard access and axe checks; **Token Maker gets Frame Studio's reader and renderer by copy with a manifest** (the engine's own pattern, in the other direction), one renderer in both apps (§10). Built in Phase 5, in both repositories. |
+| From editor to procedural studio *(the owner's brief after Phase 5, "Expanding Frame Studio")* | Borders should emerge from combining reusable systems (materials, geometry, lighting, surface detail, effects), easy to use, starting with what helps D&D tokens most. The plan and its order are in `docs/ROADMAP.md`. Phase 6 builds **surfaces and effects**: a 2.5D bevel lit by the stage's light, shadows, glows, material colours, wear, faceted shapes, more blend modes and a library of styles made from them (§5.4, §5.5, §6.4). |
 | Converting Token Maker frames? *(Phase 4 prompt)* | A **converter per frame** writes its parts as editable layers with Token Maker's own numbers; each conversion is measured against the original and held to a limit. 18 frames (17 drawing styles) are converted; the originals all stay available. Where a conversion can't be exact, "looks the same" is enough (the owner's answer before Phase 5, §9). Built in Phase 4. |
 
 ## 3. Tech stack
@@ -47,14 +48,14 @@ Same as Token Maker, so code and habits carry over: TypeScript, React 19 + Vite,
 
 ## 4. The project format
 
-### 4.1 FrameProject (schema version 4)
+### 4.1 FrameProject (schema version 5)
 
 Defined in `src/project/types.ts`; defaults in `src/project/defaults.ts`; reading and checking in `src/project/migrate.ts`; finding layers anywhere in the tree in `src/project/tree.ts`.
 
 ```ts
 interface FrameProject {
   format: 'frame-studio-project';
-  schemaVersion: 4;
+  schemaVersion: 5;
   name: string;
   stage: { shape; thickness; outerSpacing; showArt; backingColor;     // how it's previewed, not the look
            light };                                                   // where the light comes from (§5.1)
@@ -62,6 +63,7 @@ interface FrameProject {
 }
 // Every layer: id (stable, unique in the whole tree), name, visible, locked, opacity 0–1, blend,
 //              clip: 'none' | 'band' | 'below'                        (§5.2)
+//              effects: Effect[]                                      (§5.4, version 5)
 type Layer =
   | { type: 'legacyFrame'; presetId; style; color; accent | null }     // a Token Maker frame, one composite layer
   | { type: 'bandFill'; from; to; paint }                              // colours part of the band
@@ -81,7 +83,16 @@ type Layer =
   | { type: 'unsupported'; originalType; data; reason };               // kept, never drawn (see 4.3)
 type Placement = { place: 'band' | 'free'; along; across; x; y;       // §4.4
                    size; stretch; rotation; mirror: 'none' | 'leftRight' | 'topBottom' | 'four' };
-type PlacedStyle = { fill | null; shaded; outline | null; outlineWidth; raised; glow | null };
+type PlacedStyle = { fill | null; shaded; outline | null; outlineWidth; raised; glow | null;
+                     faceted; facetTable; facetDepth };                // cut into lit faces (§5.5, version 5)
+type Effect =                                                         // every one has `on`; sizes in band widths
+  | { kind: 'bevel'; direction: 'raised' | 'sunken'; profile; size; depth; soften; highlight; highlightOpacity;
+      shadow; shadowOpacity; gloss; lightHeight; surface; surfaceDepth; surfaceScale; seed }
+  | { kind: 'shadow'; inner; color; opacity; distance; blur }
+  | { kind: 'glow'; inner; color; opacity; size }
+  | { kind: 'recolour'; stops: GradientStop[]; amount }               // "Material colour": a gradient map
+  | { kind: 'adjust'; hue; saturation; brightness; contrast }
+  | { kind: 'wear'; chips; polish; grime; grimeColor; scale; seed }
 type Paint =
   | { kind: 'solid'; color }
   | { kind: 'lit'; color; light; dark; pressed;     // token-maker's metal lighting (litTables), turned to stage.light
@@ -101,7 +112,13 @@ Phase 4 added only what the converted frames needed, each useful on its own and 
 
 The **ring paint** blends between colour stops at angles round the token (0° right, 90° below), one colour per degree, drawn as thin wedges like the lit paint (`ringTable`, `angularFill` in `render/paint.ts`). It is how Stamped's hand-sampled colour tables can be expressed. With `followLight` (the default) the colours are for a light at the top left and turn with `stage.light`. On lines, the line is stroked on its own canvas and recoloured (`recolourRound`).
 
-Elements for `repeat`: bead (shaded sphere), circle, diamond, square, triangle, star, cross, rune, leaf, spike, and (Phase 2) chevron, tick mark, gear, eye (iris in the element's colour), music note (single or paired, varied by the seed) and claw marks.
+Elements for `repeat`: bead (shaded sphere), circle, diamond, square, triangle, star, cross, rune, leaf, spike, and (Phase 2) chevron, tick mark, gear, eye (iris in the element's colour), music note (single or paired, varied by the seed) and claw marks, and (Phase 6) faceted ones lit by the light (§5.5): cut gem (an eight-sided brilliant), hexagonal plate and crystal shard (pointing outwards).
+
+Phase 6 added, all off (or empty) by default:
+
+- `effects` on every layer, groups included (§5.4).
+- `faceted`, `facetTable` (the flat top as a share of the shape, 0 = a point) and `facetDepth` on shapes and paths (§5.5).
+- Blend modes: hard light, colour dodge, colour burn, darken, lighten, difference, exclusion, hue, saturation, luminosity, and `destination-out`, which isn't a colour blend but a **knockout**: the layer cuts its shape out of the layers below it in its group. The editor offers it as its own switch ("Cut a hole in the layers below"), never in the blend list, because cutting changes which parts of a shape exist, not how colours mix (the brief's "critical design decision").
 
 Repeat patterns (Phase 2), all off by default:
 
@@ -130,6 +147,7 @@ These are the conventions of token-maker's `frameKit.ts` (`alongBand(g, count, a
 - **Version 1 → 2** (`MIGRATIONS[1]`): adds `stage.light = 225` and, on every layer, `clip: 'none'`; lines get no wave, repeats get no patterns. A test (`src/project/fixtures.test.ts`) opens real version-1 files saved by Phase 1 (`src/project/fixtures/v1/`) and checks that they draw pixel for pixel as Phase 1 drew them.
 - **Version 2 → 3** (`MIGRATIONS[2]`): only adds things (texture layers, the ring paint), so nothing changes. Version-2 files saved by Phase 2 are in `src/project/fixtures/v2/`.
 - **Version 3 → 4** (`MIGRATIONS[3]`): lit paints get `highlight: null`, linear paints `followLight: false`, gradient stops `opacity: 1` and repeats `shaded: true, show: []`, in groups too, so nothing changes. Version-3 files saved by Phase 3 (a lit/pressed/across/linear paint mix on a rounded token lit from 135°, and both texture templates) are in `src/project/fixtures/v3/`.
+- **Version 4 → 5** (`MIGRATIONS[4]`): every layer of a kind this version knows gets `effects: []`, shapes and paths `faceted: false, facetTable: 0.5, facetDepth: 1`, in groups too, so nothing changes; a layer of a kind it doesn't know is left exactly as it was. An effect of a kind this version doesn't know is left out with a warning (a layer that can't be read keeps its effects in its kept data). Version-4 files saved by Phase 5 (Jewelled on a hexagon lit from 300°, and Paladin converted to layers on a thick square) are in `src/project/fixtures/v4/`.
 - Fixture files must draw as their version drew them (their `.png` beside them). Since Phase 3 every layer is drawn on its own canvas and composited (§5.3), which changes the rounding of a few nearly transparent edge pixels by a few 255ths; the test allows at most 8/255 in any premultiplied channel and a mean under 0.5/255, which is invisible. A single layer on its own (for example a Token Maker frame against `drawFrame`) is still pixel for pixel.
 - Nothing in a file is ever run as code.
 
@@ -262,6 +280,30 @@ At 225° every one of these returns exactly the engine's own values, so version-
 
 Budget (tested): a 10-layer textured design draws at 512 px in about 140 ms from scratch and about 20 ms after editing one layer, on the test machine.
 
+### 5.4 Effects (Phase 6)
+
+`render/effects.ts`. Effects are non-destructive filters on a layer's **picture** (its own canvas, §5.3), applied in the layer's order, first first, before the picture is composited with its opacity and blend mode. Because they work on pixels, they suit every kind of layer — a band, a ring of runes, a texture, a Token Maker frame, a whole group — whatever drew it. Every size is in **band widths**, so an effect looks the same at every token size, shape and thickness (tested by drawing at 200 px and at 400 px halved). Everything is plain arithmetic on the pixels (no canvas filters, which differ between browsers and node), so the preview, the export and the tests make the same picture; the Phase 6 end-to-end test draws an exported file in node and compares it with the browser's export.
+
+| Effect | What it does |
+|---|---|
+| **Bevel and surface** (`bevel`) | The 2.5D surface system. A height map is made from the picture's shape: each painted pixel's distance from the edge (an exact Euclidean distance transform), divided by the bevel width and put through a **profile** (rounded, chiselled, cove, rim, steps), times the depth; sunk in turns it upside down. A **surface** is added on top (hammered dents, rough grain, brushed streaks running round the token, cracked plates, scales or studs; seeded cell and fractal noise sized in band widths). The height map is softened a little (always at least 2 px, so the pixel steps of an edge don't show as streaks), turned into **normals**, and lit by the stage's light at the bevel's light height: the side facing the light is mixed towards the lit-side colour, the side away towards the shaded-side colour, both measured against how a flat surface is lit (so a flat middle keeps its colour), plus a shine (Blinn–Phong) whose sharpness and strength come from the gloss. |
+| **Shadow** | Outside: the picture's shape, moved away from the light by the distance, blurred, put behind it. Inside: the outside moved the same way and blurred, darkening the edge that faces the light (for engraving). |
+| **Glow** | Fades with the exact distance from the edge, outside (behind the picture) or inside, so thin runes glow as brightly as a wide band; softened a little. |
+| **Material colour** (`recolour`) | A gradient map: each pixel's lightness picks a colour from the stops (dark at 0, light at 1), mixed in by the amount. After a bevel it turns the grey shading into gold, bronze, bone…; 14 ready-made **materials** (`MATERIALS` in `project/styles.ts`). |
+| **Colour adjust** | Hue turn (a colour matrix, as CSS's hue-rotate), vividness, brightness, contrast. |
+| **Wear and grime** | Chips bitten out of the edge (where edge nearness plus noise passes a threshold), edges rubbed bright, and blotches of grime colour, weaker at the edge. Put it before a bevel and the bevel follows the chips. |
+
+- **Order matters and is the user's:** a bevel then a material colour gives metal; wear then a bevel gives chipped, bevelled stone; the style library (§6.4) sets sensible orders.
+- **Groups:** a group with effects is drawn as one picture and the effects see its layers as one shape (bevel a group of overlapping shapes and they read as one sculpted piece; put a knockout layer in it and the hole gets a bevelled edge). A group with effects is never passed through.
+- **Clipping:** a layer clipped to the band has its effects clipped too (its glow doesn't spill out). A layer clipped to the layer below uses that layer's picture **without** its effects as the mask, so the base's shadow or glow doesn't let it spill out.
+- **Caching:** a layer's picture without effects and its picture with them are kept separately (`effectsKey` in `layerCache.ts`): changing an effect makes only the second again, from the kept first. Groups with effects are cached too (their key holds their layers' settings).
+- **Speed:** a band with a bevel takes about 0.3 s at 1300 px in node. The blur works on a smaller copy for wide radii. On a high-density screen the preview of a design with effects is drawn at the screen's own size first and **sharpened** 0.3 s after editing pauses (`Stage.tsx`), so dragging a slider stays responsive; the export is always drawn at full size.
+- **Tested** (`render/phase6.test.ts`): effects off draw exactly as none; each effect changes the picture the same way every time; a raised bevel is lit on the side facing the light and turns with it, a sunken one the other way, the flat middle keeps its colour; every surface textures the middle; effects scale with the size; shadows fall away from the light, outside or inside only; a glow spreads round the shape but not from the picture's edge and is as bright round runes; material colour maps dark and light to its ends; colour adjust; wear chips the edges (by seed) and leaves the middle; effects on a group; clipping with effects; the cache; every token shape; a time budget; and the helpers (the distance transform is exact on a square, the blur keeps the total, noise is repeatable, gradient tables).
+
+### 5.5 Faceted shapes and elements (Phase 6)
+
+`render/facets.ts`. A faceted shape is its outline (curves sampled) cut into flat faces that rise from each edge to a flat top (`facetTable`, a share of the shape's size; 0 rises to a point) at a height set by `facetDepth`. Each face's **normal is worked out in 3D** from its corners and lit by the stage's light (turned into the shape's own frame, mirrored copies included), so one light gives coherent highlights and shadows across a star, a hexagonal plate or a crystal. The whole outline is filled first (so it casts the raised shadow and glow once) and the faces are drawn over it; each face is stroked in its own colour so neighbouring faces leave no seam. The repeat elements gem, plate and shard use the same code with their own cut; "Shaded by the light" off draws them flat.
+
 ## 6. The editor
 
 `src/App.tsx` + `src/ui/`. Desktop layout from 960 px wide (narrower screens: §6.3):
@@ -271,11 +313,21 @@ Budget (tested): a 10-layer textured design draws at 512 px in about 140 ms from
 - **Canvas (middle):** live preview on a checkerboard. Click picks the top-most layer under the pointer (inside groups too). Dragging a line, band fill or repeat moves it across the band; dragging a repeat round the token slides its elements along. Dragging a shape or path moves it (round the band, or anywhere when placed freely). A selected shape or path shows its box, a **square resize handle** (bottom right) and a **round turn handle** beyond the box (Shift snaps to 15°); the turn handle moves to the inner side when the outer side would be off the picture. A drag is one undo step. Below it: token shape, band thickness, the **light dial**, show sample picture (Advanced: outer spacing, backing colour).
 - **Drawing a path:** Add layer → Path starts drawing. Each click adds a point (the first click places the path on the band); click the first point or press Enter to finish (the path is then closed), Escape to stop without closing. When drawing ends the path's anchor moves to the middle of what was drawn, so it turns and resizes about its centre. **Edit points** (Properties) shows the points (squares) and curve handles (circles): drag them; double-click a point to make it smooth or sharp; Delete removes the chosen point; **Add points** carries on drawing.
 - **Light dial:** drag the sun round, or focus it and use the arrow keys (Shift = 15° steps); the reset button returns it to the top left.
-- **Properties panel (right):** controls for the selected layer's type. Basic shows the common ones (for a Token Maker frame with a converter, **Turn into editable layers**; for repeats, **Shaded by the light** and a **Patterns** section: which ones to show (a row of on/off switches), alternate colours and sizes, alternate sides; for lines, **Wavy**; for shapes and paths: fill, shading, outline, mirror, raised, **Place freely**; for textures: kind, colour(s), how many, size, strength, where, variation with a shuffle button, start and end across the band; for the ring paint: a ring preview and each colour with its angle, "Turn with the light"). Advanced adds opacity, blend mode, **clip**, outline, glow, "bigger one every…" and "leave gaps beside the bigger ones", rune/note pattern, gradient stop positions and opacities, "Turn with the light" for gradients across the token, highlight/shade amounts and the **highlight colour** of metal paints, the **numeric position, size, stretch and rotation** of shapes and paths, and **Project data** (the JSON, editable and checked like an opened file).
-- **Template picker:** Blank, designs built from editable layers ("Brass & beads", "Glowing runes", "Jewelled", and from Phase 3 "Battle-worn steel" and "Night sky"), the 18 Token Maker frames that convert into editable layers (marked *Editable*; hovering shows any small difference from the original), and all 27 Token Maker frames as the originals, with live thumbnails. Also used to add a Token Maker frame to a project, as a group of editable layers or as the original.
+- **Properties panel (right):** controls for the selected layer's type. Basic shows the common ones (for a Token Maker frame with a converter, **Turn into editable layers**; for repeats, **Shaded by the light** and a **Patterns** section: which ones to show (a row of on/off switches), alternate colours and sizes, alternate sides; for lines, **Wavy**; for shapes and paths: fill, shading, outline, mirror, raised, **Place freely**; for textures: kind, colour(s), how many, size, strength, where, variation with a shuffle button, start and end across the band; for the ring paint: a ring preview and each colour with its angle, "Turn with the light"; for shapes and paths, **Cut into facets** with the flat top and facet depth). Under them, for every layer, the **Effects** section (§6.4). Advanced adds opacity, **Cut a hole in the layers below** (the knockout; the blend mode is hidden while it is on), blend mode, **clip**, outline, glow, "bigger one every…" and "leave gaps beside the bigger ones", rune/note pattern, gradient stop positions and opacities, "Turn with the light" for gradients across the token, highlight/shade amounts and the **highlight colour** of metal paints, the **numeric position, size, stretch and rotation** of shapes and paths, and **Project data** (the JSON, editable and checked like an opened file).
+- **Template picker:** Blank, designs built from editable layers ("Brass & beads", "Glowing runes", "Jewelled", from Phase 3 "Battle-worn steel" and "Night sky", and from Phase 6, made with effects, "Dwarven bronze", "Eldritch crystal", "Radiant gold" and "Hellforged iron"), the 18 Token Maker frames that convert into editable layers (marked *Editable*; hovering shows any small difference from the original), and all 27 Token Maker frames as the originals, with live thumbnails. Also used to add a Token Maker frame to a project, as a group of editable layers or as the original.
 - **Texture library:** the 11 texture presets as tiles drawn by the renderer on a thick band; "Also add a matching band colour under it" (on by default when the project is empty) adds a lit band fill and the texture as one undo step.
 - **Export** (top bar, Phase 5): a picture (PNG) at 256–2048 px or **any size from 16 to 4096 px**, with the middle see-through or the sample picture; a **sheet of the design on every token shape** (five pictures side by side, each up to 1024 px, 1/16 of a picture apart, see-through); or the **project file with a preview picture** (§4.8). All drawn by `renderProject`.
 - **Help:** every control has a help tip, one plain sentence (`ui/help.ts`, or a control's own `hint`): a small "?" beside its label shows it when pointed at, tapped or focused, and screen readers hear it as the control's description (`aria-describedby`). A test opens every kind of layer and paint in Advanced mode, the stage bar and the export menu, and fails on any control without one. The **welcome card** shows on a first visit (remembered in localStorage, `frame-studio:welcomed`) and again from the **Help** button in the top bar; it doesn't block the editor.
+
+### 6.4 Effects and the style library (Phase 6)
+
+`ui/EffectsPanel.tsx`, `ui/StyleDialog.tsx`, `project/styles.ts`, `project/effectDefaults.ts`.
+
+- **Effects** (in Properties, in Basic mode too, for every layer and group): **Styles…**, **Copy effects**, **Paste effects** and **Add an effect** (a new effect is set up to look good straight away, `NEW_EFFECT`). Each effect has a switch with its name (off keeps its settings but doesn't draw it), buttons to apply it earlier or later and to remove it, and its settings: the common ones in Basic, the technical ones (a bevel's softening, light height and its lit and shaded colours and strengths; a material's colour positions) in Advanced. Every edit is one undo step; a slider drag is one step. A layer with effects says "· effects" in the layer list.
+- **Styles…** opens the style library: 26 styles in six groups (Metal: polished gold, silver, hammered bronze, blackened iron, brushed steel, verdigris copper; Stone and bone: carved stone, cracked flagstone, obsidian, ancient bone, dragon scales; Crystal: glossy gem, amethyst, ice; Carving: engraved, embossed, stepped rim, coin rim; Magic: arcane, hellfire, holy radiance, necrotic, frost; Finish: soft shadow, raised, aged and worn). Each tile is **your design with the selected layer in that style**, drawn by the renderer on a thicker band, so you choose by seeing it. Picking one gives every picked layer the style's effects (each its own copy), replacing theirs or, with "Add to its effects instead of replacing them", after them; one undo step. A style is only effects, so after picking one each effect is ordinary and can be changed, switched off or removed.
+- **Copy effects / Paste effects:** copies the selected layer's effects and gives them to every picked layer (Ctrl+click to pick several), in place of their own, one undo step.
+- Metal and stone styles are a bevel followed by a material colour, so they work on any colour; crystal, magic and carving styles keep the layer's colour.
+- `npm run effects-sheet -- out.png [size] [shape]` draws every style and every effects template on one picture.
 
 ### 6.1 The layer library (Phase 5)
 
@@ -303,6 +355,7 @@ Autosave: the project's JSON is written to IndexedDB (`frame-studio:project`) 0.
 - One renderer for preview and export. Keep it pure and pixel-tested.
 - Don't present a Token Maker frame as editable parts until it really is converted. Every converter has a limit in `convert.test.ts` and a row in §4.7.
 - Every new layer type: type + defaults + checker in `migrate.ts` + painter + properties + hit test + tests.
+- Every new effect: type + defaults (`effectDefaults.ts`) + checker in `migrate.ts` + painter in `effects.ts` (pixels only, sizes in band widths, lit from `stage.light`) + controls with help + tests.
 - Every new schema version: a migration, and version-1 (and later) fixture files that must still open and draw the same.
 - Don't claim tests passed without running them. Run `npm test`, `npm run e2e`, `npm run typecheck`, `npm run lint`, `npm run build` before a PR.
 - Plain-English summaries and Windows PowerShell commands for the owner.
@@ -319,6 +372,11 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 | 3 | Procedural layers: marble, hammered metal, battle wear, wood grain, stone blocks, scatter (stars), rope, scales, cracks; the colour-around-the-ring paint; per-layer caching; texture library **(done)** |
 | 4 | Converting Token Maker frames into editable layers, with visual comparison tests: 18 frames, starting with Polished and Paladin **(done)** |
 | 5 | Polish and sharing: a personal layer library, copy/paste between projects, touch support, export options, help tips, Token Maker opening `.framestudio.json` files **(done)** |
+| 6 | Surfaces and effects: the 2.5D bevel and surfaces lit by the light, shadows, glows, material colours, colour adjust, wear; faceted shapes and gems; more blend modes and a knockout; the style library; templates made with effects **(done)** |
+| 7 | Ornaments anywhere: repeat along a path, radial arrays, gem cuts and settings, text on a path, contours (`ROADMAP.md`) |
+| 8 | Generators: organic growth, cracks and lightning as geometry, plates and cells, knotwork, gears and chains, distortion |
+| 9 | Precise control: masks, height compositing, boolean geometry, editing (in/out handles, groups on the canvas, zoom) |
+| 10 | Workflow: randomise, your own styles, a theme colour, a lighting rig, batch export, more shapes with Token Maker |
 
 ## 9. Owner answers and open questions
 
@@ -366,6 +424,16 @@ See `docs/BUILD-PROMPTS.md` for the full prompt of each phase and `docs/PROGRESS
 4. **Copied layers are plain text on the clipboard**, so pasting needs no permission prompt; a shared copy in localStorage covers the cases where the clipboard can't be read.
 5. **The layer list became a tree** (it was a list box), the right pattern for nested layers with buttons in each row, which the accessibility checks asked for.
 
+**Decided while building Phase 6** (sensible defaults within the owner's brief; say if any should change):
+
+1. **Effects work on pixels, not geometry**, so one system serves every layer kind (and Token Maker frames and groups) and combining them is free. The cost is time per pixel; it is cached per layer, wide blurs work on a smaller copy, and the high-density preview is sharpened after editing pauses.
+2. **Effect order is the user's.** Styles set a sensible order (wear → bevel → material colour → glows → shadow) and the arrows change it, so unusual orders stay possible.
+3. **Light height is per bevel** (in Advanced), while the direction stays the stage's one light; a fuller lighting rig (several lights, colours) is Phase 10.
+4. **Metals are a bevel plus a gradient map**, so "gold" works whatever colour the layer was and the shine and shading stay coherent.
+5. **The knockout is a switch, not a blend mode in the list**, as the brief asks: cutting is geometric, blending is about colour.
+6. **A mask from a clipped layer ignores the base's effects**, so a shadow or glow on the base doesn't let a clipped texture spill out.
+7. **Token Maker needs its copy updated** (`npm run share:export`) to open version-5 files; this build didn't have the token-maker repository, so it is the first step before sharing new designs (`ROADMAP.md`).
+
 **Answered before Phase 5:** "looks the same" is good enough for converted frames (they don't have to be exact copies). The limits in §4.7 stay as they are and the originals stay available beside the editable versions.
 
 **Still open:** none.
@@ -381,6 +449,7 @@ The owner's answer: Token Maker opens `.framestudio.json` project files, as a th
 - `readFrameDesign(textOrObject)`: reads any version of the file (its text, or the object a Token Maker document keeps) with every check of §4.3 (nothing in it is run).
 - `drawFrameDesign(ctx, project, g)`: draws the design as a frame on Token Maker's band — the same `FrameGeometry` its `drawFrame` takes (origin at the token's centre, `R`, `outer`, `inner` in pixels) — on the token's shape, lit from the design's light, without clearing what is under it. `src/share/frameDesign.test.ts` checks that this is **the very same picture** Frame Studio draws for that band, on every shape, on a thin and a thick band, for three designs; the Phase 5 end-to-end test exports a project file from the editor, reads it and draws it this way, and compares it with the editor's own PNG export (mean difference 0.22/255; the browser and the test draw with different engines).
 - `previewOf(text)`: the preview picture saved in the file (§4.8), for Token Maker's tile.
+- Effects (Phase 6) are part of the shared renderer (`render/effects.ts`, `render/facets.ts`, `project/styles.ts`, `project/effectDefaults.ts` are in the bundle), so once Token Maker's copy is exported again it draws them exactly as Frame Studio does. Until then its copy reads files up to version 4 and refuses newer ones with a plain message.
 
 **The Token Maker side** (built; token-maker's `docs/DESIGN.md` §6.12):
 

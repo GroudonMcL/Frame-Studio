@@ -78,6 +78,39 @@ A checklist of build phases, following [`BUILD-PROMPTS.md`](BUILD-PROMPTS.md). D
   - [x] Tests: 478 unit tests (51 new: the layers and library formats, the library store, copy/cut/paste, help tips on every control, the welcome card, keyboard access, the library dialog, the share module and the bundle) and 50 Playwright runs (27 flows: 23 × 2 desktop sizes and 4 on a phone; new: the "done when" flow, copy and paste between tabs, exports, the keyboard, axe, the welcome card, and on a phone the layout and target sizes, a finger drag, library and paste, axe)
   - **Done when:** a design made in Frame Studio can be saved to the library, reused in another design, and opened as a frame in Token Maker from its .framestudio.json file. Library and reuse ✔ (Playwright "done when" test). Opening in Token Maker ✔ (token-maker's Playwright test opens `.framestudio.json` files saved by Frame Studio as frames, on desktop, tablet and phone; its unit test shows they draw exactly as Frame Studio draws them).
 
+## The owner's brief after Phase 5
+
+"Expanding Frame Studio": move from an editor to a procedural art studio, where borders emerge from combining reusable systems, easy to use, D&D tokens first. The plan and its order are in [`ROADMAP.md`](ROADMAP.md) (Phases 6–10).
+
+- [x] **Phase 6 — Surfaces and effects**
+  - [x] Effects on every layer and group, applied in order, non-destructive, each with an on/off switch: **bevel and surface** (a height map from the shape through a profile — rounded, chiselled, cove, rim, steps — raised or sunk in, plus a surface — hammered, grain, brushed, cracked plates, scales — turned into normals and lit by the light dial, with shine), **shadow** (outside or inside), **glow** (outside or inside), **material colour** (a gradient map, 14 materials), **colour adjust** and **wear and grime**
+  - [x] Sizes in band widths (the same look at every size, shape and thickness); plain pixel arithmetic, so preview, export and node draw the same picture
+  - [x] Effects on groups see their layers as one shape; band clipping clips effects; clip-to-below masks ignore the base's effects; pictures with and without effects cached separately
+  - [x] Faceted shapes and paths (flat top or a point, steepness), with face normals worked out in 3D and lit by the light; cut gem, hexagonal plate and crystal shard elements
+  - [x] Ten more blend modes and a knockout ("Cut a hole in the layers below"), kept apart from colour blending
+  - [x] The style library: 26 styles in six groups, each tile your own design in that style; applies to every picked layer, replacing or adding, one undo step
+  - [x] Copy effects / Paste effects onto every picked layer
+  - [x] Four templates made with effects: Dwarven bronze and Eldritch crystal (the brief's two examples), Radiant gold, Hellforged iron
+  - [x] A sharp preview without lag: designs with effects are drawn at screen size first and sharpened when editing pauses
+  - [x] Schema version 5 with a migration from version 4; version-4 fixture files saved by Phase 5 open and draw as before (versions 1–3 too)
+  - [x] `npm run effects-sheet` draws every style and effects template
+  - [x] Tests: 565 unit tests (87 new: every effect and its lighting, size independence, shadows, glows, materials, adjust, wear, groups, clipping, caching, shapes, a time budget, the helpers, facets and elements, every blend mode and the knockout, the migration and v4 fixtures, the Effects panel, the style library, copy and paste, facets and knockout controls, help tips on every new control) and 58 Playwright runs (31 flows: 27 × 2 desktop sizes and 4 on a phone; 4 new: the "done when" flow, the templates and pasting effects, adding effects and facets, axe on the Effects section and the style library)
+  - **Done when:** a band given a style from the library becomes hammered bronze, follows the light dial, can be adjusted and undone, and its exported picture is the picture the renderer draws from the saved file ✔ (Playwright "done when" test)
+- [ ] **Phase 7 — Ornaments anywhere** (repeat along a path, radial arrays, gem cuts and settings, text on a path, contours)
+- [ ] **Phase 8 — Generators** (organic growth, cracks and lightning as geometry, plates and cells, knotwork, gears and chains, distortion)
+- [ ] **Phase 9 — Precise control** (masks, height compositing, boolean geometry, in/out handles, groups on the canvas, zoom)
+- [ ] **Phase 10 — Workflow** (randomise, your own styles, a theme colour, a lighting rig, batch export, more shapes with Token Maker)
+
+## Known limitations after Phase 6
+
+- **Token Maker can't open version-5 designs yet:** its copy of the reader and renderer is from Phase 5. Run `npm run share:export -- ..\token-maker` (then Token Maker's tests) to give it effects; until then, keep version-4 copies of designs meant for Token Maker.
+- Effects are work on every pixel: a design with many effects takes a second or two to open at a large preview, and very large exports (4096 px) take a while and need a lot of memory.
+- Height doesn't combine between separate layers yet (a bevel sees only its own layer, or its group as one shape); overlapping layers are lit one by one (Phase 9).
+- One light: its height is set per bevel; no coloured or second lights, bloom or light bleeding onto neighbouring layers (Phase 10).
+- Facets are drawn from the centre of the shape's corners, so a very uneven drawn path can get odd faces.
+- Styles can't be saved as your own yet (copy and paste effects in the meantime; a layer with effects can go in your library).
+- Still from Phase 5: the library and paste copy are per browser; no zoom; reordering on a phone uses the arrow buttons; eight Token Maker frames can't be converted.
+
 ## Known limitations after Phase 5
 
 - In Token Maker a design's colours come from the design; Token Maker's Frame colour and highlights colour don't recolour it (change it in Frame Studio and open it again).
