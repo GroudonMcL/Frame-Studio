@@ -81,30 +81,71 @@ function alphaOf(px: Uint8ClampedArray): Float32Array {
 
 /**
  * A box blur run three times (close to a Gaussian), `r` pixels each way.
- * Outside the picture counts as `edge`.
+ * Outside the picture counts as `edge`. Wide blurs are made on a smaller
+ * copy and scaled back up, which looks the same and is much quicker.
  */
 export function blur(src: Float32Array, size: number, r: number, edge = 0): Float32Array {
-  const radius = Math.max(0, Math.round(r / 1.7));
+  const radius = r / 1.7;
   if (radius < 1) return src.slice();
+  const f = radius >= 8 ? Math.min(8, Math.floor(radius / 4)) : 1;
+  if (f === 1) return boxBlur(src, size, Math.round(radius), edge);
+  const small = Math.ceil(size / f);
+  const down = new Float32Array(small * small);
+  for (let y = 0; y < small; y++)
+    for (let x = 0; x < small; x++) {
+      let sum = 0;
+      for (let j = 0; j < f; j++) {
+        const sy = y * f + j;
+        for (let i = 0; i < f; i++) {
+          const sx = x * f + i;
+          sum += sx < size && sy < size ? src[sy * size + sx] : edge;
+        }
+      }
+      down[y * small + x] = sum / (f * f);
+    }
+  const blurred = boxBlur(down, small, Math.max(1, Math.round(radius / f)), edge);
+  // Back up, blending between the small copy's pixel centres.
+  const out = new Float32Array(size * size);
+  for (let y = 0; y < size; y++) {
+    const fy = (y + 0.5) / f - 0.5;
+    const y0 = Math.max(0, Math.min(small - 1, Math.floor(fy)));
+    const y1 = Math.min(small - 1, y0 + 1);
+    const ty = Math.max(0, Math.min(1, fy - y0));
+    for (let x = 0; x < size; x++) {
+      const fx = (x + 0.5) / f - 0.5;
+      const x0 = Math.max(0, Math.min(small - 1, Math.floor(fx)));
+      const x1 = Math.min(small - 1, x0 + 1);
+      const tx = Math.max(0, Math.min(1, fx - x0));
+      const top = blurred[y0 * small + x0] * (1 - tx) + blurred[y0 * small + x1] * tx;
+      const bottom = blurred[y1 * small + x0] * (1 - tx) + blurred[y1 * small + x1] * tx;
+      out[y * size + x] = top * (1 - ty) + bottom * ty;
+    }
+  }
+  return out;
+}
+
+function boxBlur(src: Float32Array, size: number, r: number, edge: number): Float32Array {
   const a = src.slice();
   const b = new Float32Array(a.length);
   for (let pass = 0; pass < 3; pass++) {
-    boxLine(a, b, size, radius, edge, true);
-    boxLine(b, a, size, radius, edge, false);
+    boxLine(a, b, size, r, edge, 1, size);
+    boxLine(b, a, size, r, edge, size, 1);
   }
   return a;
 }
 
-function boxLine(src: Float32Array, dst: Float32Array, size: number, r: number, edge: number, rows: boolean): void {
+/** One box pass along every line: `step` between neighbours in a line, `stride` between lines. */
+function boxLine(src: Float32Array, dst: Float32Array, size: number, r: number, edge: number, step: number, stride: number): void {
   const n = 2 * r + 1;
   for (let line = 0; line < size; line++) {
-    const at = (k: number) => (rows ? line * size + k : k * size + line);
-    const value = (k: number) => (k < 0 || k >= size ? edge : src[at(k)]);
+    const base = line * stride;
     let sum = 0;
-    for (let k = -r; k <= r; k++) sum += value(k);
+    for (let k = -r; k <= r; k++) sum += k < 0 || k >= size ? edge : src[base + k * step];
     for (let k = 0; k < size; k++) {
-      dst[at(k)] = sum / n;
-      sum += value(k + r + 1) - value(k - r);
+      dst[base + k * step] = sum / n;
+      const add = k + r + 1;
+      const drop = k - r;
+      sum += (add < size ? src[base + add * step] : edge) - (drop >= 0 ? src[base + drop * step] : edge);
     }
   }
 }
@@ -329,13 +370,12 @@ function bevel(px: Uint8ClampedArray, size: number, e: BevelEffect, env: EffectE
   const flatSpec = Math.pow(hz, shin);
   const [hr, hg, hb] = rgbOf(e.highlight);
   const [sr, sg, sb] = rgbOf(e.shadow);
-  const at = (x: number, y: number) => H[Math.min(size - 1, Math.max(0, y)) * size + Math.min(size - 1, Math.max(0, x))];
   for (let y = 0; y < size; y++)
     for (let x = 0; x < size; x++) {
       const i = y * size + x;
       if (alpha[i] <= 0) continue;
-      const gx = (at(x + 1, y) - at(x - 1, y)) / 2;
-      const gy = (at(x, y + 1) - at(x, y - 1)) / 2;
+      const gx = (H[x < size - 1 ? i + 1 : i] - H[x > 0 ? i - 1 : i]) / 2;
+      const gy = (H[y < size - 1 ? i + size : i] - H[y > 0 ? i - size : i]) / 2;
       const nl = Math.hypot(gx, gy, 1);
       const nx = -gx / nl;
       const ny = -gy / nl;

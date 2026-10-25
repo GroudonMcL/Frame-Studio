@@ -301,6 +301,8 @@ export function LayersPanel({ onAddFrame, onAddTexture, onOpenLibrary }: { onAdd
                     <small>
                       {layer.type === 'group' ? `Group of ${layer.children.length}` : LAYER_TYPE_NAMES[layer.type]}
                       {layer.clip === 'below' ? ' · clipped' : layer.clip === 'band' ? ' · in band' : ''}
+                      {layer.effects?.some((e) => e.on) ? ' · effects' : ''}
+                      {layer.blend === 'destination-out' ? ' · cuts a hole' : ''}
                     </small>
                   </span>
                 )}

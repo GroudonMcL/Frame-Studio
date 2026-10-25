@@ -38,6 +38,7 @@ import { switchPlace, toggleSmooth } from '../render/hitTest';
 import { commit, convertToLayers, finishDrawing, setPathEdit, setPathPoints, ungroup, updateLayer, useProject, useUi } from '../state/projectStore';
 import { ColorField, ColorList, Fold, OptionalColor, PatternField, PercentList, Select, Slider, Toggle } from './controls';
 import { DataView } from './DataView';
+import { EffectsSection } from './EffectsPanel';
 
 const BLEND_NAMES: Record<BlendMode, string> = {
   'source-over': 'Normal',
@@ -130,16 +131,26 @@ export function PropertiesPanel() {
             {(layer.locked || inLockedGroup) && <span className="badge">{layer.locked ? 'Locked' : 'In a locked group'}</span>}
           </p>
           <LayerControls layer={inLockedGroup ? ({ ...layer, locked: true } as Layer) : layer} light={project.stage.light} />
+          {layer.type !== 'unsupported' && <EffectsSection layer={inLockedGroup ? ({ ...layer, locked: true } as Layer) : layer} />}
           {advanced && layer.type !== 'unsupported' && (
             <Fold title="Advanced: layer" defaultOpen>
               {layer.type !== 'group' && num(layer, setterFor(layer), 'opacity', 'Opacity', 0, 1, pct)}
-              <Select
-                label="Blend mode"
-                value={layer.blend}
+              <Toggle
+                label="Cut a hole in the layers below"
+                hint="A knockout: instead of being drawn, it cuts its shape out of the layers under it (in its group). Put a bevel on the group to give the hole an edge."
+                checked={layer.blend === 'destination-out'}
                 disabled={layer.locked}
-                options={BLEND_MODES.map((b) => ({ value: b, label: BLEND_NAMES[b] }))}
-                onChange={(blend) => updateLayer(layer.id, { blend })}
+                onChange={(on) => updateLayer(layer.id, { blend: on ? 'destination-out' : 'source-over' })}
               />
+              {layer.blend !== 'destination-out' && (
+                <Select
+                  label="Blend mode"
+                  value={layer.blend}
+                  disabled={layer.locked}
+                  options={BLEND_MODES.filter((b) => b !== 'destination-out').map((b) => ({ value: b, label: BLEND_NAMES[b] }))}
+                  onChange={(blend) => updateLayer(layer.id, { blend })}
+                />
+              )}
               <Select
                 label="Clip"
                 hint="Show this layer only inside the band, or only where the layer below it has paint."
@@ -621,7 +632,22 @@ function PlacedControls({ layer }: { layer: PlacedLayer }) {
         <PathPoints layer={layer} editing={pathEdit} />
       )}
       <OptionalColor label="Fill" value={layer.fill} fallback="#5fa8d3" disabled={disabled} onChange={(fill, t) => set({ fill }, t)} />
-      {layer.fill !== null && <Toggle label="Shaded by the light" checked={layer.shaded} disabled={disabled} onChange={(shaded) => set({ shaded })} />}
+      {layer.fill !== null && (
+        <Toggle
+          label="Cut into facets"
+          hint="Cuts it into flat faces rising to a flat top or a point, each lit by the light, like a cut gem, a star badge or a metal plate."
+          checked={layer.faceted}
+          disabled={disabled}
+          onChange={(faceted) => set({ faceted })}
+        />
+      )}
+      {layer.fill !== null && layer.faceted && (
+        <>
+          {num(layer, set, 'facetTable', 'Flat top', 0, 0.95, { ...pct, hint: 'How big the flat top is: 0% rises to a point, like a pyramid or a crystal.' })}
+          {num(layer, set, 'facetDepth', 'Facet depth', 0.2, 3, { step: 0.05, scale: 100, unit: '%', hint: 'How steep the faces are, so how strongly they catch the light.' })}
+        </>
+      )}
+      {layer.fill !== null && !layer.faceted && <Toggle label="Shaded by the light" checked={layer.shaded} disabled={disabled} onChange={(shaded) => set({ shaded })} />}
       <OptionalColor label="Outline" value={layer.outline} fallback="#1a1008" disabled={disabled} onChange={(outline, t) => set({ outline }, t)} />
       {layer.outline !== null && num(layer, set, 'outlineWidth', 'Outline width', 0.005, 0.4, pct)}
       <Select

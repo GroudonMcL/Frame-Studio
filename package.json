@@ -15,6 +15,7 @@
     "engine:check": "tsx scripts/engine-sync.ts check",
     "engine:sync": "tsx scripts/engine-sync.ts sync",
     "frame-sheet": "tsx scripts/frame-sheet.ts",
+    "effects-sheet": "tsx scripts/effects-sheet.ts",
     "screenshots": "tsx scripts/screenshots.ts",
     "compare-conversions": "tsx scripts/compare-conversions.ts",
     "share:check": "tsx scripts/share-export.ts check",

@@ -3,13 +3,15 @@
 
 import { FRAME_PRESETS, framePresetById } from '../engine/legacy/catalog';
 import { frameAccent } from '../engine/legacy/frames';
+import { bevel, glow, material, shadow, styleEffects, wear } from './styles';
+
+export { EFFECT_NAMES, NEW_EFFECT } from './effectDefaults';
 import {
   PROJECT_FORMAT,
   SCHEMA_VERSION,
   DEFAULT_LIGHT,
   type BandFillLayer,
   type Effect,
-  type EffectKind,
   type EditableLayerType,
   type FrameProject,
   type GroupLayer,
@@ -162,54 +164,6 @@ export const GEM_POINTS: PathPoint[] = [
   { x: -0.9, y: -0.3, handle: null },
 ];
 
-/** A new effect of each kind, set up to look good straight away (DESIGN.md §5.4). */
-export const NEW_EFFECT: Record<EffectKind, () => Effect> = {
-  bevel: () => ({
-    kind: 'bevel',
-    on: true,
-    direction: 'raised',
-    profile: 'rounded',
-    size: 0.18,
-    depth: 1,
-    soften: 0.02,
-    highlight: '#ffffff',
-    highlightOpacity: 0.75,
-    shadow: '#000000',
-    shadowOpacity: 0.6,
-    gloss: 0.3,
-    lightHeight: 35,
-    surface: 'smooth',
-    surfaceDepth: 0.5,
-    surfaceScale: 0.25,
-    seed: 1,
-  }),
-  shadow: () => ({ kind: 'shadow', on: true, inner: false, color: '#000000', opacity: 0.6, distance: 0.06, blur: 0.08 }),
-  glow: () => ({ kind: 'glow', on: true, inner: false, color: '#ffb84a', opacity: 0.8, size: 0.2 }),
-  recolour: () => ({
-    kind: 'recolour',
-    on: true,
-    stops: [
-      { at: 0, color: '#2a1404', opacity: 1 },
-      { at: 0.45, color: '#a8701e', opacity: 1 },
-      { at: 0.75, color: '#f0c860', opacity: 1 },
-      { at: 1, color: '#fff8dc', opacity: 1 },
-    ],
-    amount: 1,
-  }),
-  adjust: () => ({ kind: 'adjust', on: true, hue: 0, saturation: 0, brightness: 0, contrast: 0 }),
-  wear: () => ({ kind: 'wear', on: true, chips: 0.35, polish: 0.4, grime: 0.4, grimeColor: '#2a2016', scale: 0.3, seed: 1 }),
-};
-
-/** What each effect is called in the interface. */
-export const EFFECT_NAMES: Record<EffectKind, string> = {
-  bevel: 'Bevel and surface',
-  shadow: 'Shadow',
-  glow: 'Glow',
-  recolour: 'Material colour',
-  adjust: 'Colour adjust',
-  wear: 'Wear and grime',
-};
-
 export const NEW_LAYER: Record<EditableLayerType, () => Layer> = {
   legacyFrame: () => legacyFrameLayer('stamped'),
   bandFill: bandFillLayer,
@@ -359,4 +313,73 @@ export const LAYERED_TEMPLATES: LayeredTemplate[] = [
       { ...lineLayer(), name: 'Outer rim', at: 0.02, width: 0.04, paint: { kind: 'solid', color: '#b8b0e0' } },
     ],
   },
-]
+  // Phase 6: designs made with effects (DESIGN.md §6.4).
+  {
+    id: 'dwarven-bronze',
+    name: 'Dwarven bronze',
+    description: 'Hammered bronze with faceted plates, engraved runes, rivets and a forge glow from its cracks.',
+    make: () => [
+      { ...bandFillLayer(), name: 'Bronze band', paint: { kind: 'solid', color: '#808080' }, effects: styleEffects('hammered-bronze') },
+      { ...textureLayer('cracks'), name: 'Forge cracks', color: '#ff9a3a', amount: 0.5, strength: 0.8, clip: 'band', seed: 0xd3a, effects: [glow({ color: '#ff6a1a', opacity: 0.7, size: 0.12 })] },
+      { ...lineLayer(), name: 'Outer rim', at: 0.035, width: 0.08, paint: { kind: 'solid', color: '#808080' }, effects: [bevel({ size: 0.5, gloss: 0.5 }), material('bronze'), shadow({ distance: 0.03, blur: 0.04 })] },
+      { ...lineLayer(), name: 'Inner rim', at: 0.965, width: 0.08, paint: { kind: 'solid', color: '#808080' }, effects: [bevel({ size: 0.5, gloss: 0.5 }), material('bronze'), shadow({ distance: 0.03, blur: 0.04 })] },
+      { ...repeatLayer(), name: 'Runes', element: 'rune', count: 8, offset: 0.5, snapToCorners: false, size: 0.44, stretch: 0.75, outlineWidth: 0.14, fill: '#4a3018', raised: false, seed: 7, effects: styleEffects('engraved') },
+      { ...repeatLayer(), name: 'Plates', element: 'plate', count: 8, size: 0.62, fill: '#9a9a9a', raised: false, effects: [wear({ chips: 0.15, polish: 0.4, grime: 0.35, scale: 0.2 }), material('bronze'), shadow({ distance: 0.05, blur: 0.06, opacity: 0.7 })] },
+      { ...repeatLayer(), name: 'Rivets', count: 8, offset: 0.5, at: 0.17, size: 0.1, fill: '#c89858', raised: true },
+      { ...repeatLayer(), name: 'Inner rivets', count: 8, offset: 0.5, at: 0.83, size: 0.1, fill: '#c89858', raised: true },
+    ],
+  },
+  {
+    id: 'eldritch-crystal',
+    name: 'Eldritch crystal',
+    description: 'Obsidian wound with dark tendrils, ringed by glowing violet crystal shards.',
+    make: () => [
+      { ...bandFillLayer(), name: 'Obsidian band', paint: { kind: 'solid', color: '#404040' }, effects: styleEffects('obsidian') },
+      {
+        ...groupLayer([
+          { ...lineLayer(), name: 'Tendril', at: 0.5, width: 0.14, paint: { kind: 'solid', color: '#4a1a66' }, waveAmplitude: 0.3, waves: 9, effects: [bevel({ size: 0.6, gloss: 0.35, highlightOpacity: 0.5 }), shadow({ distance: 0.05, blur: 0.06, opacity: 0.8 })] },
+          { ...lineLayer(), name: 'Tendril', at: 0.5, width: 0.11, paint: { kind: 'solid', color: '#5e2a7e' }, waveAmplitude: 0.26, waves: 7, wavePhase: 0.4, effects: [bevel({ size: 0.6, gloss: 0.35, highlightOpacity: 0.5 }), shadow({ distance: 0.05, blur: 0.06, opacity: 0.8 })] },
+        ]),
+        name: 'Tendrils',
+      },
+      { ...lineLayer(), name: 'Glow line', at: 0.94, width: 0.025, paint: { kind: 'solid', color: '#e0c0ff' }, effects: [glow({ color: '#9a5aff', opacity: 0.9, size: 0.15 })] },
+      {
+        ...repeatLayer(),
+        name: 'Crystals',
+        element: 'shard',
+        count: 14,
+        at: -0.02,
+        size: 0.85,
+        stretch: 0.55,
+        fill: '#9a5ad0',
+        altSizes: [1, 0.6],
+        raised: false,
+        snapToCorners: false,
+        effects: [glow({ inner: true, color: '#f0d8ff', opacity: 0.35, size: 0.08 }), glow({ color: '#a060ff', opacity: 0.55, size: 0.22 })],
+      },
+    ],
+  },
+  {
+    id: 'radiant-gold',
+    name: 'Radiant gold',
+    description: 'Polished gold with a stepped rim, faceted stars in holy light, sapphires and pearls.',
+    make: () => [
+      { ...bandFillLayer(), name: 'Gold band', paint: { kind: 'solid', color: '#909090' }, effects: styleEffects('gold') },
+      { ...bandFillLayer(), name: 'Stepped rim', to: 0.24, paint: { kind: 'solid', color: '#909090' }, effects: [bevel({ profile: 'stepped', size: 0.7, depth: 1.6, gloss: 0.7 }), material('gold')] },
+      { ...repeatLayer(), name: 'Pearls', count: 36, at: 0.64, size: 0.11, fill: '#f2eee4', raised: true },
+      { ...repeatLayer(), name: 'Sapphires', element: 'gem', count: 8, offset: 0.5, at: 0.6, size: 0.42, fill: '#2a5ab8', raised: false, effects: [shadow({ distance: 0.04, blur: 0.04 })] },
+      { ...shapeLayer(), name: 'Stars', shape: 'star', sides: 4, innerRatio: 0.35, faceted: true, facetTable: 0, along: 0.125, across: 0.6, size: 1.3, fill: '#e8c050', outline: null, raised: false, mirror: 'four', effects: styleEffects('holy') },
+    ],
+  },
+  {
+    id: 'hellforged-iron',
+    name: 'Hellforged iron',
+    description: 'Blackened, chipped iron split by burning cracks, with iron spikes round the edge.',
+    make: () => [
+      { ...repeatLayer(), name: 'Spikes', element: 'spike', count: 16, at: -0.12, size: 0.5, stretch: 0.7, fill: '#7a7a7a', raised: false, snapToCorners: true, effects: [bevel({ profile: 'chisel', size: 0.3, gloss: 0.3 }), material('iron'), shadow({ distance: 0.04, blur: 0.05 })] },
+      { ...bandFillLayer(), name: 'Iron band', paint: { kind: 'solid', color: '#7a7a7a' }, effects: styleEffects('blackened-iron') },
+      { ...textureLayer('cracks'), name: 'Burning cracks', color: '#ff6a1a', amount: 0.6, clip: 'band', seed: 0x4e11, effects: [glow({ inner: true, color: '#ffe08a', opacity: 0.6, size: 0.03 }), glow({ color: '#ff3a0a', opacity: 0.8, size: 0.12 })] },
+      { ...lineLayer(), name: 'Inner rim', at: 0.96, width: 0.07, paint: { kind: 'solid', color: '#7a7a7a' }, effects: [bevel({ size: 0.5, gloss: 0.4 }), material('iron')] },
+    ],
+  },
+];
